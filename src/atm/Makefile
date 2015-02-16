@@ -20,7 +20,9 @@ FILES= CubedSphereTrans.cpp \
        TimestepSchemeStrang.cpp \
        TimestepSchemeARK2.cpp \
        TimestepSchemeARK3.cpp \
+	   TimestepSchemeARK3B.cpp\
        TimestepSchemeARK4.cpp \
+       TimestepSchemeBHR553.cpp \
        HorizontalDynamicsFEM.cpp \
        HorizontalDynamicsDG.cpp \
        VerticalDynamicsFEM.cpp \

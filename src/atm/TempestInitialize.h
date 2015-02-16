@@ -22,6 +22,8 @@
 #include "TimestepSchemeStrang.h"
 #include "TimestepSchemeARK2.h"
 #include "TimestepSchemeARK3.h"
+#include "TimestepSchemeARK3B.h"
+#include "TimestepSchemeBHR553.h"
 #include "HorizontalDynamicsFEM.h"
 #include "HorizontalDynamicsDG.h"
 #include "VerticalDynamicsStub.h"
@@ -184,6 +186,14 @@ void _TempestSetupMethodOfLines(
 		model.SetTimestepScheme(
 			new TimestepSchemeARK3(model));
 
+	} else if (vars.strTimestepScheme == "ark3/mars343") {
+		model.SetTimestepScheme(
+			new TimestepSchemeARK3B(model));
+
+	} else if (vars.strTimestepScheme == "ark3/bhr553") {
+		model.SetTimestepScheme(
+			new TimestepSchemeBHR553(model));
+
 	} else {
 		_EXCEPTIONT("Invalid timescheme: Expected "
 			"\"Strang\", \"ARK2\", \"ARK3\"");
@@ -277,7 +287,7 @@ void _TempestSetupOutputManagers(
 				vars.nOutputResX,
 				vars.nOutputResY,
 				false,
-				false);
+				true);
 
 		if (vars.fOutputVorticity) {
 			pOutmanRef->OutputVorticity();

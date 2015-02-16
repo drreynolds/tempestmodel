@@ -125,7 +125,7 @@ public:
 		m_dGDim[0] = 0.0;
 		m_dGDim[1] = 40000000.0;
 		m_dGDim[2] = 0.0;
-		m_dGDim[3] = 6000000.0;
+		m_dGDim[3] = 7000000.0;
 		m_dGDim[4] = 0.0;
 		m_dGDim[5] = 30000.0;
 
@@ -193,9 +193,9 @@ public:
 		double dXp,
 		double dYp
 	) const {
-		const double dRayleighStrength = 8.0e-3;
+		const double dRayleighStrength = 0.1;
 		const double dRayleighDepth = 10000.0;
-		const double dRayleighWidth = 10000.0;
+		const double dRayleighWidth = 500000.0;
 
 		double dNuDepth = 0.0;
 		double dNuRight = 0.0;
@@ -206,11 +206,11 @@ public:
 			//dNuDepth = 0.5 * dRayleighStrength * (1.0 + cos(M_PI * dNormZ));
 			dNuDepth = 0.0;
 		}
-		if (dXp > m_dGDim[3] - dRayleighWidth) {
+		if (dYp > m_dGDim[3] - dRayleighWidth) {
 			double dNormY = (m_dGDim[3] - dYp) / dRayleighWidth;
 			dNuRight = 0.5 * dRayleighStrength * (1.0 + cos(M_PI * dNormY));
 		}
-		if (dXp < m_dGDim[2] + dRayleighWidth) {
+		if (dYp < m_dGDim[2] + dRayleighWidth) {
 			double dNormY = (dYp - m_dGDim[2]) / dRayleighWidth;
 			dNuLeft = 0.5 * dRayleighStrength * (1.0 + cos(M_PI * dNormY));
 		}
@@ -310,7 +310,7 @@ public:
 		double & dGeopotential,
 		double & dTemperature
 	) const {
-		const int MaxIterations  = 50;
+		const int MaxIterations  = 100;
 		const double InitialEta  = 1.0e-5;
 		const double Convergence = 1.0e-13;
 
@@ -468,7 +468,7 @@ try {
 		CommandLineDouble(dT0, "T0", 288.0);
 		CommandLineDouble(dLpC, "Lp", 600000.0);
 		CommandLineDouble(dXC, "Xc", 2000000.0);
-		CommandLineDouble(dYC, "Yc", 2500000.0);
+		CommandLineDouble(dYC, "Yc", 3000000.0);
 		CommandLineBool(fNoRayleighFriction, "norayleigh");
 
 		ParseCommandLine(argc, argv);

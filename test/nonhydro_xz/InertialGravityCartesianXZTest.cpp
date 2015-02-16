@@ -93,7 +93,7 @@ public:
 		m_dU0(20.),
 		m_dNbar(0.01),
 		m_dTheta0(300.0),
-		m_dThetaC(1.0),
+		m_dThetaC(0.01),
 		m_dhC(10000.),
 		m_daC(5000.),
 		m_dxC(1.0E+5),

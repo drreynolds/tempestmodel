@@ -90,8 +90,17 @@ void GridPatchCartesianGLL::InitializeDataLocal() {
 	// Set the scale height for the decay of topography features
 	m_dSL = 10 * m_dTopoHeight;
 
+	// Check the case with no topography and base the scale height on Z top
+	if (m_dTopoHeight < 1.0E-3) {
+		m_dSL = 0.25 * m_grid.GetZtop();
+	}
+
 	if (m_dSL >= m_grid.GetZtop()) {
  		_EXCEPTIONT("Coordinate scale height exceeds model top.");
+	}
+
+	if (m_dSL < 1.0) {
+ 		_EXCEPTIONT("The vertical coordinate scale height is tiny!");
 	}
 
 	//std::cout << m_box.GetATotalWidth() << " " << m_box.GetBTotalWidth() << "\n";
@@ -196,6 +205,8 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 			// Topography height and its derivatives
 			double dZs = m_dataTopography[iA][iB];
 
+			// Derivatives computed using the spectral element framework
+			// Why not use the analytical derivatives?
 			double dDaZs = 0.0;
 			double dDbZs = 0.0;
 			for (int s = 0; s < m_nHorizontalOrder; s++) {

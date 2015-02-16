@@ -2401,8 +2401,8 @@ void VerticalDynamicsFEM::BuildJacobianF(
 			double dSignWL = (m_dXiDotREdge[lBegin] > 0.0)?(1.0):(-1.0);
 			double dSignWR = (m_dXiDotREdge[lBeginNext] > 0.0)?(1.0):(-1.0);
 
-			dDG[MaxFIx(FWIx, lBegin, FRIx, k)] +=
-				dDiffReconsPolyNode[l]
+			dDG[MatFIx(FWIx, lBegin, FRIx, k)] +=
+				dDiffReconsPolyNode[l];
 
 		} else {
 			_EXCEPTIONT("Upwind Rho on interfaces: Unimplemented");
