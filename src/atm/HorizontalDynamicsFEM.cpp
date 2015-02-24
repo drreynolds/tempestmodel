@@ -804,7 +804,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					* dJacobian2D[iA][iB]
 					* ( + dContraMetricB[k][iA][iB][1] * dUa
 						- dContraMetricB[k][iA][iB][0] * dUb);
-#endif
+#endif			
 				// Pressure derivatives
 				dLocalUpdateUa -=
 						( dContraMetricA[k][iA][iB][0] * dDaP
@@ -817,7 +817,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						+ dContraMetricB[k][iA][iB][1] * dDbP
 						+ dContraMetricB[k][iA][iB][2] * dDxP)
 							* dataInitialNode[TIx][k][iA][iB];
-/*			
+/*		
 				// OUTPUT THE CORIOLIS AND PRESSURE UPDATES AT THEIR LOCATIONS
 				double dCorForce = 
 					dCoriolisF[iA][iB]

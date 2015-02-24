@@ -1340,7 +1340,7 @@ void VerticalDynamicsFEM::StepImplicit(
 
 			int iEnd;
 			int jEnd;
-
+			// DELETE INDEXING CONDITION -1 TO PERFORM IMPLICIT SOLVE ON ALL COLUMNS
 			if (a == nAElements-1) {
 				iEnd = m_nHorizontalOrder;
 			} else {

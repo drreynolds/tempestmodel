@@ -22,8 +22,9 @@
 #include "TimestepSchemeStrang.h"
 #include "TimestepSchemeARK2.h"
 #include "TimestepSchemeARK3.h"
-#include "TimestepSchemeARK3B.h"
+#include "TimestepSchemeARS343.h"
 #include "TimestepSchemeBHR553.h"
+#include "TimestepSchemeNASA_ARK3.h"
 #include "HorizontalDynamicsFEM.h"
 #include "HorizontalDynamicsDG.h"
 #include "VerticalDynamicsStub.h"
@@ -186,9 +187,13 @@ void _TempestSetupMethodOfLines(
 		model.SetTimestepScheme(
 			new TimestepSchemeARK3(model));
 
+	} else if (vars.strTimestepScheme == "ark3/nasa") {
+		model.SetTimestepScheme(
+			new TimestepSchemeNASA_ARK3(model));
+
 	} else if (vars.strTimestepScheme == "ark3/mars343") {
 		model.SetTimestepScheme(
-			new TimestepSchemeARK3B(model));
+			new TimestepSchemeARS343(model));
 
 	} else if (vars.strTimestepScheme == "ark3/bhr553") {
 		model.SetTimestepScheme(
