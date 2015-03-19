@@ -88,11 +88,12 @@ void GridPatchCartesianGLL::InitializeDataLocal() {
 	}
 
 	// Set the scale height for the decay of topography features
-	m_dSL = 10 * m_dTopoHeight;
+	//m_dSL = 10 * m_dTopoHeight;
+	m_dSL = 0.1 * m_grid.GetZtop();
 
 	// Check the case with no topography and base the scale height on Z top
 	if (m_dTopoHeight < 1.0E-3) {
-		m_dSL = 0.25 * m_grid.GetZtop();
+		m_dSL = 0.5 * m_grid.GetZtop();
 	}
 
 	if (m_dSL >= m_grid.GetZtop()) {
@@ -206,13 +207,77 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 			double dZs = m_dataTopography[iA][iB];
 
 			// Derivatives computed using the spectral element framework
-			// Why not use the analytical derivatives?
+			// GENERATES DISCONTINUITIES AT INTERFACES IN THE HORIZONTAL
 			double dDaZs = 0.0;
 			double dDbZs = 0.0;
+
 			for (int s = 0; s < m_nHorizontalOrder; s++) {
 				dDaZs += dDxBasis1D[s][i] * m_dataTopography[iElementA+s][iB];
 				dDbZs += dDxBasis1D[s][j] * m_dataTopography[iA][iElementB+s];
 			}
+			
+			// Make alpha derivatives continuous
+			if ((i == 0)&&(a > 0)) {
+
+				int iElementAm = m_box.GetAInteriorBegin() + 
+								 (a-1) * m_nHorizontalOrder;
+				int iAm = iElementAm + (m_nHorizontalOrder - 1);
+				double dDaZsm = 0.0;
+
+				for (int s = 0; s < m_nHorizontalOrder; s++) {
+					dDaZsm += dDxBasis1D[s][m_nHorizontalOrder-1] * 
+							  m_dataTopography[iElementAm+s][iB];
+				}
+
+				dDaZs = 0.5 * (dDaZs + dDaZsm);
+			}
+			else if ((i == m_nHorizontalOrder - 1)&&
+					 (a < GetElementCountA() - 1)) {
+
+				int iElementAp = m_box.GetAInteriorBegin() + 
+								 (a+1) * m_nHorizontalOrder;
+				int iAp = iElementAp;
+				double dDaZsp = 0.0;
+
+				for (int s = 0; s < m_nHorizontalOrder; s++) {
+					dDaZsp += dDxBasis1D[s][0]* 
+							  m_dataTopography[iElementAp+s][iB];
+				}
+
+				dDaZs = 0.5 * (dDaZs + dDaZsp);
+			}
+
+			// Make beta derivatives continuous
+			if ((j == 0)&&(b > 0)) {
+
+				int iElementBm = m_box.GetBInteriorBegin() + 
+								 (b-1) * m_nHorizontalOrder;
+				int iBm = iElementBm + (m_nHorizontalOrder - 1);
+				double dDbZsm = 0.0;
+
+				for (int s = 0; s < m_nHorizontalOrder; s++) {
+					dDbZsm += dDxBasis1D[s][m_nHorizontalOrder-1] * 
+							  m_dataTopography[iA][iElementBm+s];
+				}
+
+				dDbZs = 0.5 * (dDbZs + dDbZsm);
+			}
+			else if ((j == m_nHorizontalOrder - 1)&&
+					 (b < GetElementCountB() - 1)) {
+
+				int iElementBp = m_box.GetBInteriorBegin() + 
+								 (b+1) * m_nHorizontalOrder;
+				int iBp = iElementBp;
+				double dDbZsp = 0.0;
+
+				for (int s = 0; s < m_nHorizontalOrder; s++) {
+					dDbZsp += dDxBasis1D[s][0]* 
+							  m_dataTopography[iA][iElementBp+s];
+				}
+
+				dDbZs = 0.5 * (dDbZs + dDbZsp);
+			}
+
 			dDaZs /= GetElementDeltaA();
 			dDbZs /= GetElementDeltaB();
 
@@ -269,6 +334,18 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 				int kx = k % m_nVerticalOrder;
 
 				// Gal-Chen and Somerville (1975) terrain following coord
+/*				
+				double dREtaStretch;
+				double dDxREtaStretch;
+				m_grid.EvaluateVerticalStretchF(
+					dREta, dREtaStretch, dDxREtaStretch);
+
+				double dZ = dZs + (m_grid.GetZtop() - dZs) * dREtaStretch;
+
+				double dDaZ = (1.0 - dREtaStretch) * dDaZs;
+				double dDbZ = (1.0 - dREtaStretch) * dDbZs;
+				double dDxZ = (m_grid.GetZtop() - dZs) * dDxREtaStretch;
+*/
 				// Schar Exponential Decay terrain following coord
 				double dREta = m_grid.GetREtaLevel(k);
 
@@ -277,21 +354,21 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 				m_grid.EvaluateVerticalStretchF(
 					dREta, dREtaStretch, dDxREtaStretch);
 
-				//double dZ = dZs + (m_grid.GetZtop() - dZs) * dREtaStretch;
 				double dbZ = sinh(m_grid.GetZtop() * (1.0 - dREtaStretch) / m_dSL) / 
 					sinh(m_grid.GetZtop() / m_dSL);
 				double dZ = m_grid.GetZtop() * dREtaStretch + dZs * dbZ;
-/*
-				double dDaZ = (1.0 - dREtaStretch) * dDaZs;
-				double dDbZ = (1.0 - dREtaStretch) * dDbZs;
-				double dDxZ = (m_grid.GetZ top() - dZs) * dDxREtaStretch;
-*/
+
 				double dDaZ = dbZ * dDaZs;
 				double dDbZ = dbZ * dDbZs;
 				double dDxZ = m_grid.GetZtop() - dZs * m_grid.GetZtop() * 
 					cosh(m_grid.GetZtop() * (1.0 - dREtaStretch) / m_dSL) /
 					(m_dSL * sinh(m_grid.GetZtop() / m_dSL));
 				dDxZ *= dDxREtaStretch;
+
+				// Store the topography derivatives in the member structure
+				m_dDerivRNode[k][iA][iB][0] = dDaZ;
+				m_dDerivRNode[k][iA][iB][1] = dDbZ;
+				m_dDerivRNode[k][iA][iB][2] = dDxZ;
 
 /*
 				double dDaaZ = (1.0 - dREta) * dDaaZs;
@@ -313,7 +390,16 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 					* dWL[i] * GetElementDeltaA()
 					* dWL[j] * GetElementDeltaB()
 					* dWNode[kx] * dElementDeltaXi;
+/*				
+				double outMetric[3] = {m_dataLon[iA][iB], 
+				dZ, m_dataElementArea[k][iA][iB]};
 
+				// Output the above element areas for energy at Nodes
+				if ((j == 0) && (i < m_nHorizontalOrder - 1)) {
+					std::cout << outMetric[0] << " " << outMetric[1] <<
+			              " " << outMetric[2] << "\n";
+				}
+*/
 				// Contravariant metric components
 				m_dataContraMetricA[k][iA][iB][0] =
 					m_dataContraMetric2DA[iA][iB][0];
@@ -403,7 +489,6 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 				m_grid.EvaluateVerticalStretchF(
 					dREta, dREtaStretch, dDxREtaStretch);
 
-				//double dZ = dZs + (m_grid.GetZtop() - dZs) * dREtaStretch;
 				double dbZ = sinh(m_grid.GetZtop() * (1.0 - dREtaStretch) / m_dSL) / 
 					sinh(m_grid.GetZtop() / m_dSL);
 				double dZ = m_grid.GetZtop() * dREtaStretch + dZs * dbZ;
@@ -418,7 +503,6 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 					cosh(m_grid.GetZtop() * (1.0 - dREtaStretch) / m_dSL) /
 					(m_dSL * sinh(m_grid.GetZtop() / m_dSL));
 				dDxZ *= dDxREtaStretch;
-
 /*
 				double dDaaZ = (1.0 - dREta) * dDaaZs;
 				double dDabZ = (1.0 - dREta) * dDabZs;
@@ -471,7 +555,6 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 					m_dataChristoffelXi[k][iA][iB][5] /= dDxZ;
 				}
 */
-
 				// Orthonormalization coefficients
 				m_dataOrthonormREdge[k][iA][iB][0] = - dDaZ / dDxZ;
 				m_dataOrthonormREdge[k][iA][iB][1] = - dDbZ / dDxZ;
@@ -481,6 +564,78 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 		}
 	}
 	}
+/*
+	// Output the metric terms for checking discontinuities	
+	for (int a = 0; a < GetElementCountA(); a++) {
+	for (int b = 0; b < GetElementCountB(); b++) {
+
+		for (int i = 0; i < m_nHorizontalOrder; i++) {
+		for (int j = 0; j < m_nHorizontalOrder; j++) {
+
+			// Nodal points
+			int iElementA = m_box.GetAInteriorBegin() + a * m_nHorizontalOrder;
+			int iElementB = m_box.GetBInteriorBegin() + b * m_nHorizontalOrder;
+
+			int iA = iElementA + i;
+			int iB = iElementB + j;
+
+			// Topography height and its derivatives
+			double dZs = m_dataTopography[iA][iB];
+
+			for (int k = 0; k < m_grid.GetRElements(); k++) {
+				// Gal-Chen and Somerville (1975) terrain following coord
+				// Schar Exponential Decay terrain following coord
+				double dREta = m_grid.GetREtaLevel(k);
+
+				double dREtaStretch;
+				double dDxREtaStretch;
+				m_grid.EvaluateVerticalStretchF(
+					dREta, dREtaStretch, dDxREtaStretch);
+
+				//double dZ = dZs + (m_grid.GetZtop() - dZs) * dREtaStretch;
+				double dbZ = sinh(m_grid.GetZtop() * (1.0 - dREtaStretch) / m_dSL) / 
+					sinh(m_grid.GetZtop() / m_dSL);
+				double dZ = m_grid.GetZtop() * dREtaStretch + dZs * dbZ;
+				double outMetric[5] = {m_dataLon[iA][iB], 
+				dZ, m_dataOrthonormNode[k][iA][iB][0], 
+				    m_dataOrthonormNode[k][iA][iB][1],
+				    m_dataOrthonormNode[k][iA][iB][2]};
+
+				// Output the above coefficients (check discontinuity)
+				std::cout << outMetric[0] << " " << outMetric[1] <<
+	                  " " << outMetric[2] << " " << outMetric[3] <<
+					  " " << outMetric[4] << " " << "\n";
+			}
+	
+			for (int k = 0; k <= m_grid.GetRElements(); k++) {
+				// Gal-Chen and Somerville (1975) terrain following coord
+				// Schar Exponential Decay terrain following coord
+				double dREta = m_grid.GetREtaInterface(k);
+
+				double dREtaStretch;
+				double dDxREtaStretch;
+				m_grid.EvaluateVerticalStretchF(
+					dREta, dREtaStretch, dDxREtaStretch);
+
+				//double dZ = dZs + (m_grid.GetZtop() - dZs) * dREtaStretch;
+				double dbZ = sinh(m_grid.GetZtop() * (1.0 - dREtaStretch) / m_dSL) / 
+					sinh(m_grid.GetZtop() / m_dSL);
+				double dZ = m_grid.GetZtop() * dREtaStretch + dZs * dbZ;
+				double outMetric[5] = {m_dataLon[iA][iB], 
+				dZ, m_dataOrthonormREdge[k][iA][iB][0], 
+				    m_dataOrthonormREdge[k][iA][iB][1],
+				    m_dataOrthonormREdge[k][iA][iB][2]};
+
+				// Output the above coefficients (check discontinuity)
+				std::cout << outMetric[0] << " " << outMetric[1] <<
+	                  " " << outMetric[2] << " " << outMetric[3] <<
+					  " " << outMetric[4] << " " << "\n";
+			}
+		}
+		}
+	}
+	}
+*/
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -541,13 +696,17 @@ void GridPatchCartesianGLL::EvaluateTestCase(
 */
 		// Schar Exponential Decay vertical coordinate
 		for (int k = 0; k < m_grid.GetRElements(); k++) {
-			m_dataZLevels[k][i][j] = m_grid.GetZtop() * m_grid.GetREtaLevel(k) + 
-			m_dataTopography[i][j] * sinh(m_grid.GetZtop() * (1.0 - m_grid.GetREtaLevel(k)) / m_dSL) / 
+			m_dataZLevels[k][i][j] = m_grid.GetZtop() * 
+			m_grid.GetREtaLevel(k) + 
+			m_dataTopography[i][j] * 
+			sinh(m_grid.GetZtop() * (1.0 - m_grid.GetREtaLevel(k)) / m_dSL) / 
 			sinh(m_grid.GetZtop() / m_dSL);
 		}
 		for (int k = 0; k <= m_grid.GetRElements(); k++) {
-			m_dataZInterfaces[k][i][j] = m_grid.GetZtop() * m_grid.GetREtaInterface(k) + 
-			m_dataTopography[i][j] * sinh(m_grid.GetZtop() * (1.0 - m_grid.GetREtaInterface(k)) / m_dSL) / 
+			m_dataZInterfaces[k][i][j] = m_grid.GetZtop() * 
+			m_grid.GetREtaInterface(k) + 
+			m_dataTopography[i][j] * 
+			sinh(m_grid.GetZtop() * (1.0 - m_grid.GetREtaInterface(k)) / m_dSL) / 
 			sinh(m_grid.GetZtop() / m_dSL);
 		}
 	}

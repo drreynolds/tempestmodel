@@ -2,7 +2,7 @@
 ///
 ///	\file    HydrostaticMountainCartesianTest.cpp
 ///	\author  Paul Ullrich, Jorge Guerra
-///	\version January 23, 2014
+///	\version January 4, 2014
 ///
 ///	<remarks>
 ///		Copyright 2000-2010 Paul Ullrich
@@ -21,7 +21,7 @@
 ///	<summary>
 ///		Giraldo et al. (2007)
 ///
-///		Hydrostatic Mountain Uniform Flow test case.
+///		Schar Mountain Uniform Flow test case.
 ///	</summary>
 class HydrostaticMountainCartesianTest : public TestCase {
 
@@ -38,9 +38,9 @@ public:
 
 private:
 	///	<summary>
-	///		Background temperature field.
+	///		Top of the model domain.
 	///	</summary>
-	double m_dT0;
+	double m_dH0;
 
 	///	<summary>
 	///		Uniform +X flow field.
@@ -48,14 +48,19 @@ private:
 	double m_dU0;
 
 	///	<summary>
-	///		Parameter reference length for temperature disturbance
+	///		Reference absolute temperature
 	///	</summary>
-	double m_dxC;
+	double m_dT0;
 
 	///	<summary>
 	///		Parameter reference length a for temperature disturbance
 	///	</summary>
 	double m_daC;
+
+	///	<summary>
+	///		Parameter reference length for mountain profile
+	///	</summary>
+	double m_dxC;
 
 	///	<summary>
 	///		Parameter Archimede's Constant (essentially Pi but to some digits)
@@ -72,13 +77,20 @@ public:
 	///		Constructor. (with physical constants defined privately here)
 	///	</summary>
 	HydrostaticMountainCartesianTest(
+		double dH0,
+		double dU0,
+		double dT0,
+		double dhC,
+		double daC,
+		double dxC,
 		bool fNoRayleighFriction
 	) :
-		m_dT0(250.),
-		m_dU0(20.0),
-		m_dhC(1.0),
-		m_dxC(120000.),
-		m_daC(10000.),
+		m_dH0(dH0),
+		m_dU0(dU0),
+		m_dT0(dT0),
+		m_dhC(dhC),
+		m_daC(daC),
+		m_dxC(dxC),
 		m_fNoRayleighFriction(fNoRayleighFriction)
 	{
 		// Set the dimensions of the box
@@ -87,7 +99,7 @@ public:
 		m_dGDim[2] = -1000.0;
 		m_dGDim[3] = 1000.0;
 		m_dGDim[4] = 0.0;
-		m_dGDim[5] = 30000.0;
+		m_dGDim[5] = m_dH0;
 	}
 
 public:
@@ -146,7 +158,7 @@ public:
 	) const {
 		const double dRayleighStrength = 8.0e-3;
 		const double dRayleighDepth = 10000.0;
-		const double dRayleighWidth = 20000.0;
+		const double dRayleighWidth = 10000.0;
 
 		double dNuDepth = 0.0;
 		double dNuRight = 0.0;
@@ -161,7 +173,7 @@ public:
 			dNuRight = 0.5 * dRayleighStrength * (1.0 + cos(M_PI * dNormX));
 		}
 		if (dXp < m_dGDim[0] + dRayleighWidth) {
-			double dNormX = 1.0 - (dXp - m_dGDim[0]) / dRayleighWidth;
+			double dNormX = (dXp - m_dGDim[0]) / dRayleighWidth;
 			dNuLeft = 0.5 * dRayleighStrength * (1.0 + cos(M_PI * dNormX));
 		}
 
@@ -197,12 +209,10 @@ public:
 		const double dRd = phys.GetR();
 		const double dP0 = phys.GetP0();
 
-		// The Brunt-Vaisala frequency
-		const double dNbar = dG / sqrt(dCp * m_dT0);
+	    double dNbar = dG / pow(dCp*m_dT0,0.5);
 
 		// Base potential temperature field
-		const double dTheta0 = m_dT0;
-		double dThetaBar = dTheta0 * exp(dNbar * dNbar / dG * dZp);
+		double dThetaBar = 300.0 * exp(dNbar * dNbar / dG * dZp);
 
 		// Set the uniform U, V, W field for all time
 		dState[0] = m_dU0;
@@ -236,12 +246,10 @@ public:
 		const double dRd = phys.GetR();
 		const double dP0 = phys.GetP0();
 
-		// The Brunt-Vaisala frequency
-		const double dNbar = dG / sqrt(dCp * m_dT0);
+		double dNbar = dG / pow(dCp*m_dT0,0.5);
 
 		// Base potential temperature field
-		const double dTheta0 = m_dT0;
-		double dThetaBar = dTheta0 * exp(dNbar * dNbar / dG * dZp);
+		double dThetaBar = 300.0 * exp(dNbar * dNbar / dG * dZp);
 
 		// Set the uniform U, V, W field for all time
 		dState[0] = m_dU0;
@@ -266,6 +274,24 @@ int main(int argc, char** argv) {
 	TempestInitialize(&argc, &argv);
 
 try {
+	// Background height field.
+	double dH0;
+
+	// Uniform +X flow field.
+	double dU0;
+
+	// Reference pontential temperature
+	double dT0;
+
+	// Parameter reference height for temperature disturbance
+	double dhC;
+
+	// Parameter reference length a for temperature disturbance
+	double daC;
+
+	// Parameter reference length for mountain profile
+	double dxC;
+
 	// No Rayleigh friction
 	bool fNoRayleighFriction;
 
@@ -273,13 +299,19 @@ try {
 	BeginTempestCommandLine("HydrostaticMountainCartesianTest");
 		SetDefaultResolutionX(40);
 		SetDefaultResolutionY(1);
-		SetDefaultLevels(48);
-		SetDefaultOutputDeltaT("1800s");
-		SetDefaultDeltaT("1s");
-		SetDefaultEndTime("36000s");
+		SetDefaultLevels(40);
+		SetDefaultOutputDeltaT("5m");
+		SetDefaultDeltaT("100000u");
+		SetDefaultEndTime("5h");
 		SetDefaultHorizontalOrder(4);
 		SetDefaultVerticalOrder(4);
 
+		CommandLineDouble(dH0, "h0", 30000.0);
+		CommandLineDouble(dU0, "u0", 20.0);
+		CommandLineDouble(dT0, "T0", 250.0);
+		CommandLineDouble(dhC, "hC", 1.0);
+		CommandLineDouble(daC, "aC", 10000.0);
+		CommandLineDouble(dxC, "xC", 120000.0);
 		CommandLineBool(fNoRayleighFriction, "norayleigh");
 
 		ParseCommandLine(argc, argv);
@@ -287,7 +319,14 @@ try {
 
 	// Create a new instance of the test
 	HydrostaticMountainCartesianTest * test =
-		new HydrostaticMountainCartesianTest(fNoRayleighFriction);
+		new HydrostaticMountainCartesianTest(
+			dH0,
+			dU0,
+			dT0,
+			dhC,
+			daC,
+			dxC, 
+			fNoRayleighFriction);
 
 	// Setup the Model
 	AnnounceBanner("MODEL SETUP");

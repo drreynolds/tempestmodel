@@ -506,6 +506,17 @@ public:
 	}
 
 	///	<summary>
+	///		Get the components of the topographic derivatives
+	///	</summary>
+	const DataMatrix4D<double> & GetDerivRNode() const {
+		if (!m_fContainsData) {
+			_EXCEPTIONT("Stub patch does not store data.");
+		}
+
+		return m_dDerivRNode;
+	}
+
+	///	<summary>
 	///		Get the  components of the contravariant metric (alpha)
 	///	</summary>
 	const DataMatrix4D<double> & GetContraMetricA() const {
@@ -1162,6 +1173,11 @@ protected:
 	///		Jacobian at each edge.
 	///	</summary>
 	DataMatrix3D<double> m_dataJacobianREdge;
+
+	///	<summary>
+	///		Derivatives of the topography at levels.
+	///	</summary>
+	DataMatrix4D<double> m_dDerivRNode;
 
 	///	<summary>
 	///		Contravariant metric (alpha) components.

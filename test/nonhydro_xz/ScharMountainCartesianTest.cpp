@@ -58,11 +58,6 @@ private:
 	double m_dTheta0;
 
 	///	<summary>
-	///		Parameter factor for temperature disturbance
-	///	</summary>
-	double m_dThetaC;
-
-	///	<summary>
 	///		Parameter reference length a for temperature disturbance
 	///	</summary>
 	double m_daC;
@@ -91,7 +86,6 @@ public:
 		double dU0,
 		double dNbar,
 		double dTheta0,
-		double dThetaC,
 		double dhC,
 		double daC,
 		double dlC,
@@ -101,7 +95,6 @@ public:
 		m_dU0(dU0),
 		m_dNbar(dNbar),
 		m_dTheta0(dTheta0),
-		m_dThetaC(dThetaC),
 		m_dhC(dhC),
 		m_daC(daC),
 		m_dlC(dlC),
@@ -113,7 +106,7 @@ public:
 		m_dGDim[2] = -1000.0;
 		m_dGDim[3] = 1000.0;
 		m_dGDim[4] = 0.0;
-		m_dGDim[5] = 21000.0;
+		m_dGDim[5] = m_dH0;
 	}
 
 public:
@@ -171,8 +164,8 @@ public:
 		double dYp
 	) const {
 		const double dRayleighStrength = 8.0e-3;
-		const double dRayleighDepth = 10000.0;
-		const double dRayleighWidth = 10000.0;
+		const double dRayleighDepth = 6000.0;
+		const double dRayleighWidth = 6000.0;
 
 		double dNuDepth = 0.0;
 		double dNuRight = 0.0;
@@ -267,7 +260,6 @@ public:
 		dState[0] = m_dU0;
 		dState[1] = 0.0;
 		dState[3] = 0.0;
-		//dState[3] = sin(dZp / 11000.0);
 
 		// Set the initial potential temperature field
 		dState[2] = dThetaBar;
@@ -301,9 +293,6 @@ try {
 	// Reference pontential temperature
 	double dTheta0;
 
-	// Parameter factor for temperature disturbance
-	double dThetaC;
-
 	// Parameter reference height for temperature disturbance
 	double dhC;
 
@@ -321,9 +310,9 @@ try {
 		SetDefaultResolutionX(40);
 		SetDefaultResolutionY(1);
 		SetDefaultLevels(40);
-		SetDefaultOutputDeltaT("300s");
+		SetDefaultOutputDeltaT("5m");
 		SetDefaultDeltaT("100000u");
-		SetDefaultEndTime("3600s");
+		SetDefaultEndTime("10h");
 		SetDefaultHorizontalOrder(4);
 		SetDefaultVerticalOrder(4);
 
@@ -331,7 +320,6 @@ try {
 		CommandLineDouble(dU0, "u0", 10.0);
 		CommandLineDouble(dNbar, "Nbar", 0.01);
 		CommandLineDouble(dTheta0, "Theta0", 280.0);
-		CommandLineDouble(dThetaC, "ThetaC", 1.0);
 		CommandLineDouble(dhC, "hC", 250.0);
 		CommandLineDouble(daC, "aC", 5000.0);
 		CommandLineDouble(dlC, "lC", 4000.0);
@@ -347,7 +335,6 @@ try {
 			dU0,
 			dNbar,
 			dTheta0,
-			dThetaC,
 			dhC,
 			daC,
 			dlC, 

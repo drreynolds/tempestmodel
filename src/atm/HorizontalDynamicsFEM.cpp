@@ -466,6 +466,8 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 			pPatch->GetCoriolisF();
 		const DataMatrix<double> & dTopography =
 			pPatch->GetTopography();
+		const DataMatrix4D<double> & dDerivRNode = 
+			pPatch->GetDerivRNode();
 
 		const double dZtop = pGrid->GetZtop();
 		
@@ -804,7 +806,8 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					* dJacobian2D[iA][iB]
 					* ( + dContraMetricB[k][iA][iB][1] * dUa
 						- dContraMetricB[k][iA][iB][0] * dUb);
-#endif			
+#endif		
+	
 				// Pressure derivatives
 				dLocalUpdateUa -=
 						( dContraMetricA[k][iA][iB][0] * dDaP
@@ -817,6 +820,22 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						+ dContraMetricB[k][iA][iB][1] * dDbP
 						+ dContraMetricB[k][iA][iB][2] * dDxP)
 							* dataInitialNode[TIx][k][iA][iB];
+
+				// Gravity
+				double dDaPhi = phys.GetG() * dDerivRNode[k][iA][iB][0];
+				double dDbPhi = phys.GetG() * dDerivRNode[k][iA][iB][1];
+				double dDxPhi = phys.GetG() * dDerivRNode[k][iA][iB][2];
+
+				dLocalUpdateUa -=
+					( dContraMetricA[k][iA][iB][0] * dDaPhi
+					+ dContraMetricA[k][iA][iB][1] * dDbPhi
+					+ dContraMetricA[k][iA][iB][2] * dDxPhi);
+
+				dLocalUpdateUb -=
+					( dContraMetricB[k][iA][iB][0] * dDaPhi
+					+ dContraMetricB[k][iA][iB][1] * dDbPhi
+					+ dContraMetricB[k][iA][iB][2] * dDxPhi);
+
 /*		
 				// OUTPUT THE CORIOLIS AND PRESSURE UPDATES AT THEIR LOCATIONS
 				double dCorForce = 

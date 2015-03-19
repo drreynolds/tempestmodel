@@ -258,6 +258,13 @@ void GridPatch::InitializeDataLocal() {
 		m_box.GetBTotalWidth(),
 		3);
 
+	// Derivatives of topography at each node
+	m_dDerivRNode.Initialize(
+		m_grid.GetRElements(),
+		m_box.GetATotalWidth(),
+		m_box.GetBTotalWidth(),
+		3);
+
 	// Element area at each node
 	m_dataElementArea.Initialize(
 		m_grid.GetRElements(),
@@ -954,6 +961,11 @@ double GridPatch::ComputeTotalEnergy(
 ) const {
 	// Physical constants
 	const PhysicalConstants & phys = m_grid.GetModel().GetPhysicalConstants();
+	const double dG = phys.GetG();
+	const double dCv = phys.GetCv();
+	const double dCp = phys.GetCp();
+	const double dRd = phys.GetR();
+	const double dP0 = phys.GetP0();
 
 	// Accumulated local energy
 	double dLocalEnergy = 0.0;
@@ -974,6 +986,7 @@ double GridPatch::ComputeTotalEnergy(
 	if ((iDataIndex < 0) || (iDataIndex >= m_datavecStateNode.size())) {
 		_EXCEPTION1("iDataIndex out of range: %i", iDataIndex);
 	}
+
 	const GridData4D & dataNode = m_datavecStateNode[iDataIndex];
 
 	// Shallow Water Energy
@@ -1013,7 +1026,82 @@ double GridPatch::ComputeTotalEnergy(
 		}
 
 	} else {
-		_EXCEPTIONT("Unimplemented");
+
+		// Loop over all elements
+		int k;
+		int i;
+		int j;
+/*
+		double dTotalKineticEnergy = 0.0;
+		double dTotalInternalEnergy = 0.0;
+		double dTotalPotentialEnergy = 0.0;
+*/
+		for (k = 0; k < m_grid.GetRElements(); k++) {
+		//for (k = 0; k < 1; k++) {
+		for (i = m_box.GetAInteriorBegin(); i < m_box.GetAInteriorEnd(); i++) {
+		for (j = m_box.GetBInteriorBegin(); j < m_box.GetBInteriorEnd(); j++) {
+/*
+			double dUa = dataNode[UIx][k][i][j];
+			double dUb = dataNode[VIx][k][i][j];
+			double dUx = dataNode[WIx][k][i][j];
+
+			double dCovUa =
+				  m_dataCovMetricA[k][i][j][0] * dUa
+				+ m_dataCovMetricA[k][i][j][1] * dUb
+				+ m_dataCovMetricA[k][i][j][2] * dUx;
+
+			double dCovUb =
+				  m_dataCovMetricB[k][i][j][0] * dUa
+				+ m_dataCovMetricB[k][i][j][1] * dUb
+				+ m_dataCovMetricB[k][i][j][2] * dUx;
+
+			double dCovUx =
+				  m_dataCovMetricXi[k][i][j][0] * dUa
+				+ m_dataCovMetricXi[k][i][j][1] * dUb
+				+ m_dataCovMetricXi[k][i][j][2] * dUx;
+
+			double dUdotU =
+				dCovUa * dUa + dCovUb * dUb + dCovUx * dUx;
+*/
+
+			double dUdotU =
+				+ m_dataCovMetric2DA[i][j][0]
+					* dataNode[UIx][k][i][j] * dataNode[UIx][k][i][j]
+				+ (m_dataCovMetric2DA[i][j][1] + m_dataCovMetric2DB[i][j][0])
+					* dataNode[UIx][k][i][j] * dataNode[VIx][k][i][j]
+				+ m_dataCovMetric2DB[i][j][1]
+					* dataNode[VIx][k][i][j] * dataNode[VIx][k][i][j];
+
+			dUdotU += dataNode[WIx][k][i][j] * dataNode[WIx][k][i][j];
+
+			double dKineticEnergy =
+				0.5 * dataNode[RIx][k][i][j] * dUdotU;
+
+			double pressure = dataNode[RIx][k][i][j] * dataNode[TIx][k][i][j];
+			pressure = pow(pressure, dCp / dCv);
+			pressure *= dP0 * pow(dRd / dP0, dCp / dCv);
+			double dInternalEnergy =
+				pressure / (phys.GetGamma() - 1.0);
+
+			double dPotentialEnergy =
+				phys.GetG() * dataNode[RIx][k][i][j] * m_dataZLevels[k][i][j];
+
+			dLocalEnergy += m_dataElementArea[k][i][j]
+				* (dKineticEnergy + dInternalEnergy + dPotentialEnergy);
+/*
+			dTotalKineticEnergy += m_dataElementArea[k][i][j] * dKineticEnergy;
+			dTotalInternalEnergy += m_dataElementArea[k][i][j] * dInternalEnergy;
+			dTotalPotentialEnergy += m_dataElementArea[k][i][j] * dPotentialEnergy;
+*/
+		}
+		}
+		}
+/*
+		printf("%1.15e %1.15e %1.15e\n",
+			dTotalKineticEnergy,
+			dTotalInternalEnergy,
+			dTotalPotentialEnergy);
+*/
 	}
 
 	return dLocalEnergy;

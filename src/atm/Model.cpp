@@ -309,6 +309,16 @@ void Model::Go() {
 		Announce("Step %s", m_time.ToString().c_str());
 		m_pTimestepScheme->Step(fFirstStep, fLastStep, m_time, dDeltaT);
 /*
+		// Interpolate Charney Phillips staggering to levels	
+		if (m_pGrid->GetVarLocation(2) == DataLocation_REdge) {
+			m_pGrid->InterpolateREdgeToNode(2, 0);
+		}
+		if (m_pGrid->GetVarLocation(3) == DataLocation_REdge) {
+			m_pGrid->InterpolateREdgeToNode(3, 0);
+		}
+		Announce("%1.10e",m_pGrid->ComputeTotalEnergy(0));
+*/
+/*
 		// Energy and enstrophy
 		{
 			Announce("%1.10e %1.10e",

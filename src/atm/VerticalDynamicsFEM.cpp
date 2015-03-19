@@ -23,6 +23,8 @@
 #include "Model.h"
 #include "Grid.h"
 #include "GridCSGLL.h"
+#include "GridGLL.h"
+#include "GridPatchGLL.h"
 #include "EquationSet.h"
 #include "TimeObj.h"
 #include "PolynomialInterp.h"
@@ -1259,7 +1261,8 @@ void VerticalDynamicsFEM::StepImplicit(
 	}
 
 	// Get a copy of the grid
-	Grid * pGrid = m_model.GetGrid();
+	//Grid * pGrid = m_model.GetGrid();
+	GridGLL * pGrid = dynamic_cast<GridGLL*>(m_model.GetGrid());
 
 	// Physical constants
 	const PhysicalConstants & phys = m_model.GetPhysicalConstants();
@@ -1276,7 +1279,9 @@ void VerticalDynamicsFEM::StepImplicit(
 
 	// Perform local update
 	for (int n = 0; n < pGrid->GetActivePatchCount(); n++) {
-		GridPatch * pPatch = pGrid->GetActivePatch(n);
+		//GridPatch * pPatch = pGrid->GetActivePatch(n);
+		GridPatchGLL * pPatch =
+			dynamic_cast<GridPatchGLL*>(pGrid->GetActivePatch(n));
 
 		const PatchBox & box = pPatch->GetPatchBox();
 
@@ -1340,7 +1345,7 @@ void VerticalDynamicsFEM::StepImplicit(
 
 			int iEnd;
 			int jEnd;
-			// DELETE INDEXING CONDITION -1 TO PERFORM IMPLICIT SOLVE ON ALL COLUMNS
+		
 			if (a == nAElements-1) {
 				iEnd = m_nHorizontalOrder;
 			} else {
@@ -1352,6 +1357,9 @@ void VerticalDynamicsFEM::StepImplicit(
 			} else {
 				jEnd = m_nHorizontalOrder-1;
 			}
+
+		//iEnd = m_nHorizontalOrder;
+		//jEnd = m_nHorizontalOrder;
 
 		for (int i = 0; i < iEnd; i++) {
 		for (int j = 0; j < jEnd; j++) {
@@ -1531,7 +1539,7 @@ void VerticalDynamicsFEM::StepImplicit(
 			}
 #endif
 
-			// Apply updated state to theta
+			// Copy over theta
 			if (pGrid->GetVarLocation(TIx) == DataLocation_REdge) {
 				for (int k = 0; k <= pGrid->GetRElements(); k++) {
 					dataUpdateREdge[TIx][k][iA][iB] =
@@ -1569,6 +1577,65 @@ void VerticalDynamicsFEM::StepImplicit(
 						m_dSoln[VecFIx(FRIx, k)];
 				}
 			}
+/*
+			// ADDED FROM HERE TO 1629 TO BRING dPdxi horizontal update terms
+			// Get the updated theta and rho colocated with horizontal velocity
+			// Interpolate Theta to model levels
+			if (pGrid->GetVarLocation(TIx) == DataLocation_REdge) {
+				pPatch->InterpolateREdgeToNode(TIx, iDataUpdate);
+			}
+
+			// Pointwise horizontal momentum update for vertical terms
+			double dLocalUpdateUa = 0.0;
+			double dLocalUpdateUb = 0.0;
+
+			for (int k = 0; k < pGrid->GetRElements(); k++) {
+				m_dExnerPertNode[k] =
+					phys.ExnerPressureFromRhoTheta(
+						  dataUpdateNode[RIx][k][iA][iB]
+						* dataUpdateNode[TIx][k][iA][iB]);
+
+				dataExnerNode[k][iA][iB] = m_dExnerPertNode[k];
+			}
+
+			// Differentiate column pressure
+			pGrid->DifferentiateNodeToNode(
+				m_dExnerPertNode,
+				m_dDiffExnerPertNode);
+
+			for (int k = 0; k < pGrid->GetRElements(); k++) {
+				dataDiffExnerNode[k][iA][iB] =
+					m_dDiffExnerPertNode[k];
+
+				// Pressure derivatives of vertical dependent terms (contravariant)
+				dLocalUpdateUa -=
+						(dContraMetricA[k][iA][iB][2] * 
+						 dataDiffExnerNode[k][iA][iB])
+							* dataInitialNode[TIx][k][iA][iB];
+
+				dLocalUpdateUb -=
+						(dContraMetricB[k][iA][iB][2] * 
+						 dataDiffExnerNode[k][iA][iB])
+							* dataInitialNode[TIx][k][iA][iB];
+
+				// Pressure derivatives NEED dDaP and dDbP DEFINED ABOVE
+				dLocalUpdateUa -=
+						( dContraMetricA[k][iA][iB][0] * dDaP
+						+ dContraMetricA[k][iA][iB][1] * dDbP
+						+ dContraMetricA[k][iA][iB][2] * dataDiffExnerNode[k][iA][iB]))
+							* dataUpdateNode[TIx][k][iA][iB];
+
+				dLocalUpdateUb -=
+						( dContraMetricB[k][iA][iB][0] * dDaP
+						+ dContraMetricB[k][iA][iB][1] * dDbP
+						+ dContraMetricB[k][iA][iB][2] * dataDiffExnerNode[k][iA][iB]))
+							* dataUpdateNode[TIx][k][iA][iB];
+
+				// Apply update to horizontal velocity on model levels
+				dataUpdateNode[UIx][k][iA][iB] += dDeltaT * dLocalUpdateUa;
+				dataUpdateNode[VIx][k][iA][iB] += dDeltaT * dLocalUpdateUb;
+			}
+*/
 		}
 		}
 
@@ -1655,6 +1722,13 @@ void VerticalDynamicsFEM::StepImplicit(
 			}
 		}
 		}
+
+/*
+	// Get the GLL grid
+	GridGLL * pGridGLL = dynamic_cast<GridGLL*>(m_model.GetGrid());
+	// Apply Direct Stiffness Summation
+	pGridGLL->ApplyDSS(iDataUpdate);
+*/
 	}
 }
 

@@ -10,7 +10,7 @@ include $(TEMPESTBASEDIR)/mk/Make.defs
 ##
 ## Build instructions
 ##
-all: atm InertialGravityCartesianXZTest ThermalBubbleCartesianTest ScharMountainCartesianTest HydrostaticMountainCartesianTest NonHydroMountainCartesianTest Baroclinic3DCartesianTest
+all: atm InertialGravityCartesianXZTest ThermalBubbleCartesianTest ScharMountainCartesianTest HydrostaticMountainCartesianTest NonHydroMountainCartesianTest Baroclinic3DCartesianTest RobertBubbleCartesianTest
 
 atm:
 	cd $(TEMPESTBASEDIR)/src/base; make
@@ -21,6 +21,9 @@ atm:
 ##
 ThermalBubbleCartesianTest: $(BUILDDIR)/ThermalBubbleCartesianTest.o $(FILES:%.cpp=$(BUILDDIR)/%.o) $(TEMPESTLIBS)
 	$(CC) $(LDFLAGS) -o $@ $(BUILDDIR)/ThermalBubbleCartesianTest.o $(FILES:%.cpp=$(BUILDDIR)/%.o) $(LDFILES)
+
+RobertBubbleCartesianTest: $(BUILDDIR)/RobertBubbleCartesianTest.o $(FILES:%.cpp=$(BUILDDIR)/%.o) $(TEMPESTLIBS)
+	$(CC) $(LDFLAGS) -o $@ $(BUILDDIR)/RobertBubbleCartesianTest.o $(FILES:%.cpp=$(BUILDDIR)/%.o) $(LDFILES)
 
 InertialGravityCartesianXZTest: $(BUILDDIR)/InertialGravityCartesianXZTest.o $(FILES:%.cpp=$(BUILDDIR)/%.o) $(TEMPESTLIBS)
 	$(CC) $(LDFLAGS) -o $@ $(BUILDDIR)/InertialGravityCartesianXZTest.o $(FILES:%.cpp=$(BUILDDIR)/%.o) $(LDFILES)
@@ -42,6 +45,7 @@ Baroclinic3DCartesianTest: $(BUILDDIR)/Baroclinic3DCartesianTest.o $(FILES:%.cpp
 ##
 clean:
 	rm -f ThermalBubbleCartesianTest
+	rm -f RobertBubbleCartesianTest
 	rm -f InertialGravityCartesianXZTest
 	rm -f ScharMountainCartesianTest
 	rm -f HydrostaticMountainCartesianTest
