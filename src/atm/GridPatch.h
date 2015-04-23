@@ -1265,6 +1265,16 @@ protected:
 	DataMatrix<double> m_dataCoriolisF;
 
 	///	<summary>
+	///		Coriolis parameter at each level.
+	///	</summary>
+	DataMatrix3D<double> m_dataCoriolisFLevs;
+
+	///	<summary>
+	///		Coriolis parameter at each interface.
+	///	</summary>
+	DataMatrix3D<double> m_dataCoriolisFInts;
+
+	///	<summary>
 	///		Altitude at each level.
 	///	</summary>
 	DataMatrix3D<double> m_dataZLevels;

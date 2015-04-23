@@ -193,14 +193,14 @@ public:
 		double dXp,
 		double dYp
 	) const {
-		const double dRayleighStrength = 0.1;
-		const double dRayleighDepth = 10000.0;
-		const double dRayleighWidth = 500000.0;
+		const double dRayleighStrength = 0.0;
+		const double dRayleighDepth = 0.0;
+		const double dRayleighWidth = 0.0;
 
 		double dNuDepth = 0.0;
 		double dNuRight = 0.0;
 		double dNuLeft  = 0.0;
-
+/*
 		if (dZ > m_dGDim[5] - dRayleighDepth) {
 			double dNormZ = (m_dGDim[5] - dZ) / dRayleighDepth;
 			//dNuDepth = 0.5 * dRayleighStrength * (1.0 + cos(M_PI * dNormZ));
@@ -214,7 +214,7 @@ public:
 			double dNormY = (dYp - m_dGDim[2]) / dRayleighWidth;
 			dNuLeft = 0.5 * dRayleighStrength * (1.0 + cos(M_PI * dNormY));
 		}
-
+*/
 		if ((dNuDepth >= dNuRight) && (dNuDepth >= dNuLeft)) {
 			return dNuDepth;
 		}
@@ -410,8 +410,8 @@ public:
 		EvaluateReferenceState(phys, dZp, dXp, dYp, dState);
 
 		// Add perturbation in zonal velocity
-		//dState[0] += 0.0;
-		dState[0] += EvaluateUPrime(phys, dXp, dYp);
+		dState[0] += 0.0;
+		//dState[0] += EvaluateUPrime(phys, dXp, dYp);
 	}
 };
 
@@ -459,7 +459,7 @@ try {
 		SetDefaultDeltaT("300s");
 		SetDefaultEndTime("12d");
 		SetDefaultHorizontalOrder(4);
-		SetDefaultVerticalOrder(1);
+		SetDefaultVerticalOrder(4);
 
 		CommandLineDouble(dbC, "b", 2.0);
 		CommandLineDouble(dU0, "u0", 35.0);

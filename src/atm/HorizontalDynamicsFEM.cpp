@@ -835,15 +835,14 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					( dContraMetricB[k][iA][iB][0] * dDaPhi
 					+ dContraMetricB[k][iA][iB][1] * dDbPhi
 					+ dContraMetricB[k][iA][iB][2] * dDxPhi);
-
-/*		
+/*	
 				// OUTPUT THE CORIOLIS AND PRESSURE UPDATES AT THEIR LOCATIONS
 				double dCorForce = 
 					dCoriolisF[iA][iB]
 					* dJacobian2D[iA][iB]
 					* ( + dContraMetricB[k][iA][iB][1] * dUa
 						- dContraMetricB[k][iA][iB][0] * dUb);
-//
+
 				// OUTPUT THE PRESSURE FORCES FOR HORIZONTAL MOMENTUM
 				double dPresForce = 
 						( dContraMetricB[k][iA][iB][0] * dDaP
@@ -859,8 +858,8 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 				std::cout << std::setprecision(16) << dLatitude[iA][iB] 
 						  << " " << dLongitude[iA][iB] 
   						  << " " << dZLevels[k][iA][iB]
-        				  << " " << dPresForceTopo << " " << dPresForce << "\n";
-//*/				
+        				  << " " << dCorForce << " " << dPresForce << "\n";
+*/				
  				// Apply update to horizontal velocity on model levels
 				dataUpdateNode[UIx][k][iA][iB] += dDeltaT * dLocalUpdateUa;
 				dataUpdateNode[VIx][k][iA][iB] += dDeltaT * dLocalUpdateUb;

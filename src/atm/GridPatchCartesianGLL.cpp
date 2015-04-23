@@ -171,8 +171,8 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 	
 	double dy0 = 0.5 * abs(m_dGDim[3] - m_dGDim[2]);
 	double dfp = 2.0 * phys.GetOmega() * sin(m_dRefLat);
-	double dbetap = 2.0 * phys.GetOmega() * cos(m_dRefLat) / 
-					phys.GetEarthRadius();
+	double dbetap = 0.0; 2.0 * phys.GetOmega() * cos(m_dRefLat) / 
+					(phys.GetEarthRadius();
 	// Initialize the Coriolis force at each node
 	for (int i = 0; i < m_box.GetATotalWidth(); i++) {
 	for (int j = 0; j < m_box.GetBTotalWidth(); j++) {
@@ -853,7 +853,7 @@ void GridPatchCartesianGLL::ApplyBoundaryConditions(
 	for (int k = 0; k < m_grid.GetRElements(); k++) {
 		int i;
 		int j;
-
+/*
 		// Evaluate boundary conditions along right edge
 		i = m_box.GetAInteriorEnd();
 		for (j = m_box.GetBInteriorBegin(); j < m_box.GetBInteriorEnd(); j++) {
@@ -873,25 +873,31 @@ void GridPatchCartesianGLL::ApplyBoundaryConditions(
 			dataNode[WIx][k][i][j] =   dataNode[WIx][k][i+1][j];
 			dataNode[RIx][k][i][j] =   dataNode[RIx][k][i+1][j];
 		}
-
+*/
 		// Evaluate boundary conditions along top edge
 		j = m_box.GetBInteriorEnd();
-		for (i = m_box.GetAInteriorBegin()-1; i < m_box.GetAInteriorEnd()+1; i++) {
-			dataNode[UIx][k][i][j] =   dataNode[UIx][k][i][j-1];
+		for (i = m_box.GetAInteriorBegin(); i < m_box.GetAInteriorEnd(); i++) {
+			//dataNode[UIx][k][i][j] =   dataNode[UIx][k][i][j-1];
 			dataNode[VIx][k][i][j] = - dataNode[VIx][k][i][j-1];
-			dataNode[TIx][k][i][j] =   dataNode[TIx][k][i][j-1];
-			dataNode[WIx][k][i][j] =   dataNode[WIx][k][i][j-1];
-			dataNode[RIx][k][i][j] =   dataNode[RIx][k][i][j-1];
+			//dataNode[UIx][k][i][j] =   0.0;
+			//dataNode[VIx][k][i][j] =   0.0;
+			//dataNode[WIx][k][i][j] =   0.0;
+			//dataNode[TIx][k][i][j] =   dataNode[TIx][k][i][j-1];
+			//dataNode[WIx][k][i][j] =   dataNode[WIx][k][i][j-1];
+			//dataNode[RIx][k][i][j] =   dataNode[RIx][k][i][j-1];
 		}
 
 		// Evaluate boundary conditions along bottom edge
-		j = m_box.GetBInteriorBegin()-1;
-		for (i = m_box.GetAInteriorBegin()-1; i < m_box.GetAInteriorEnd()+1; i++) {
-			dataNode[UIx][k][i][j] =   dataNode[UIx][k][i][j+1];
+		j = m_box.GetBInteriorBegin() - 1;
+		for (i = m_box.GetAInteriorBegin(); i < m_box.GetAInteriorEnd(); i++) {
+			//dataNode[UIx][k][i][j] =   dataNode[UIx][k][i][j+1];
 			dataNode[VIx][k][i][j] = - dataNode[VIx][k][i][j+1];
-			dataNode[TIx][k][i][j] =   dataNode[TIx][k][i][j+1];
-			dataNode[WIx][k][i][j] =   dataNode[WIx][k][i][j+1];
-			dataNode[RIx][k][i][j] =   dataNode[RIx][k][i][j+1];
+			//dataNode[UIx][k][i][j] =   0.0;
+			//dataNode[VIx][k][i][j] =   0.0;
+			//dataNode[WIx][k][i][j] =   0.0;
+			//dataNode[TIx][k][i][j] =   dataNode[TIx][k][i][j+1];
+			//dataNode[WIx][k][i][j] =   dataNode[WIx][k][i][j+1];
+			//dataNode[RIx][k][i][j] =   dataNode[RIx][k][i][j+1];
 		}
 	}
 
@@ -899,7 +905,7 @@ void GridPatchCartesianGLL::ApplyBoundaryConditions(
 	for (int k = 0; k <= m_grid.GetRElements(); k++) {
 		int i;
 		int j;
-
+/*
 		// Evaluate boundary conditions along right edge
 		i = m_box.GetAInteriorEnd();
 		for (j = m_box.GetBInteriorBegin(); j < m_box.GetBInteriorEnd(); j++) {
@@ -919,25 +925,31 @@ void GridPatchCartesianGLL::ApplyBoundaryConditions(
 			dataREdge[WIx][k][i][j] =   dataREdge[WIx][k][i+1][j];
 			dataREdge[RIx][k][i][j] =   dataREdge[RIx][k][i+1][j];
 		}
-
+*/
 		// Evaluate boundary conditions along top edge
 		j = m_box.GetBInteriorEnd();
-		for (i = m_box.GetAInteriorBegin()-1; i < m_box.GetAInteriorEnd()+1; i++) {
-			dataREdge[UIx][k][i][j] =   dataREdge[UIx][k][i][j-1];
+		for (i = m_box.GetAInteriorBegin(); i < m_box.GetAInteriorEnd(); i++) {
+			//dataREdge[UIx][k][i][j] =   dataREdge[UIx][k][i][j-1];
 			dataREdge[VIx][k][i][j] = - dataREdge[VIx][k][i][j-1];
-			dataREdge[TIx][k][i][j] =   dataREdge[TIx][k][i][j-1];
-			dataREdge[WIx][k][i][j] =   dataREdge[WIx][k][i][j-1];
-			dataREdge[RIx][k][i][j] =   dataREdge[RIx][k][i][j-1];
+			///dataREdge[UIx][k][i][j] =   0.0;
+			//dataREdge[VIx][k][i][j] =   0.0;
+			//dataREdge[WIx][k][i][j] =   0.0;
+			//dataREdge[TIx][k][i][j] =   dataREdge[TIx][k][i][j-1];
+			//dataREdge[WIx][k][i][j] =   dataREdge[WIx][k][i][j-1];
+			//dataREdge[RIx][k][i][j] =   dataREdge[RIx][k][i][j-1];
 		}
 
 		// Evaluate boundary conditions along bottom edge
-		j = m_box.GetBInteriorBegin()-1;
-		for (i = m_box.GetAInteriorBegin()-1; i < m_box.GetAInteriorEnd()+1; i++) {
-			dataREdge[UIx][k][i][j] =   dataREdge[UIx][k][i][j+1];
+		j = m_box.GetBInteriorBegin() - 1;
+		for (i = m_box.GetAInteriorBegin(); i < m_box.GetAInteriorEnd(); i++) {
+			//dataREdge[UIx][k][i][j] =   dataREdge[UIx][k][i][j+1];
 			dataREdge[VIx][k][i][j] = - dataREdge[VIx][k][i][j+1];
-			dataREdge[TIx][k][i][j] =   dataREdge[TIx][k][i][j+1];
-			dataREdge[WIx][k][i][j] =   dataREdge[WIx][k][i][j+1];
-			dataREdge[RIx][k][i][j] =   dataREdge[RIx][k][i][j+1];
+			//dataREdge[UIx][k][i][j] =   0.0;
+			//dataREdge[VIx][k][i][j] =   0.0;
+			//dataREdge[WIx][k][i][j] =   0.0;
+			//dataREdge[TIx][k][i][j] =   dataREdge[TIx][k][i][j+1];
+			//dataREdge[WIx][k][i][j] =   dataREdge[WIx][k][i][j+1];
+			//dataREdge[RIx][k][i][j] =   dataREdge[RIx][k][i][j+1];
 		}
 	}
 }

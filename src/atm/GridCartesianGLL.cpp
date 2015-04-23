@@ -278,10 +278,14 @@ void GridCartesianGLL::GetPatchFromCoordinateIndex(
 			iA -= nLocalResolutionA;
 		}
 		if (iB < 0) {
-			iB += nLocalResolutionB;
+			//iB += nLocalResolutionB;
+			vecPatchIndex[i] = GridPatch::InvalidIndex;
+			continue;
 		}
 		if (iB >= nLocalResolutionB) {
-			iB -= nLocalResolutionB;
+			//iB -= nLocalResolutionB;
+			vecPatchIndex[i] = GridPatch::InvalidIndex;
+			continue;
 		}
 
 		// Check the last patch searched
@@ -394,6 +398,9 @@ void GridCartesianGLL::ApplyDSS(
 			dynamic_cast<GridPatchCartesianGLL*>(GetActivePatch(n));
 
 		const PatchBox & box = pPatch->GetPatchBox();
+
+		// HARD CODED APPLICATION OF NO-FLUX BOUNDARY IN THE MERIDIONAL
+		pPatch->ApplyBoundaryConditions(iDataUpdate, eDataType);
 
 		// Patch-specific quantities
 		int nElementCountA = pPatch->GetElementCountA();
