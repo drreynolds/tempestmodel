@@ -464,6 +464,10 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 
 		const DataMatrix<double> & dCoriolisF =
 			pPatch->GetCoriolisF();
+		const DataMatrix3D<double> & dCoriolisFLevs =
+			pPatch->GetCoriolisFLevs();
+		const DataMatrix3D<double> & dCoriolisFInts =
+			pPatch->GetCoriolisFInts();
 		const DataMatrix<double> & dTopography =
 			pPatch->GetTopography();
 		const DataMatrix4D<double> & dDerivRNode = 
@@ -756,7 +760,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 #ifdef VECTOR_INVARIANT_FORM
 				// Relative vorticity
 				double dZeta = (dCovDaUb - dCovDbUa);
-
+/*
 				// Rotational terms
 				dLocalUpdateUa -=
 					(dZeta + dCoriolisF[iA][iB] * dJacobian2D[iA][iB]) * (
@@ -765,6 +769,17 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 
 				dLocalUpdateUb -=
 					(dZeta + dCoriolisF[iA][iB] * dJacobian2D[iA][iB]) * (
+						+ dContraMetricB[k][iA][iB][1] * dUa
+						- dContraMetricB[k][iA][iB][0] * dUb);
+*/
+				// Rotational terms
+				dLocalUpdateUa -=
+					(dZeta + dCoriolisFLevs[k][iA][iB] * dJacobian2D[iA][iB]) * (
+						+ dContraMetricA[k][iA][iB][1] * dUa
+						- dContraMetricA[k][iA][iB][0] * dUb);
+
+				dLocalUpdateUb -=
+					(dZeta + dCoriolisFLevs[k][iA][iB] * dJacobian2D[iA][iB]) * (
 						+ dContraMetricB[k][iA][iB][1] * dUa
 						- dContraMetricB[k][iA][iB][0] * dUb);
 
@@ -793,7 +808,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						+ dChristoffelB[iA][iB][0] * dUa * dUa
 						+ dChristoffelB[iA][iB][1] * dUa * dUb
 						+ dChristoffelB[iA][iB][2] * dUb * dUb;
-
+/*
 				// Coriolis forces
 				dLocalUpdateUa -=
 					dCoriolisF[iA][iB]
@@ -803,6 +818,19 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 
 				dLocalUpdateUb -=
 					dCoriolisF[iA][iB]
+					* dJacobian2D[iA][iB]
+					* ( + dContraMetricB[k][iA][iB][1] * dUa
+						- dContraMetricB[k][iA][iB][0] * dUb);
+*/
+				// Coriolis forces
+				dLocalUpdateUa -=
+					dCoriolisFLevs[k][iA][iB]
+					* dJacobian2D[iA][iB]
+					* ( + dContraMetricA[k][iA][iB][1] * dUa
+						- dContraMetricA[k][iA][iB][0] * dUb);
+
+				dLocalUpdateUb -=
+					dCoriolisFLevs[k][iA][iB]
 					* dJacobian2D[iA][iB]
 					* ( + dContraMetricB[k][iA][iB][1] * dUa
 						- dContraMetricB[k][iA][iB][0] * dUb);
@@ -835,10 +863,10 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					( dContraMetricB[k][iA][iB][0] * dDaPhi
 					+ dContraMetricB[k][iA][iB][1] * dDbPhi
 					+ dContraMetricB[k][iA][iB][2] * dDxPhi);
-/*	
+/*
 				// OUTPUT THE CORIOLIS AND PRESSURE UPDATES AT THEIR LOCATIONS
 				double dCorForce = 
-					dCoriolisF[iA][iB]
+					dCoriolisFLevs[k][iA][iB]
 					* dJacobian2D[iA][iB]
 					* ( + dContraMetricB[k][iA][iB][1] * dUa
 						- dContraMetricB[k][iA][iB][0] * dUb);

@@ -125,7 +125,7 @@ public:
 		m_dGDim[0] = 0.0;
 		m_dGDim[1] = 40000000.0;
 		m_dGDim[2] = 0.0;
-		m_dGDim[3] = 7000000.0;
+		m_dGDim[3] = 6000000.0;
 		m_dGDim[4] = 0.0;
 		m_dGDim[5] = 30000.0;
 
@@ -250,6 +250,7 @@ public:
 		double dEta,
 		double dXp,
 		double dYp,
+		double dZp,
 		double & dGeopotential,
 		double & dTemperature
 	) const {
@@ -260,10 +261,10 @@ public:
 		const double dRd = phys.GetR();
 		const double dP0 = phys.GetP0();
 		const double dae = phys.GetEarthRadius();
-		//const double df0 = 2 * phys.GetOmega() * sin(m_dRefLat);
-		const double df0 = 0.0;
-		//const double dbeta0 = 2 * phys.GetOmega() * cos(m_dRefLat) / dae;
-		const double dbeta0 = 0.0;
+		const double df0 = 2 * phys.GetOmega() * sin(m_dRefLat);
+		//const double df0 = 0.0;
+		const double dbeta0 = 2 * phys.GetOmega() * cos(m_dRefLat) / (dae + dZp);
+		//const double dbeta0 = 0.0;
 		const double dLy = m_dGDim[3] - m_dGDim[2];
 
 		// Horizontally averaged temperature
@@ -326,7 +327,7 @@ public:
 		for (; i < MaxIterations; i++) {
 
 			CalculateGeopotentialTemperature(
-				phys, dEta, dXp, dYp, dGeopotential, dTemperature);
+				phys, dEta, dXp, dYp, dZp, dGeopotential, dTemperature);
 
 			dF     = - phys.GetG() * dZp + dGeopotential;
 			dDiffF = - phys.GetR() / dEta * dTemperature;
@@ -410,8 +411,8 @@ public:
 		EvaluateReferenceState(phys, dZp, dXp, dYp, dState);
 
 		// Add perturbation in zonal velocity
-		dState[0] += 0.0;
-		//dState[0] += EvaluateUPrime(phys, dXp, dYp);
+		//dState[0] += 0.0;
+		dState[0] += EvaluateUPrime(phys, dXp, dYp);
 	}
 };
 

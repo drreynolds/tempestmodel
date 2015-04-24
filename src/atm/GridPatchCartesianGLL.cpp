@@ -171,8 +171,9 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 	
 	double dy0 = 0.5 * abs(m_dGDim[3] - m_dGDim[2]);
 	double dfp = 2.0 * phys.GetOmega() * sin(m_dRefLat);
-	double dbetap = 0.0; 2.0 * phys.GetOmega() * cos(m_dRefLat) / 
-					(phys.GetEarthRadius();
+	double dbetap = 0.0;
+	
+
 	// Initialize the Coriolis force at each node
 	for (int i = 0; i < m_box.GetATotalWidth(); i++) {
 	for (int j = 0; j < m_box.GetBTotalWidth(); j++) {
@@ -380,6 +381,12 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 				double dDbxZ = - dDbZs;
 				double dDxxZ = 0.0;
 */
+				// Calculate the pointwise meridional gradient of coriolis
+				dbetap =  2.0 * phys.GetOmega() * cos(m_dRefLat) / 
+					(phys.GetEarthRadius() + dZ);
+				m_dataCoriolisFLevs[k][iA][iB] = dfp + dbetap * 
+					(m_dataLat[iA][iB] - dy0);
+
 				// Calculate pointwise Jacobian
 				m_dataJacobian[k][iA][iB] =
 					dDxZ * m_dataJacobian2D[iA][iB];
@@ -513,6 +520,12 @@ void GridPatchCartesianGLL::EvaluateGeometricTerms() {
 				double dDbxZ = - dDbZs;
 				double dDxxZ = 0.0;
 */
+				// Calculate the pointwise meridional gradient of coriolis
+				dbetap =  2.0 * phys.GetOmega() * cos(m_dRefLat) / 
+					(phys.GetEarthRadius() + dZ);
+				m_dataCoriolisFInts[k][iA][iB] = dfp + dbetap * 
+					(m_dataLat[iA][iB] - dy0);
+
 				// Calculate pointwise Jacobian
 				m_dataJacobianREdge[k][iA][iB] =
 					dDxZ * m_dataJacobian2D[iA][iB];

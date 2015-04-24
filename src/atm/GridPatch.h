@@ -715,6 +715,29 @@ public:
 	}
 
 	///	<summary>
+	///		Get the nodal Coriolis parameter on levels.
+	///	</summary>
+	const DataMatrix3D<double> & GetCoriolisFLevs() const {
+		if (!m_fContainsData) {
+			_EXCEPTIONT("Stub patch does not store data.");
+		}
+
+		return m_dataCoriolisFLevs;
+	}
+
+	///	<summary>
+	///		Get the nodal Coriolis parameter on interfaces.
+	///	</summary>
+	const DataMatrix3D<double> & GetCoriolisFInts() const {
+		if (!m_fContainsData) {
+			_EXCEPTIONT("Stub patch does not store data.");
+		}
+
+		return m_dataCoriolisFInts;
+	}
+
+
+	///	<summary>
 	///		Get the radial coordinate matrix on model levels.
 	///	</summary>
 	const DataMatrix3D<double> & GetZLevels() const {

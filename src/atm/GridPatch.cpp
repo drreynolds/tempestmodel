@@ -297,6 +297,18 @@ void GridPatch::InitializeDataLocal() {
 		m_box.GetATotalWidth(),
 		m_box.GetBTotalWidth());
 
+	// Coriolis parameter at each node for levels
+	m_dataCoriolisFLevs.Initialize(
+		m_grid.GetRElements(),
+		m_box.GetATotalWidth(),
+		m_box.GetBTotalWidth());
+
+	// Coriolis parameter at each node
+	m_dataCoriolisFInts.Initialize(
+		m_grid.GetRElements()+1,
+		m_box.GetATotalWidth(),
+		m_box.GetBTotalWidth());
+
 	// Radial coordinate at each level
 	m_dataZLevels.Initialize(
 		m_grid.GetRElements(),
