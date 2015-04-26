@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///
-///	\file    Baroclinic3DCartesianTest.cpp
+///	\file    Baroclinic3DCartesianRidgeTest.cpp
 ///	\author  Paul Ullrich, Jorge Guerra
 ///	\version January 13, 2015
 ///
@@ -24,7 +24,7 @@
 ///
 ///		Thermal rising bubble test case.
 ///	</summary>
-class Baroclinic3DCartesianTest : public TestCase {
+class Baroclinic3DCartesianRidgeTest : public TestCase {
 
 public:
 	/// <summary>
@@ -36,6 +36,11 @@ public:
 	///		Reference latitude for "large" domains
 	///	</summary>
 	double m_dRefLat;
+
+	///	<summary>
+	///		Parameter reference height for topography disturbance
+	///	</summary>
+	double m_dhC;
 
 private:
 
@@ -63,6 +68,11 @@ private:
 	///		Reference constant surface absolute temperature
 	///	</summary>
 	double m_dT0;
+
+	///	<summary>
+	///		Parameter reference length a for temperature disturbance
+	///	</summary>
+	double m_daC;
 
 	///	<summary>
 	///		Parameter reference length x for temperature disturbance
@@ -98,13 +108,15 @@ public:
 	///	<summary>
 	///		Constructor. (with physical constants defined privately here)
 	///	</summary>
-	Baroclinic3DCartesianTest(
+	Baroclinic3DCartesianRidgeTest(
 		double dbC,
 		double dU0,
 		double dUp,
 		double ddTdz,
 		double dT0,
 		double dLpC,
+		double dhC,
+		double daC,
 		double dXC,
 		double dYC,
 		bool fNoRayleighFriction
@@ -115,6 +127,8 @@ public:
 		m_ddTdz(ddTdz),
 		m_dT0(dT0),
 		m_dLpC(dLpC),
+		m_dhC(dhC),
+		m_daC(daC),
 		m_dXC(dXC),
 		m_dYC(dYC),
 		m_fNoRayleighFriction(fNoRayleighFriction)
@@ -174,8 +188,15 @@ public:
 	   double dXp,
 	   double dYp
 	) const {
+		// Specify the ridge to a factor of 5 downstream from the perturbation
+		double xLoc = 5*m_dXC;
+		double hsm = m_dhC / (1.0 + ((dXp - xLoc)/m_daC) *
+                                    ((dXp - xLoc)/m_daC));
+        //std::cout << hsm << "\n";
+		return hsm;
+
 		// This test case has no topography associated with it
-		return 0.0;
+		//return 0.0;
 	}
 
 	///	<summary>
@@ -442,6 +463,12 @@ try {
 	// Width parameter for the perturbation
 	double dLpC;
 
+	// Amplitude parameter of the ridge
+	double daC;
+
+	// Parameter reference height for temperature disturbance
+	double dhC;
+
 	// Center position of the perturbation
 	double dXC;
 
@@ -452,7 +479,7 @@ try {
 	bool fNoRayleighFriction;
 
 	// Parse the command line
-	BeginTempestCommandLine("Baroclinic3DCartesianTest");
+	BeginTempestCommandLine("Baroclinic3DCartesianRidgeTest");
 		SetDefaultResolutionX(288);
 		SetDefaultResolutionY(48);
 		SetDefaultLevels(32);
@@ -468,6 +495,8 @@ try {
 		CommandLineDouble(ddTdz, "gamma", 0.005);
 		CommandLineDouble(dT0, "T0", 288.0);
 		CommandLineDouble(dLpC, "Lp", 600000.0);
+		CommandLineDouble(dhC, "hC", 500.0);
+		CommandLineDouble(daC, "aC", 2000000.0);
 		CommandLineDouble(dXC, "Xc", 2000000.0);
 		CommandLineDouble(dYC, "Yc", 3000000.0);
 		CommandLineBool(fNoRayleighFriction, "norayleigh");
@@ -476,13 +505,15 @@ try {
 	EndCommandLine(argv)
 
 	// Create a new instance of the test
-	Baroclinic3DCartesianTest * test =
-		new Baroclinic3DCartesianTest(dbC,
+	Baroclinic3DCartesianRidgeTest * test =
+		new Baroclinic3DCartesianRidgeTest(dbC,
 									  dU0,
 									  dUp,
 									  ddTdz,
 									  dT0,
 									  dLpC,
+									  dhC,
+									  daC,
 									  dXC,
 									  dYC,
 									  fNoRayleighFriction);
