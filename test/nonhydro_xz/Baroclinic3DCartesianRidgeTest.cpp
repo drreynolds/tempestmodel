@@ -20,9 +20,9 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 ///	<summary>
-///		Giraldo et al. (2007)
+///		MODIFIED Ullrich and Jablonowski (2012)
 ///
-///		Thermal rising bubble test case.
+///		Baroclinic Wave in a 3D Channel with ridge
 ///	</summary>
 class Baroclinic3DCartesianRidgeTest : public TestCase {
 
@@ -185,18 +185,19 @@ public:
 	///		Evaluate the topography at the given point. (cartesian version)
 	///	</summary>
 	virtual double EvaluateTopography(
+       const PhysicalConstants & phys,
 	   double dXp,
 	   double dYp
 	) const {
 		// Specify the ridge to a factor of 5 downstream from the perturbation
-		double xLoc = 5*m_dXC;
-		double hsm = m_dhC / (1.0 + ((dXp - xLoc)/m_daC) *
-                                    ((dXp - xLoc)/m_daC));
-        //std::cout << hsm << "\n";
+		double xLoc = 2.0 * m_dXC;
+		double hsm = m_dhC / (1.0 + exp(((dXp - xLoc)/m_daC) *
+                                    		((dXp - xLoc)/m_daC)));
+		//double yFac = 1.0 / (1.0 + exp(pow((dYp - m_dY0)/(m_daC),4)));
+		double yFac = 1.0;
+		hsm *= yFac;
+		//std::cout << hsm << ' ' << xLoc << "\n";
 		return hsm;
-
-		// This test case has no topography associated with it
-		//return 0.0;
 	}
 
 	///	<summary>
@@ -215,8 +216,8 @@ public:
 		double dYp
 	) const {
 		const double dRayleighStrength = 1.0E-3;
-		const double dRayleighDepth = 2000.0;
-		const double dRayleighWidth = 2000000.0;
+		const double dRayleighDepth = 5000.0;
+		const double dRayleighWidth = 2.0E6;
 
 		double dNuDepth = 0.0;
 		double dNuRight = 0.0;
@@ -373,7 +374,6 @@ public:
 		return dEta;
 	}
 
-
 	///	<summary>
 	///		Evaluate the reference state at the given point.
 	///	</summary>
@@ -432,8 +432,8 @@ public:
 		EvaluateReferenceState(phys, dZp, dXp, dYp, dState);
 
 		// Add perturbation in zonal velocity
-		//dState[0] += 0.0;
-		dState[0] += EvaluateUPrime(phys, dXp, dYp);
+		dState[0] += 0.0;
+		//dState[0] += EvaluateUPrime(phys, dXp, dYp);
 	}
 };
 
@@ -495,8 +495,8 @@ try {
 		CommandLineDouble(ddTdz, "gamma", 0.005);
 		CommandLineDouble(dT0, "T0", 288.0);
 		CommandLineDouble(dLpC, "Lp", 600000.0);
-		CommandLineDouble(dhC, "hC", 500.0);
-		CommandLineDouble(daC, "aC", 2000000.0);
+		CommandLineDouble(dhC, "hC", 600.0);
+		CommandLineDouble(daC, "aC", 1000000.0);
 		CommandLineDouble(dXC, "Xc", 2000000.0);
 		CommandLineDouble(dYC, "Yc", 3000000.0);
 		CommandLineBool(fNoRayleighFriction, "norayleigh");
@@ -524,10 +524,10 @@ try {
 	Model model(EquationSet::PrimitiveNonhydrostaticEquations);
 	
 	// Setup the cartesian model with dimensions and reference latitude
-	TempestSetupCartesianModel(model, test->m_dGDim, test->m_dRefLat, 0.0);
+	TempestSetupCartesianModel(model, test->m_dGDim, test->m_dRefLat, test->m_dhC);
 
-	// Set the reference length to reduce diffusion (1100km)
-	model.GetGrid()->SetReferenceLength(1100000.0);
+	// Set the reference length to reduce diffusion (110km)
+	model.GetGrid()->SetReferenceLength(110000.0);
 
 	// Set the test case for the model
 	AnnounceStartBlock("Initializing test case");

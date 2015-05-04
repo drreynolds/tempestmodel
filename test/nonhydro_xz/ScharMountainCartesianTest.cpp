@@ -347,6 +347,9 @@ try {
 
 	TempestSetupCartesianModel(model, test->m_dGDim, 0.0, test->m_dhC);
 
+	// Set the reference length to reduce diffusion (10km)
+	model.GetGrid()->SetReferenceLength(10000.0);
+
 	// Set the test case for the model
 	AnnounceStartBlock("Initializing test case");
 	model.SetTestCase(test);

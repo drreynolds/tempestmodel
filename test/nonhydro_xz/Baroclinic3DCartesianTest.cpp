@@ -194,7 +194,7 @@ public:
 		double dYp
 	) const {
 		const double dRayleighStrength = 1.0E-3;
-		const double dRayleighDepth = 2000.0;
+		const double dRayleighDepth = 5000.0;
 		const double dRayleighWidth = 2000000.0;
 
 		double dNuDepth = 0.0;
@@ -495,8 +495,8 @@ try {
 	// Setup the cartesian model with dimensions and reference latitude
 	TempestSetupCartesianModel(model, test->m_dGDim, test->m_dRefLat, 0.0);
 
-	// Set the reference length to reduce diffusion (1100km)
-	model.GetGrid()->SetReferenceLength(1100000.0);
+	// Set the reference length to reduce diffusion (110km)
+	model.GetGrid()->SetReferenceLength(110000.0);
 
 	// Set the test case for the model
 	AnnounceStartBlock("Initializing test case");
