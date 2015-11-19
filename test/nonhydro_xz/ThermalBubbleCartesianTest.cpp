@@ -89,8 +89,8 @@ public:
 		// Set the dimensions of the box
 		m_dGDim[0] = 0.0;
 		m_dGDim[1] = 1000.0;
-		m_dGDim[2] = -10.0;
-		m_dGDim[3] = 10.0;
+		m_dGDim[2] = -20.0;
+		m_dGDim[3] = 20.0;
 		m_dGDim[4] = 0.0;
 		m_dGDim[5] = 1000.0;
 	}
