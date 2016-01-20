@@ -21,6 +21,7 @@ FILES= CubedSphereTrans.cpp \
        TimestepSchemeARK2.cpp \
        TimestepSchemeARK3.cpp \
        TimestepSchemeARK4.cpp \
+       RHSAnalysis.cpp \
        HorizontalDynamicsFEM.cpp \
        HorizontalDynamicsDG.cpp \
        VerticalDynamicsFEM.cpp \
