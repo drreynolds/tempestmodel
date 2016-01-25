@@ -508,6 +508,60 @@ public:
 	}
 
 	///	<summary>
+	///		Sets all data values to a given constant.
+	///	</summary>
+	void Const(const T & x) {
+
+		// Check that this DataArray4D is attached to a data object
+		if (!IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+
+		// Scale data values
+		size_t sTotalSize = GetTotalSize();
+
+		for (size_t i = 0; i < sTotalSize; i++) {
+			m_data1D[i] = x;
+		}
+	}
+
+	///	<summary>
+	///		Replaces all data values by their absolute value.
+	///	</summary>
+	void Abs() {
+
+		// Check that this DataArray4D is attached to a data object
+		if (!IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+
+		// Scale data values
+		size_t sTotalSize = GetTotalSize();
+
+		for (size_t i = 0; i < sTotalSize; i++) {
+                        m_data1D[i] = std::abs(m_data1D[i]);
+		}
+	}
+
+	///	<summary>
+	///		Adds a constant to all data values.
+	///	</summary>
+	void AddConst(const T & x) {
+
+		// Check that this DataArray4D is attached to a data object
+		if (!IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+
+		// Scale data values
+		size_t sTotalSize = GetTotalSize();
+
+		for (size_t i = 0; i < sTotalSize; i++) {
+			m_data1D[i] += x;
+		}
+	}
+
+	///	<summary>
 	///		Add a factor of the given DataArray4D to this DataArray4D.
 	///	</summary>
 	void AddProduct(
@@ -539,6 +593,158 @@ public:
 
 		for (size_t i = 0; i < sTotalSize; i++) {
 			m_data1D[i] += x * da.m_data1D[i];
+		}
+	}
+
+	///	<summary>
+	///		Replaces this data with the specified linear combination of two other DataArray4D objects.
+	///	</summary>
+	void LinearSum(
+                const T & a,
+		const DataArray4D<T> & x,
+                const T & b,
+		const DataArray4D<T> & y
+	) {
+		// Check that this DataArray4D is attached to a data object
+		if (!IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if (!x.IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if (!y.IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if ((x.GetSize(0) != GetSize(0)) || (y.GetSize(0) != GetSize(0))) {
+			_EXCEPTIONT("Dimension 0 mismatch in DataArray4D");
+		}
+		if ((x.GetSize(1) != GetSize(1)) || (y.GetSize(1) != GetSize(1))) {
+			_EXCEPTIONT("Dimension 1 mismatch in DataArray4D");
+		}
+		if ((x.GetSize(2) != GetSize(2)) || (y.GetSize(2) != GetSize(2))) {
+			_EXCEPTIONT("Dimension 2 mismatch in DataArray4D");
+		}
+		if ((x.GetSize(3) != GetSize(3)) || (y.GetSize(3) != GetSize(3))) {
+			_EXCEPTIONT("Dimension 3 mismatch in DataArray4D");
+		}
+
+		// Scale data values
+		size_t sTotalSize = GetTotalSize();
+
+		for (size_t i = 0; i < sTotalSize; i++) {
+			m_data1D[i] = a * x.m_data1D[i] + b * y.m_data1D[i];
+		}
+	}
+
+	///	<summary>
+	///		Replaces this data array with product of two other DataArray4D objects.
+	///	</summary>
+	void Product(
+		const DataArray4D<T> & x,
+		const DataArray4D<T> & y
+	) {
+		// Check that this DataArray4D is attached to a data object
+		if (!IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if (!x.IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if (!y.IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if ((x.GetSize(0) != GetSize(0)) || (y.GetSize(0) != GetSize(0))) {
+			_EXCEPTIONT("Dimension 0 mismatch in DataArray4D");
+		}
+		if ((x.GetSize(1) != GetSize(1)) || (y.GetSize(1) != GetSize(1))) {
+			_EXCEPTIONT("Dimension 1 mismatch in DataArray4D");
+		}
+		if ((x.GetSize(2) != GetSize(2)) || (y.GetSize(2) != GetSize(2))) {
+			_EXCEPTIONT("Dimension 2 mismatch in DataArray4D");
+		}
+		if ((x.GetSize(3) != GetSize(3)) || (y.GetSize(3) != GetSize(3))) {
+			_EXCEPTIONT("Dimension 3 mismatch in DataArray4D");
+		}
+
+		// Scale data values
+		size_t sTotalSize = GetTotalSize();
+
+		for (size_t i = 0; i < sTotalSize; i++) {
+			m_data1D[i] = x.m_data1D[i] * y.m_data1D[i];
+		}
+	}
+
+	///	<summary>
+	///		Replaces this data array with quotient of two other DataArray4D 
+	///             objects (does not check for divide-by-zero errors)
+	///	</summary>
+	void Quotient(
+		const DataArray4D<T> & x,
+		const DataArray4D<T> & y
+	) {
+		// Check that this DataArray4D is attached to a data object
+		if (!IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if (!x.IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if (!y.IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if ((x.GetSize(0) != GetSize(0)) || (y.GetSize(0) != GetSize(0))) {
+			_EXCEPTIONT("Dimension 0 mismatch in DataArray4D");
+		}
+		if ((x.GetSize(1) != GetSize(1)) || (y.GetSize(1) != GetSize(1))) {
+			_EXCEPTIONT("Dimension 1 mismatch in DataArray4D");
+		}
+		if ((x.GetSize(2) != GetSize(2)) || (y.GetSize(2) != GetSize(2))) {
+			_EXCEPTIONT("Dimension 2 mismatch in DataArray4D");
+		}
+		if ((x.GetSize(3) != GetSize(3)) || (y.GetSize(3) != GetSize(3))) {
+			_EXCEPTIONT("Dimension 3 mismatch in DataArray4D");
+		}
+
+		// Scale data values
+		size_t sTotalSize = GetTotalSize();
+
+		for (size_t i = 0; i < sTotalSize; i++) {
+			m_data1D[i] = x.m_data1D[i] / y.m_data1D[i];
+		}
+	}
+
+	///	<summary>
+	///		Replaces this data array with the inverse of a given DataArray4D 
+	///             object (does not check for divide-by-zero errors)
+	///	</summary>
+	void Inverse(
+		const DataArray4D<T> & x
+	) {
+		// Check that this DataArray4D is attached to a data object
+		if (!IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if (!x.IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if (x.GetSize(0) != GetSize(0)) {
+			_EXCEPTIONT("Dimension 0 mismatch in DataArray4D");
+		}
+		if (x.GetSize(1) != GetSize(1)) {
+			_EXCEPTIONT("Dimension 1 mismatch in DataArray4D");
+		}
+		if (x.GetSize(2) != GetSize(2)) {
+			_EXCEPTIONT("Dimension 2 mismatch in DataArray4D");
+		}
+		if (x.GetSize(3) != GetSize(3)) {
+			_EXCEPTIONT("Dimension 3 mismatch in DataArray4D");
+		}
+
+		// Scale data values
+		size_t sTotalSize = GetTotalSize();
+
+		for (size_t i = 0; i < sTotalSize; i++) {
+			m_data1D[i] = 1.0 / x.m_data1D[i];
 		}
 	}
 
