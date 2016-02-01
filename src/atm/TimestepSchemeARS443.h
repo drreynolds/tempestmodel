@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///
-///	\file    TimestepSchemeARK2.h
+///	\file    TimestepSchemeARS443.h
 ///	\author  Paul Ullrich
 ///	\version April 22, 2014
 ///
@@ -14,8 +14,8 @@
 ///		or implied warranty.
 ///	</remarks>
 
-#ifndef _TIMESTEPSCHEMEARK2_H_
-#define _TIMESTEPSCHEMEARK2_H_
+#ifndef _TIMESTEPSCHEMEARS443_H_
+#define _TIMESTEPSCHEMEARS443_H_
 
 #include "TimestepScheme.h"
 #include "Exception.h"
@@ -31,13 +31,13 @@ class Time;
 ///	<summary>
 ///		Adaptive Fourth-Order Runge-Kutta time stepping.
 ///	</summary>
-class TimestepSchemeARK2 : public TimestepScheme {
+class TimestepSchemeARS443 : public TimestepScheme {
 
 public:
 	///	<summary>
 	///		Constructor.
 	///	</summary>
-	TimestepSchemeARK2(
+	TimestepSchemeARS443(
 		Model & model
 	);
 
@@ -46,14 +46,14 @@ public:
 	///		Get the number of component data instances.
 	///	</summary>
 	virtual int GetComponentDataInstances() const {
-		return 5;
+		return 10;
 	}
 
 	///	<summary>
 	///		Get the number of tracer data instances.
 	///	</summary>
 	virtual int GetTracerDataInstances() const {
-		return 5;
+		return 10;
 	}
 
 protected:
@@ -68,54 +68,39 @@ protected:
 	);
 
 private:
-    ///	<summary>
-	///		ARK2 parameter gamma
+        ///	<summary>
+	///		ARS443 parameter gamma
 	///	</summary>
 	static const double m_dgamma;
-	///	<summary>
-	///		ARK2 parameter delta
-	///	</summary>
-	static const double m_ddelta;
 
-    ///	<summary>
-	///		Coefficients for the time increment ARK2.
+        ///	<summary>
+	///		Coefficients for the time increment ARS443.
 	///	</summary>
-	static const double m_dTimeCf[2];
+	static const double m_dTimeCf[4];
 
-    ///	<summary>
-	///		Coefficients for the explicit ARK2.
+        ///	<summary>
+	///		Coefficients for the explicit ARS443.
 	///	</summary>
-	static const double m_dExpCf[3][3];
+	static const double m_dExpCf[4][4];
 
 	///	<summary>
-	///		Coefficients for the explicit ARK2.
+	///		Coefficients for the explicit ARS443.
 	///	</summary>
-	static const double m_dImpCf[2][2];
+	static const double m_dImpCf[4][4];
 
-	///	<summary>
-	///		Coefficients for the implicit ARK2.
-	///	</summary>
-	static const double m_dBCoeff1[2];
-
-	///	<summary>
-	///		Coefficients for the explicit ARK2.
-	///	</summary>
-	static const double m_dBCoeff2[3];
-
-	///	<summary>
-	///		K1 vector combination (Implicit)
-	///	</summary>
-	DataArray1D<double> m_dK1Combo;
-
-	///	<summary>
-	///		Kh1 vector combination (Explicit)
-	///	</summary>
-	DataArray1D<double> m_dKh1Combo;
-
-	///	<summary>
 	///		Explicit evaluation at the 2nd substage
 	///	</summary>
 	DataArray1D<double> m_du2fCombo;
+
+	///	<summary>
+	///		Explicit evaluation at the 3rd substage
+	///	</summary>
+	DataArray1D<double> m_du3fCombo;
+
+	///	<summary>
+	///		Explicit evaluation at the 4th substage
+	///	</summary>
+	DataArray1D<double> m_du4fCombo;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
