@@ -3,15 +3,19 @@
 ## SYSTEM PATH DEFINITIONS
 
 # NetCDF directory
-NETCDF_INCLUDEDIR= /opt/local/include
-NETCDF_LIBDIR= /opt/local/lib
+NETCDF_INCLUDEDIR= /usr/local/netcdf-cxx-4.2/include
+NETCDF_LIBDIR= /usr/local/netcdf-cxx-4.2/lib
 
 # PetSc directory
-PETSC_INCLUDEDIR= /opt/local/lib/petsc/include
-PETSC_LIBDIR= /opt/local/lib/petsc/lib
+PETSC_INCLUDEDIR= /usr/local/petsc-dev/include
+PETSC_LIBDIR= /usr/local/petsc-dev/lib
+
+# SUNDIALS directory
+SUNDIALS_INCLUDEDIR= /home/dreynolds/research/ARKode/install_opt/include
+SUNDIALS_LIBDIR= /home/dreynolds/research/ARKode/install_opt/lib
 
 # X11 lib directory
-X11_LIBDIR= /opt/X11/lib
+X11_LIBDIR= /usr/lib/x86_64-linux-gnu/
 
 # By default use MPI
 CFLAGS+= -DUSE_MPI
@@ -54,6 +58,13 @@ ifdef USE_PETSC
   LDFLAGS+= -L$(X11_LIBDIR) -L$(PETSC_LIBDIR)
 endif
 
+# SUNDIALS include directory
+ifdef USE_SUNDIALS
+  CFLAGS+= -DUSE_SUNDIALS -I$(SUNDIALS_INCLUDEDIR)
+  LDFILES+= -lsundials_arkode
+  LDFLAGS+= -L$(SUNDIALS_LIBDIR)
+endif
+
 ################################################################################
 ## SYSTEM SPECIFIC COMPILATION FLAGS
 
@@ -75,7 +86,7 @@ endif
 
 ## Linux (agri)
 ifeq ($(system),Linux)
-  CC=mpiCC
+  CC=mpicxx
   F90=mpif90
   FORTFLAGS+= -O3
   CFLAGS+= -fPIC -O3

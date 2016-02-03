@@ -24,6 +24,7 @@
 #include "DataType.h"
 #include "DataLocation.h"
 
+#include <cmath>
 #include <cstdlib>
 #include <cstring>
 
@@ -510,7 +511,7 @@ public:
 	///	<summary>
 	///		Sets all data values to a given constant.
 	///	</summary>
-	void Const(const T & x) {
+	void Constant(const T & x) {
 
 		// Check that this DataArray4D is attached to a data object
 		if (!IsAttached()) {
@@ -539,14 +540,48 @@ public:
 		size_t sTotalSize = GetTotalSize();
 
 		for (size_t i = 0; i < sTotalSize; i++) {
-                        m_data1D[i] = std::abs(m_data1D[i]);
+                        m_data1D[i] = fabs(m_data1D[i]);
+		}
+	}
+
+	///	<summary>
+	///		Add a factor of the given DataArray4D to this DataArray4D.
+	///	</summary>
+	void Copy(
+		const DataArray4D<T> & da
+	) {
+		// Check that this DataArray4D is attached to a data object
+		if (!IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if (!da.IsAttached()) {
+			_EXCEPTIONT("Attempted operation on unattached DataArray4D");
+		}
+		if (da.GetSize(0) != GetSize(0)) {
+			_EXCEPTIONT("Dimension 0 mismatch in DataArray4D");
+		}
+		if (da.GetSize(1) != GetSize(1)) {
+			_EXCEPTIONT("Dimension 1 mismatch in DataArray4D");
+		}
+		if (da.GetSize(2) != GetSize(2)) {
+			_EXCEPTIONT("Dimension 2 mismatch in DataArray4D");
+		}
+		if (da.GetSize(3) != GetSize(3)) {
+			_EXCEPTIONT("Dimension 3 mismatch in DataArray4D");
+		}
+
+		// Scale data values
+		size_t sTotalSize = GetTotalSize();
+
+		for (size_t i = 0; i < sTotalSize; i++) {
+			m_data1D[i] += da.m_data1D[i];
 		}
 	}
 
 	///	<summary>
 	///		Adds a constant to all data values.
 	///	</summary>
-	void AddConst(const T & x) {
+	void AddConstant(const T & x) {
 
 		// Check that this DataArray4D is attached to a data object
 		if (!IsAttached()) {

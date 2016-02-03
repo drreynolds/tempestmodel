@@ -1604,3 +1604,216 @@ void Grid::AddReferenceState(
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void Grid::ConstantData(
+	const double c,
+	int ix
+) {
+	// Loop over all grid patches
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++)
+		m_vecActiveGridPatches[n]->ConstantData(c, ix);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void Grid::AbsData(
+        int ix,
+	int iz
+) {
+	// Loop over all grid patches
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++)
+	  m_vecActiveGridPatches[n]->AbsData(ix,iz);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void Grid::ScaleData(
+        const double c,
+	int ix,
+	int iz
+) {
+	// Loop over all grid patches
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++)
+                m_vecActiveGridPatches[n]->ScaleData(c,ix,iz);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void Grid::AddConstantData(
+	int ix,
+        const double c,
+	int iz
+) {
+	// Loop over all grid patches
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++)
+                m_vecActiveGridPatches[n]->AddConstantData(ix,c,iz);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void Grid::LinearSumData(
+        const double a,
+	int ix,
+        const double b,
+	int iy,
+	int iz
+) {
+	// Loop over all grid patches
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++)
+                m_vecActiveGridPatches[n]->LinearSumData(a,ix,b,iy,iz);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void Grid::ProductData(
+	int ix,
+	int iy,
+	int iz
+) {
+	// Loop over all grid patches
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++)
+                m_vecActiveGridPatches[n]->ProductData(ix,iy,iz);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void Grid::DivideData(
+	int ix,
+	int iy,
+	int iz
+) {
+	// Loop over all grid patches
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++)
+                m_vecActiveGridPatches[n]->DivideData(ix,iy,iz);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void Grid::InvertData(
+	int ix,
+	int iz
+) {
+	// Loop over all grid patches
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++)
+                m_vecActiveGridPatches[n]->InvertData(ix,iz);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+double Grid::DotProductData(
+        int ix,
+	int iy
+) const {
+	// Compute local contribution to overall dot product
+	double DotProductLocal = 0.0;
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++) {
+		DotProductLocal += m_vecActiveGridPatches[n]->DotProductData(ix,iy);
+	}
+
+	// Global energy
+	double DotProductGlobal = DotProductLocal;
+
+#ifdef USE_MPI
+	// Reduce to obtain global energy integral
+	MPI_Allreduce(
+                &DotProductLocal,
+		&DotProductGlobal,
+		1,
+		MPI_DOUBLE,
+		MPI_SUM,
+		MPI_COMM_WORLD);
+#endif
+
+	// Return global dot product
+	return DotProductGlobal;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+double Grid::MinimumData(
+        int ix
+) const {
+	// Compute local contribution to overall dot product
+	double MinimumLocal = DBL_MAX;
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++) {
+                MinimumLocal = std::min(MinimumLocal, 
+					m_vecActiveGridPatches[n]->MinimumData(ix));
+	}
+
+	// Global energy
+	double MinimumGlobal = MinimumLocal;
+
+#ifdef USE_MPI
+	// Reduce to obtain global energy integral
+	MPI_Allreduce(
+                &MinimumLocal,
+		&MinimumGlobal,
+		1,
+		MPI_DOUBLE,
+		MPI_MIN,
+		MPI_COMM_WORLD);
+#endif
+
+	// Return global dot product
+	return MinimumGlobal;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+double Grid::WRMSNormData(
+        int ix,
+        int iw
+) const {
+	// Compute local contribution to overall dot product
+	double NormLocal = 0.0;
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++) {
+                NormLocal += m_vecActiveGridPatches[n]->WRMSNormData(ix,iw);
+	}
+
+	// Global energy
+	double NormGlobal = NormLocal;
+
+#ifdef USE_MPI
+	// Reduce to obtain global energy integral
+	MPI_Allreduce(
+                &NormLocal,
+		&NormGlobal,
+		1,
+		MPI_DOUBLE,
+		MPI_SUM,
+		MPI_COMM_WORLD);
+#endif
+
+	// Return global dot product
+        return sqrt(NormGlobal);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+double Grid::MaximumNormData(
+        int ix
+) const {
+	// Compute local contribution to overall dot product
+	double MaxLocal = 0.0;
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++) {
+                MaxLocal = std::max(MaxLocal, m_vecActiveGridPatches[n]->MaximumNormData(ix));
+	}
+
+	// Global energy
+	double MaxGlobal = MaxLocal;
+
+#ifdef USE_MPI
+	// Reduce to obtain global energy integral
+	MPI_Allreduce(
+                &MaxLocal,
+		&MaxGlobal,
+		1,
+		MPI_DOUBLE,
+		MPI_MAX,
+		MPI_COMM_WORLD);
+#endif
+
+	// Return global dot product
+        return MaxGlobal;
+}
+
+///////////////////////////////////////////////////////////////////////////////

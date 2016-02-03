@@ -7,6 +7,9 @@ LIBNAME= libhardcoreatm
 # Compile with BLAS libraries
 USEBLAS= true
 
+# Compile with SUNDIALS libraries
+USE_SUNDIALS= true
+
 # Load system-specific defaults
 include $(TEMPESTBASEDIR)/mk/Make.defs
 
@@ -46,6 +49,7 @@ FILES= CubedSphereTrans.cpp \
        GridPatchGLL.cpp \
        GridPatchCSGLL.cpp \
        GridPatchCartesianGLL.cpp \
+       TempestNVector.cpp \
        Direction.cpp \
        TestCase.cpp \
        WorkflowProcess.cpp \

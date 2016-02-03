@@ -21,6 +21,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 
+// require SUNDIALS for compilation
+#ifdef USE_SUNDIALS
+
+#include "Grid.h"
+
 
 ///////////////////////////////////////////////////////////////////////////////
 /// This is the header file for an implementation of an NVECTOR
@@ -100,6 +105,8 @@ realtype N_VMaxNorm_Tempest(N_Vector);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif
 
 #endif

@@ -15,6 +15,9 @@
 ///		or implied warranty.
 ///	</remarks>
 
+// require SUNDIALS for compilation
+#ifdef USE_SUNDIALS
+
 #include "TempestNVector.h"
 #include "Model.h"
 #include "Grid.h"
@@ -320,6 +323,8 @@ realtype N_VMaxNorm_Tempest(N_Vector x) {
   realtype maxval = grid->MaximumNormData(xID);
   return(maxval);
 }
+
+#endif
 
 
 //////////////////////// END OF FILE ////////////////////////

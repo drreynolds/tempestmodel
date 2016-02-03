@@ -552,6 +552,107 @@ public:
 		int ix
 	);
 
+	///	<summary>
+	///		Vector operation x[i] = c for all data types with specified data index.
+	///	</summary>
+	void ConstantData(
+                const double c,
+		int ix
+	);
+
+	///	<summary>
+	///		Vector operation z[i] = fabs(x[i]) for all data types with specified data index.
+	///	</summary>
+	void AbsData(
+                int ix,
+		int iz
+	);
+
+	///	<summary>
+	///		Vector operation z = c*x for all data types with specified data indices.
+	///	</summary>
+	void ScaleData(
+                const double c,
+		int ix,
+		int iz
+	);
+
+	///	<summary>
+	///		Vector operation z = x + c for all data types with specified data indices.
+	///	</summary>
+	void AddConstantData(
+		int ix,
+                const double c,
+		int iz
+	);
+
+	///	<summary>
+	///		Linear combination z=a*x+b*y for all data types with specified data indices.
+	///	</summary>
+	void LinearSumData(
+                const double a,
+		int ix,
+                const double b,
+		int iy,
+		int iz
+	);
+
+	///	<summary>
+	///		Vector operation z[i]=x[i]*y[i] for all data types with specified data indices.
+	///	</summary>
+	void ProductData(
+		int ix,
+		int iy,
+		int iz
+	);
+
+	///	<summary>
+	///		Vector operation z[i]=x[i]/y[i] for all data types with specified data indices.
+	///	</summary>
+	void DivideData(
+		int ix,
+		int iy,
+		int iz
+	);
+
+	///	<summary>
+	///		Vector operation z[i]=1.0/x[i] for all data types with specified data indices.
+	///	</summary>
+	void InvertData(
+		int ix,
+		int iz
+	);
+
+	///	<summary>
+	///		Vector dot product for active data (all data types) with specified data indices.
+	///	</summary>
+	double DotProductData(
+		int ix,
+		int iy
+	) const;
+
+	///	<summary>
+	///		Minimum-valued entry for active data (all data types) with specified data index.
+	///	</summary>
+	double MinimumData(
+		int ix
+	) const;
+
+	///	<summary>
+	///		Vector root-mean-square norm for active data (all data types) with specified data indices.
+	///	</summary>
+	double WRMSNormData(
+		int ix,
+		int iw
+	) const;
+
+	///	<summary>
+	///		Vector maximum-norm for active data (all data types) with specified data index.
+	///	</summary>
+	double MaximumNormData(
+		int ix
+	) const;
+
 public:
 	///	<summary>
 	///		Get the DataContainer storing Grid parameters.

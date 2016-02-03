@@ -19,6 +19,7 @@
 #include "Model.h"
 #include "EquationSet.h"
 #include "Defines.h"
+#include <cfloat>
 
 #include "mpi.h"
 
@@ -1298,6 +1299,710 @@ void GridPatch::ZeroData(
 	} else {
 		_EXCEPTIONT("Invalid DataType specified for LinearCombineData.");
 	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::ConstantData(
+	const double c,
+	int ix
+) {
+
+        // Check bounds on ix for State data
+        if ((ix < 0) || (ix >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid ix index in ConstantData.");
+	}
+
+	// perform operation on state
+	m_datavecStateNode[ix].Constant(c);
+	m_datavecStateREdge[ix].Constant(c);
+
+	// Check bounds on ix for Tracers data
+	if ((ix < 0) || (ix >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid ix index in ConstantData.");
+	}
+
+	// If tracers are not initialized, do nothing
+	if (!m_datavecTracers[ix].IsAttached()) {
+	  return;
+	}
+
+	// perform operation on tracers
+	m_datavecTracers[ix].Constant(c);
+	
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::AbsData(
+        int ix,
+	int iz
+) {
+
+        // Check bounds on ix and iz for State data
+        if ((ix < 0) || (ix >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid ix index in AbsData.");
+	}
+        if ((iz < 0) || (iz >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid iz index in AbsData.");
+	}
+
+	// perform operation on state
+	m_datavecStateNode[iz].Copy(m_datavecStateNode[ix]);
+	m_datavecStateNode[iz].Abs();
+	m_datavecStateREdge[iz].Copy(m_datavecStateREdge[ix]);
+	m_datavecStateREdge[iz].Abs();
+
+	// Check bounds on ix and iz for Tracers data
+	if ((ix < 0) || (ix >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid ix index in AbsData.");
+	}
+	if ((iz < 0) || (iz >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid iz index in AbsData.");
+	}
+
+	// If tracers are not initialized, do nothing
+	if (!m_datavecTracers[ix].IsAttached()) {
+	  return;
+	}
+	if (!m_datavecTracers[iz].IsAttached()) {
+	  return;
+	}
+
+	// perform operation on tracers
+	m_datavecTracers[iz].Copy(m_datavecTracers[ix]);
+	m_datavecTracers[iz].Abs();
+	
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::ScaleData(
+	const double c,
+	int ix,
+	int iz
+) {
+
+        // Check bounds on ix and iz for State data
+        if ((ix < 0) || (ix >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid ix index in ScaleData.");
+	}
+        if ((iz < 0) || (iz >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid iz index in ScaleData.");
+	}
+
+	// perform operation on state
+	m_datavecStateNode[iz].Zero();
+	m_datavecStateNode[iz].AddProduct(m_datavecStateNode[ix], c);
+	m_datavecStateREdge[iz].Zero();
+	m_datavecStateREdge[iz].AddProduct(m_datavecStateREdge[ix], c);
+
+	// Check bounds on ix and iz for Tracers data
+	if ((ix < 0) || (ix >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid ix index in ScaleData.");
+	}
+	if ((iz < 0) || (iz >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid iz index in ScaleData.");
+	}
+
+	// If either tracer field is not initialized, do nothing
+	if (!m_datavecTracers[ix].IsAttached()) {
+	  return;
+	}
+	if (!m_datavecTracers[iz].IsAttached()) {
+	  return;
+	}
+
+	// perform operation on tracers
+	m_datavecTracers[iz].Zero();
+	m_datavecTracers[iz].AddProduct(m_datavecTracers[ix], c);
+	
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::AddConstantData(
+	int ix,
+	const double c,
+	int iz
+) {
+
+        // Check bounds on ix and iz for State data
+        if ((ix < 0) || (ix >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid ix index in AddConstantData.");
+	}
+        if ((iz < 0) || (iz >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid iz index in AddConstantData.");
+	}
+
+	// perform operation on state
+	m_datavecStateNode[iz].Copy(m_datavecStateNode[ix]);
+	m_datavecStateNode[iz].AddConstant(c);
+	m_datavecStateREdge[iz].Copy(m_datavecStateREdge[ix]);
+	m_datavecStateREdge[iz].AddConstant(c);
+
+	// Check bounds on ix and iz for Tracers data
+	if ((ix < 0) || (ix >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid ix index in AddConstantData.");
+	}
+	if ((iz < 0) || (iz >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid iz index in AddConstantData.");
+	}
+
+	// If either tracer field is not initialized, do nothing
+	if (!m_datavecTracers[ix].IsAttached()) {
+	  return;
+	}
+	if (!m_datavecTracers[iz].IsAttached()) {
+	  return;
+	}
+
+	// perform operation on tracers
+	m_datavecTracers[iz].Copy(m_datavecTracers[ix]);
+	m_datavecTracers[iz].AddConstant(c);
+	
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::LinearSumData(
+	const double a,
+	int ix,
+	const double b,
+	int iy,
+	int iz
+) {
+
+        // Check bounds on ix, iy and iz for State data
+        if ((ix < 0) || (ix >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid ix index in LinearSumData.");
+	}
+        if ((iy < 0) || (iy >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid iy index in LinearSumData.");
+	}
+        if ((iz < 0) || (iz >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid iz index in LinearSumData.");
+	}
+
+	// perform operation on state
+	m_datavecStateNode[iz].LinearSum(a, m_datavecStateNode[ix],
+					 b, m_datavecStateNode[iy]);
+	m_datavecStateREdge[iz].LinearSum(a, m_datavecStateREdge[ix],
+					  b, m_datavecStateREdge[iy]);
+
+	// Check bounds on ix, iy and iz for Tracers data
+	if ((ix < 0) || (ix >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid ix index in LinearSumData.");
+	}
+	if ((iy < 0) || (iy >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid iy index in LinearSumData.");
+	}
+	if ((iz < 0) || (iz >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid iz index in LinearSumData.");
+	}
+
+	// If any tracer field is not initialized, do nothing
+	if (!m_datavecTracers[ix].IsAttached()) {
+	  return;
+	}
+	if (!m_datavecTracers[iy].IsAttached()) {
+	  return;
+	}
+	if (!m_datavecTracers[iz].IsAttached()) {
+	  return;
+	}
+
+	// perform operation on tracers
+	m_datavecTracers[iz].LinearSum(a, m_datavecTracers[ix],
+				       b, m_datavecTracers[iy]);
+	
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::ProductData(
+	int ix,
+	int iy,
+	int iz
+) {
+
+        // Check bounds on ix, iy and iz for State data
+        if ((ix < 0) || (ix >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid ix index in ProductData.");
+	}
+        if ((iy < 0) || (iy >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid iy index in ProductData.");
+	}
+        if ((iz < 0) || (iz >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid iz index in ProductData.");
+	}
+
+	// perform operation on state
+	m_datavecStateNode[iz].Product(m_datavecStateNode[ix],
+				       m_datavecStateNode[iy]);
+	m_datavecStateREdge[iz].Product(m_datavecStateREdge[ix],
+					m_datavecStateREdge[iy]);
+
+	// Check bounds on ix, iy and iz for Tracers data
+	if ((ix < 0) || (ix >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid ix index in ProductData.");
+	}
+	if ((iy < 0) || (iy >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid iy index in ProductData.");
+	}
+	if ((iz < 0) || (iz >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid iz index in ProductData.");
+	}
+
+	// If any tracer field is not initialized, do nothing
+	if (!m_datavecTracers[ix].IsAttached()) {
+	  return;
+	}
+	if (!m_datavecTracers[iy].IsAttached()) {
+	  return;
+	}
+	if (!m_datavecTracers[iz].IsAttached()) {
+	  return;
+	}
+
+	// perform operation on tracers
+	m_datavecTracers[iz].Product(m_datavecTracers[ix],
+				     m_datavecTracers[iy]);
+	
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::DivideData(
+	int ix,
+	int iy,
+	int iz
+) {
+
+        // Check bounds on ix, iy and iz for State data
+        if ((ix < 0) || (ix >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid ix index in DivideData.");
+	}
+        if ((iy < 0) || (iy >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid iy index in DivideData.");
+	}
+        if ((iz < 0) || (iz >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid iz index in DivideData.");
+	}
+
+	// perform operation on state
+	m_datavecStateNode[iz].Quotient(m_datavecStateNode[ix],
+					m_datavecStateNode[iy]);
+	m_datavecStateREdge[iz].Quotient(m_datavecStateREdge[ix],
+					 m_datavecStateREdge[iy]);
+
+	// Check bounds on ix, iy and iz for Tracers data
+	if ((ix < 0) || (ix >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid ix index in DivideData.");
+	}
+	if ((iy < 0) || (iy >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid iy index in DivideData.");
+	}
+	if ((iz < 0) || (iz >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid iz index in DivideData.");
+	}
+
+	// If any tracer field is not initialized, do nothing
+	if (!m_datavecTracers[ix].IsAttached()) {
+	  return;
+	}
+	if (!m_datavecTracers[iy].IsAttached()) {
+	  return;
+	}
+	if (!m_datavecTracers[iz].IsAttached()) {
+	  return;
+	}
+
+	// perform operation on tracers
+	m_datavecTracers[iz].Quotient(m_datavecTracers[ix],
+				      m_datavecTracers[iy]);
+	
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::InvertData(
+	int ix,
+	int iz
+) {
+
+        // Check bounds on ix and iz for State data
+        if ((ix < 0) || (ix >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid ix index in InvertData.");
+	}
+        if ((iz < 0) || (iz >= m_datavecStateNode.size())) {
+	  _EXCEPTIONT("Invalid iz index in InvertData.");
+	}
+
+	// perform operation on state
+	m_datavecStateNode[iz].Inverse(m_datavecStateNode[ix]);
+	m_datavecStateREdge[iz].Inverse(m_datavecStateREdge[ix]);
+
+	// Check bounds on ix and iz for Tracers data
+	if ((ix < 0) || (ix >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid ix index in InvertData.");
+	}
+	if ((iz < 0) || (iz >= m_datavecTracers.size())) {
+	  _EXCEPTIONT("Invalid iz index in InvertData.");
+	}
+
+	// If any tracer field is not initialized, do nothing
+	if (!m_datavecTracers[ix].IsAttached()) {
+	  return;
+	}
+	if (!m_datavecTracers[iz].IsAttached()) {
+	  return;
+	}
+
+	// perform operation on tracers
+	m_datavecTracers[iz].Inverse(m_datavecTracers[ix]);
+	
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+double GridPatch::DotProductData(
+	int ix,
+	int iy
+) const {
+
+	// Check that GridPatch has been initialized
+	if (!m_fContainsData) {
+	  _EXCEPTIONT("DotProductData called on uninitialized GridPatch");
+	}
+
+	// initialize reusable local variables 
+	int i, j, k, c;
+
+	// initialize output
+	double dSum=0.0;
+
+	// determine state node/edge variables
+	std::vector<int> nodeVarsState;
+	std::vector<int> redgeVarsState;
+	int nComponents = m_grid.GetModel().GetEquationSet().GetComponents();
+	for (int c=0; c<nComponents; c++) {
+	  if (m_grid.GetVarLocation(c) == DataLocation_Node) {
+	    nodeVarsState.push_back(c);
+	  } else if (m_grid.GetVarLocation(c) == DataLocation_REdge) {
+	    redgeVarsState.push_back(c);
+	  } else {
+	    _EXCEPTIONT("DataLocation not implemented.");
+	  }
+	}
+
+	// set shortcuts to state variables
+	DataArray4D<double> const * pDataNodeX  = &(m_datavecStateNode[ix]);
+	DataArray4D<double> const * pDataNodeY  = &(m_datavecStateNode[iy]);
+	DataArray4D<double> const * pDataREdgeX = &(m_datavecStateREdge[ix]);
+	DataArray4D<double> const * pDataREdgeY = &(m_datavecStateREdge[iy]);
+
+	// perform dot-product over state nodes
+	for (c=0; c<nodeVarsState.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		dSum += (*pDataNodeX)[nodeVarsState[c]][k][i][j]
+                      * (*pDataNodeY)[nodeVarsState[c]][k][i][j]; 
+	      }
+	    }
+	  }
+	}
+
+	// perform dot-product over state edges
+	for (c=0; c<redgeVarsState.size(); c++) {
+	  for (k=0; k<=m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		dSum += (*pDataREdgeX)[redgeVarsState[c]][k][i][j]
+                      * (*pDataREdgeY)[redgeVarsState[c]][k][i][j];
+	      }
+	    }
+	  }
+	}
+
+	// determine tracer node variables
+	std::vector<int> nodeVarsTracers;
+	int nTracers = m_grid.GetModel().GetEquationSet().GetTracers();
+	for (int c=0; c<nTracers; c++) {
+	  nodeVarsTracers.push_back(c);
+	}
+
+	// set shortcuts to tracer variables
+	DataArray4D<double> const * pDataTracersX = &(m_datavecTracers[ix]);
+	DataArray4D<double> const * pDataTracersY = &(m_datavecTracers[iy]);
+
+	// perform dot-product over Tracer nodes
+	for (c=0; c<nodeVarsTracers.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		dSum += (*pDataTracersX)[nodeVarsTracers[c]][k][i][j]
+                      * (*pDataTracersY)[nodeVarsTracers[c]][k][i][j]; 
+	      }
+	    }
+	  }
+	}
+
+	return dSum;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+double GridPatch::MinimumData(
+	int ix
+) const {
+
+	// Check that GridPatch has been initialized
+	if (!m_fContainsData) {
+	  _EXCEPTIONT("MinimumData called on uninitialized GridPatch");
+	}
+
+	// initialize reusable local variables 
+	int i, j, k, c;
+
+	// initialize output
+	double dMin = DBL_MAX;
+
+	// determine state node/edge variables
+	std::vector<int> nodeVarsState;
+	std::vector<int> redgeVarsState;
+	int nComponents = m_grid.GetModel().GetEquationSet().GetComponents();
+	for (int c=0; c<nComponents; c++) {
+	  if (m_grid.GetVarLocation(c) == DataLocation_Node) {
+	    nodeVarsState.push_back(c);
+	  } else if (m_grid.GetVarLocation(c) == DataLocation_REdge) {
+	    redgeVarsState.push_back(c);
+	  } else {
+	    _EXCEPTIONT("DataLocation not implemented.");
+	  }
+	}
+
+	// set shortcuts to state variables
+	DataArray4D<double> const * pDataNode  = &(m_datavecStateNode[ix]);
+	DataArray4D<double> const * pDataREdge = &(m_datavecStateREdge[ix]);
+
+	// perform operation over state nodes
+	for (c=0; c<nodeVarsState.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		dMin = std::min(dMin, (*pDataNode)[nodeVarsState[c]][k][i][j]); 
+	      }
+	    }
+	  }
+	}
+
+	// perform operation over state edges
+	for (c=0; c<redgeVarsState.size(); c++) {
+	  for (k=0; k<=m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		dMin = std::min(dMin, (*pDataREdge)[redgeVarsState[c]][k][i][j]);
+	      }
+	    }
+	  }
+	}
+
+	// determine tracer node variables
+	std::vector<int> nodeVarsTracers;
+	int nTracers = m_grid.GetModel().GetEquationSet().GetTracers();
+	for (int c=0; c<nTracers; c++) {
+	  nodeVarsTracers.push_back(c);
+	}
+
+	// set shortcuts to tracer variables
+	DataArray4D<double> const * pDataTracers = &(m_datavecTracers[ix]);
+
+	// perform operation over Tracer nodes
+	for (c=0; c<nodeVarsTracers.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		dMin = std::min(dMin, (*pDataTracers)[nodeVarsTracers[c]][k][i][j]); 
+	      }
+	    }
+	  }
+	}
+
+	return dMin;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+double GridPatch::WRMSNormData(
+	int ix,
+	int iw
+) const {
+
+	// Check that GridPatch has been initialized
+	if (!m_fContainsData) {
+	  _EXCEPTIONT("WRMSNormData called on uninitialized GridPatch");
+	}
+
+	// initialize reusable local variables 
+	int i, j, k, c;
+
+	// initialize output
+	double dSum=0.0;
+
+	// determine state node/edge variables
+	std::vector<int> nodeVarsState;
+	std::vector<int> redgeVarsState;
+	int nComponents = m_grid.GetModel().GetEquationSet().GetComponents();
+	for (int c=0; c<nComponents; c++) {
+	  if (m_grid.GetVarLocation(c) == DataLocation_Node) {
+	    nodeVarsState.push_back(c);
+	  } else if (m_grid.GetVarLocation(c) == DataLocation_REdge) {
+	    redgeVarsState.push_back(c);
+	  } else {
+	    _EXCEPTIONT("DataLocation not implemented.");
+	  }
+	}
+
+	// set shortcuts to state variables
+	DataArray4D<double> const * pDataNodeX  = &(m_datavecStateNode[ix]);
+	DataArray4D<double> const * pDataNodeW  = &(m_datavecStateNode[iw]);
+	DataArray4D<double> const * pDataREdgeX = &(m_datavecStateREdge[ix]);
+	DataArray4D<double> const * pDataREdgeW = &(m_datavecStateREdge[iw]);
+
+	// perform operation over state nodes
+	for (c=0; c<nodeVarsState.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		double dvalue = (*pDataNodeX)[nodeVarsState[c]][k][i][j]
+                              * (*pDataNodeW)[nodeVarsState[c]][k][i][j]; 
+		dSum += dvalue * dvalue * m_dataElementArea[k][i][j];
+	      }
+	    }
+	  }
+	}
+
+	// perform operation over state edges
+	for (c=0; c<redgeVarsState.size(); c++) {
+	  for (k=0; k<=m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		double dvalue = (*pDataREdgeX)[redgeVarsState[c]][k][i][j]
+                              * (*pDataREdgeW)[redgeVarsState[c]][k][i][j];
+		dSum += dvalue * dvalue * m_dataElementAreaREdge[k][i][j];
+	      }
+	    }
+	  }
+	}
+
+	// determine tracer node variables
+	std::vector<int> nodeVarsTracers;
+	int nTracers = m_grid.GetModel().GetEquationSet().GetTracers();
+	for (int c=0; c<nTracers; c++) {
+	  nodeVarsTracers.push_back(c);
+	}
+
+	// set shortcuts to tracer variables
+	DataArray4D<double> const * pDataTracersX = &(m_datavecTracers[ix]);
+	DataArray4D<double> const * pDataTracersW = &(m_datavecTracers[iw]);
+
+	// perform operation over Tracer nodes
+	for (c=0; c<nodeVarsTracers.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		double dvalue = (*pDataTracersX)[nodeVarsTracers[c]][k][i][j]
+                              * (*pDataTracersW)[nodeVarsTracers[c]][k][i][j]; 
+		dSum += dvalue * dvalue * m_dataElementArea[k][i][j];
+	      }
+	    }
+	  }
+	}
+
+	return dSum;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+double GridPatch::MaximumNormData(
+	int ix
+) const {
+
+	// Check that GridPatch has been initialized
+	if (!m_fContainsData) {
+	  _EXCEPTIONT("MaximumNormData called on uninitialized GridPatch");
+	}
+
+	// initialize reusable local variables 
+	int i, j, k, c;
+
+	// initialize output
+	double dMax = 0.0;
+
+	// determine state node/edge variables
+	std::vector<int> nodeVarsState;
+	std::vector<int> redgeVarsState;
+	int nComponents = m_grid.GetModel().GetEquationSet().GetComponents();
+	for (int c=0; c<nComponents; c++) {
+	  if (m_grid.GetVarLocation(c) == DataLocation_Node) {
+	    nodeVarsState.push_back(c);
+	  } else if (m_grid.GetVarLocation(c) == DataLocation_REdge) {
+	    redgeVarsState.push_back(c);
+	  } else {
+	    _EXCEPTIONT("DataLocation not implemented.");
+	  }
+	}
+
+	// set shortcuts to state variables
+	DataArray4D<double> const * pDataNode  = &(m_datavecStateNode[ix]);
+	DataArray4D<double> const * pDataREdge = &(m_datavecStateREdge[ix]);
+
+	// perform operation over state nodes
+	for (c=0; c<nodeVarsState.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		dMax = std::max(dMax, fabs((*pDataNode)[nodeVarsState[c]][k][i][j])); 
+	      }
+	    }
+	  }
+	}
+
+	// perform operation over state edges
+	for (c=0; c<redgeVarsState.size(); c++) {
+	  for (k=0; k<=m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		dMax = std::max(dMax, fabs((*pDataREdge)[redgeVarsState[c]][k][i][j]));
+	      }
+	    }
+	  }
+	}
+
+	// determine tracer node variables
+	std::vector<int> nodeVarsTracers;
+	int nTracers = m_grid.GetModel().GetEquationSet().GetTracers();
+	for (int c=0; c<nTracers; c++) {
+	  nodeVarsTracers.push_back(c);
+	}
+
+	// set shortcuts to tracer variables
+	DataArray4D<double> const * pDataTracers = &(m_datavecTracers[ix]);
+
+	// perform operation over Tracer nodes
+	for (c=0; c<nodeVarsTracers.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		dMax = std::max(dMax, fabs((*pDataTracers)[nodeVarsTracers[c]][k][i][j])); 
+	      }
+	    }
+	  }
+	}
+
+	return dMax;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
