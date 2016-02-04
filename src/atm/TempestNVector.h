@@ -67,8 +67,9 @@ extern "C" {
 ///// Part II -- NVector data structure /////
 
 struct _N_VectorContent_Tempest {
-  int mVectorIndex = -1;      // index into registry
-  Grid * mGrid = NULL;        // pointer to main Grid object
+  _N_VectorContent_Tempest() : mVectorIndex(-1), mGrid(NULL) {}
+  int mVectorIndex;      // index into registry
+  Grid * mGrid;          // pointer to main Grid object
 };
 
 typedef struct _N_VectorContent_Tempest *N_VectorContent_Tempest;
