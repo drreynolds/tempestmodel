@@ -24,6 +24,7 @@
 // require SUNDIALS for compilation
 #ifdef USE_SUNDIALS
 
+#include "Model.h"
 #include "Grid.h"
 
 
@@ -67,9 +68,10 @@ extern "C" {
 ///// Part II -- NVector data structure /////
 
 struct _N_VectorContent_Tempest {
-  _N_VectorContent_Tempest() : mVectorIndex(-1), mGrid(NULL) {}
+  _N_VectorContent_Tempest() : mVectorIndex(-1), mGrid(NULL), mModel(NULL) {}
   int mVectorIndex;      // index into registry
   Grid * mGrid;          // pointer to main Grid object
+  Model * mModel;        // pointer to Tempest Model
 };
 
 typedef struct _N_VectorContent_Tempest *N_VectorContent_Tempest;
@@ -79,11 +81,12 @@ typedef struct _N_VectorContent_Tempest *N_VectorContent_Tempest;
 
 // N_VNew_Tempest
 // This function creates a new TempestNVector by locking a vector from the registry
-N_Vector N_VNew_Tempest(Grid & grid);
+N_Vector N_VNew_Tempest(Grid & grid, Model & model);
 
 #define NV_CONTENT_TEMPEST(v) ( (N_VectorContent_Tempest)(v->content) )
 #define NV_GRID_TEMPEST(v) ( NV_CONTENT_TEMPEST(v)->mGrid )
 #define NV_INDEX_TEMPEST(v) ( NV_CONTENT_TEMPEST(v)->mVectorIndex )
+#define NV_MODEL_TEMPEST(v) ( NV_CONTENT_TEMPEST(v)->mModel )
 
 
 ///// Part IV -- Required vector operations on a TempestNVector /////

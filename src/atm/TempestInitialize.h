@@ -26,6 +26,7 @@
 #include "TimestepSchemeARS343.h"
 #include "TimestepSchemeARS443.h"
 #include "TimestepSchemeSplitExp.h"
+#include "TimestepSchemeARKode.h"
 #include "HorizontalDynamicsStub.h"
 #include "HorizontalDynamicsFEM.h"
 #include "HorizontalDynamicsDG.h"
@@ -217,6 +218,12 @@ void _TempestSetupMethodOfLines(
         } else if (vars.strTimestepScheme == "spex") {
 		model.SetTimestepScheme(
 			new TimestepSchemeSplitExp(model));
+
+#ifdef USE_SUNDIALS
+	} else if (vars.strTimestepScheme == "ARKode") {
+		model.SetTimestepScheme(
+			new TimestepSchemeARKode(model));
+#endif
 
 	} else {
 		_EXCEPTIONT("Invalid timescheme: Expected "

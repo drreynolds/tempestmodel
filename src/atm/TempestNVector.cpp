@@ -36,7 +36,7 @@ bool TempestNVectorRegistry[MAX_TEMPEST_NVECTORS];   // global bool arrays initi
 ////////////////////// Exported Functions /////////////////////////
 
 // Function to create a new TempestNVector
-N_Vector N_VNew_Tempest(Grid & grid) {
+N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
 
   N_Vector v;
   N_Vector_Ops ops;
@@ -108,6 +108,9 @@ N_Vector N_VNew_Tempest(Grid & grid) {
   // store reference to Grid object
   content->mGrid = &grid;
 
+  // store reference to Model object
+  content->mModel = &model;
+
   // Attach content and ops to generic N_Vector
   v->content = content;
   v->ops     = ops;
@@ -132,8 +135,15 @@ N_Vector N_VClone_Tempest(N_Vector w) {
   grid = NV_GRID_TEMPEST(w);
   if (grid == NULL) return(NULL);
 
+  // initialize Model pointer to NULL
+  Model * model = NULL;
+
+  // attempt access to w's mModel object
+  model = NV_MODEL_TEMPEST(w);
+  if (model == NULL) return(NULL);
+
   // Create vector and return
-  v = N_VNew_Tempest(*grid);
+  v = N_VNew_Tempest(*grid, *model);
 
   return(v);
 }
