@@ -7,9 +7,6 @@ LIBNAME= libhardcoreatm
 # Compile with BLAS libraries
 USEBLAS= true
 
-# Compile with SUNDIALS libraries
-USE_SUNDIALS= true
-
 # Load system-specific defaults
 include $(TEMPESTBASEDIR)/mk/Make.defs
 

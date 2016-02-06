@@ -11,6 +11,7 @@ PETSC_INCLUDEDIR= /usr/local/petsc-dev/include
 PETSC_LIBDIR= /usr/local/petsc-dev/lib
 
 # SUNDIALS directory
+USE_SUNDIALS= true
 SUNDIALS_INCLUDEDIR= /home/dreynolds/research/ARKode/install_opt/include
 SUNDIALS_LIBDIR= /home/dreynolds/research/ARKode/install_opt/lib
 

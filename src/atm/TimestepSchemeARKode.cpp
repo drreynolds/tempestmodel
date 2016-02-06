@@ -20,11 +20,15 @@
 // require SUNDIALS for compilation
 #ifdef USE_SUNDIALS
 
+#pragma message "Under Development"
+
 #include "TimestepSchemeARKode.h"
 #include "Model.h"
 #include "Grid.h"
 #include "HorizontalDynamics.h"
 #include "VerticalDynamics.h"
+
+void * TimestepSchemeARKode::ARKodeMem = NULL;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -175,6 +179,8 @@ static int ARKodeExplicitRHS(
 
   // Compute explicit RHS
   pHorizontalDynamics->StepExplicit(iY, iYdot, timeT, 1.0);
+
+  return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -210,6 +216,8 @@ static int ARKodeImplicitRHS(
 
   // Compute explicit RHS
   pVerticalDynamics->StepImplicitTermsExplicitly(iY, iYdot, timeT, 1.0);
+
+  return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
