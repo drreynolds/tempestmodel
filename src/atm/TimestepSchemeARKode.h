@@ -34,6 +34,13 @@ class Time;
 
 ///////////////////////////////////////////////////////////////////////////////
 
+struct ARKodeCommandLineVariables {
+  double rtol;
+  double atol;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
 ///	<summary>
 ///		Time stepping methods provided by the ARKode library.
 ///	</summary>
@@ -44,7 +51,8 @@ public:
 	///		Constructor.
 	///	</summary>
 	TimestepSchemeARKode(
-		Model & model
+		Model & model,
+		ARKodeCommandLineVariables & ARKodeVars
 	);
 
 private:
@@ -58,16 +66,16 @@ public:
 	///		Get the number of component data instances.
 	///	</summary>
 	virtual int GetComponentDataInstances() const {
-	        _EXCEPTIONT("Not implemented");		
-		//return 7;
+#pragma message "Need to update with value from ARKode"
+		return 50;
 	}
 
 	///	<summary>
 	///		Get the number of tracer data instances.
 	///	</summary>
 	virtual int GetTracerDataInstances() const {
-		_EXCEPTIONT("Not implemented");
-		//return 7;
+#pragma message "Need to update with value from ARKode"
+		return 50;
 	}
 
 protected:
@@ -92,6 +100,15 @@ private:
 	///	</summary>
 	N_Vector m_Y;
 
+	///	<summary>
+	///		ARKode absolute tolerance.
+	///	</summary>
+	double m_dAbsTol;
+
+	///	<summary>
+	///		ARKode relative tolerance.
+	///	</summary>
+	double m_dRelTol;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

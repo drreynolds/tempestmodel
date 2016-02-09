@@ -1156,10 +1156,10 @@ void GridPatch::CopyData(
 	// Copy over State data
 	if (eDataType == DataType_State) {
 		if ((ixSource < 0) || (ixSource >= m_datavecStateNode.size())) {
-			_EXCEPTIONT("Invalid ixSource index in CopyData.");
+		        _EXCEPTION1("Invalid ixSource index in CopyData, ixSource = %i",ixSource);
 		}
 		if ((ixDest < 0) || (ixDest >= m_datavecStateNode.size())) {
-			_EXCEPTIONT("Invalid ixDest index in CopyData.");
+		        _EXCEPTION1("Invalid ixDest index in CopyData, ixDest = %i",ixDest);
 		}
 
 		m_datavecStateNode[ixDest]  = m_datavecStateNode[ixSource];
@@ -1168,10 +1168,10 @@ void GridPatch::CopyData(
 	// Copy over Tracers data
 	} else if (eDataType == DataType_Tracers) {
 		if ((ixSource < 0) || (ixSource >= m_datavecTracers.size())) {
-			_EXCEPTIONT("Invalid ixSource index in CopyData.");
+		        _EXCEPTION1("Invalid ixSource index in CopyData, ixSource = %i",ixSource);
 		}
 		if ((ixDest < 0) || (ixDest >= m_datavecTracers.size())) {
-			_EXCEPTIONT("Invalid ixDest index in CopyData.");
+		        _EXCEPTION1("Invalid ixDest index in CopyData, ixDest = %i",ixDest);
 		}
 
 		m_datavecTracers[ixDest] = m_datavecTracers[ixSource];

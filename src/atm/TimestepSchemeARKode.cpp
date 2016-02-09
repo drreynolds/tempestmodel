@@ -20,8 +20,6 @@
 // require SUNDIALS for compilation
 #ifdef USE_SUNDIALS
 
-#pragma message "Under Development"
-
 #include "TimestepSchemeARKode.h"
 #include "Model.h"
 #include "Grid.h"
@@ -33,14 +31,22 @@ void * TimestepSchemeARKode::ARKodeMem = NULL;
 ///////////////////////////////////////////////////////////////////////////////
 
 TimestepSchemeARKode::TimestepSchemeARKode(
-        Model & model
+        Model & model,
+	ARKodeCommandLineVariables & ARKodeVars
 ) :
-  TimestepScheme(model)
+        TimestepScheme(model)
 {
-  // Allocate ARKode memory
-  ARKodeMem = ARKodeCreate();
+        // Allocate ARKode memory
+        ARKodeMem = ARKodeCreate();
 
-  if (ARKodeMem == NULL) _EXCEPTIONT("ERROR: ARKodeCreate returned NULL");		
+	if (ARKodeMem == NULL)
+	  _EXCEPTIONT("ERROR: ARKodeCreate returned NULL");		
+
+	// Copy ARKode parameters
+	m_dRelTol = ARKodeVars.rtol;
+	m_dAbsTol = ARKodeVars.atol;
+
+	std::cout << m_dRelTol << m_dAbsTol;
 }
 					  
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,6 +79,13 @@ void TimestepSchemeARKode::Initialize() {
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeInit, ierr = %i",ierr);		
 
+  // Set diagnostics output file
+  FILE * pFile = stdout;
+  
+  ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
+
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);		
+
   // Set fixed step size in seconds
   Time timeDeltaT = m_model.GetDeltaT();
   double dDeltaT  = timeDeltaT.GetSeconds();
@@ -82,10 +95,7 @@ void TimestepSchemeARKode::Initialize() {
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
   
   // Specify tolerance
-  double reltol = 1.0;
-  double abstol = 1.0;
-
-  ierr = ARKodeSStolerances(ARKodeMem, reltol, abstol);   // Specify tolerances
+  ierr = ARKodeSStolerances(ARKodeMem, m_dRelTol, m_dAbsTol);
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSStolerances, ierr = %i",ierr);
 
@@ -140,6 +150,9 @@ void TimestepSchemeARKode::Step(
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);		
 
+  pGrid->PostProcessSubstage(iY, DataType_State);
+  pGrid->PostProcessSubstage(iY, DataType_Tracers);
+
   // Copy new state into current state position
   pGrid->CopyData(iY, 0, DataType_State);
   pGrid->CopyData(iY, 0, DataType_Tracers);
@@ -155,8 +168,8 @@ static int ARKodeExplicitRHS(
 	void * user_data
 ) {
 
-  // NEED TO CONVERT REALTYPE TIME TO TIME TIMET
-  Time timeT;
+  // model time
+  Time timeT = Time(0,0,0,time,0);
 
   // index of input data in registry
   int iY = NV_INDEX_TEMPEST(Y);
@@ -180,6 +193,9 @@ static int ARKodeExplicitRHS(
   // Compute explicit RHS
   pHorizontalDynamics->StepExplicit(iY, iYdot, timeT, 1.0);
 
+  pGrid->PostProcessSubstage(iYdot, DataType_State);
+  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
+
   return 0;
 }
 
@@ -191,9 +207,9 @@ static int ARKodeImplicitRHS(
 	N_Vector Ydot, 
 	void *user_data
 ) {
-
-  // NEED TO CONVERT REALTYPE TIME TO TIME TIMET
-  Time timeT;
+ 
+  // model time
+  Time timeT = Time(0,0,0,time,0);
 
   // index of input data in registry
   int iY = NV_INDEX_TEMPEST(Y);
@@ -214,8 +230,11 @@ static int ARKodeImplicitRHS(
   pGrid->ZeroData(iYdot, DataType_State);
   pGrid->ZeroData(iYdot, DataType_Tracers);
 
-  // Compute explicit RHS
+  // Compute implicit RHS
   pVerticalDynamics->StepImplicitTermsExplicitly(iY, iYdot, timeT, 1.0);
+
+  pGrid->PostProcessSubstage(iYdot, DataType_State);
+  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
 
   return 0;
 }

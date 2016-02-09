@@ -87,6 +87,10 @@ struct _TempestCommandLineVariables {
 	int nLevels;
 	int nHorizontalOrder;
 	int nVerticalOrder;
+#ifdef USE_SUNDIALS
+	double dARKode_rtol;
+	double dARKode_atol;
+#endif
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -117,7 +121,9 @@ struct _TempestCommandLineVariables {
 	CommandLineString(_tempestvars.strVerticalStretch, "vstretch", "uniform"); \
 	CommandLineInt(_tempestvars.nVerticalHyperdiffOrder, "vhypervisorder", 0); \
 	CommandLineString(_tempestvars.strTimestepScheme, "timescheme", "strang"); \
-	CommandLineStringD(_tempestvars.strHorizontalDynamics, "method", "SE", "(SE | DG)");
+	CommandLineStringD(_tempestvars.strHorizontalDynamics, "method", "SE", "(SE | DG)"); \
+	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-3); \
+	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-15);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -220,9 +226,14 @@ void _TempestSetupMethodOfLines(
 			new TimestepSchemeSplitExp(model));
 
 #ifdef USE_SUNDIALS
-	} else if (vars.strTimestepScheme == "ARKode") {
+	} else if (vars.strTimestepScheme == "arkode") {
+ 	        ARKodeCommandLineVariables ARKodeVars;
+		
+		ARKodeVars.rtol = vars.dARKode_rtol;
+		ARKodeVars.atol = vars.dARKode_atol;
+
 		model.SetTimestepScheme(
-			new TimestepSchemeARKode(model));
+			new TimestepSchemeARKode(model, ARKodeVars));
 #endif
 
 	} else {

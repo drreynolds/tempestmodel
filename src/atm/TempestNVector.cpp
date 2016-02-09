@@ -96,6 +96,7 @@ N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
       content->mVectorIndex = i;
       TempestNVectorRegistry[i] = true;
       successful=true;
+      break;
     }
   }
   if (!successful) {
