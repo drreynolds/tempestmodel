@@ -35,6 +35,7 @@ class Time;
 ///////////////////////////////////////////////////////////////////////////////
 
 struct ARKodeCommandLineVariables {
+  int    nvectors;
   double rtol;
   double atol;
 };
@@ -66,16 +67,14 @@ public:
 	///		Get the number of component data instances.
 	///	</summary>
 	virtual int GetComponentDataInstances() const {
-#pragma message "Need to update with value from ARKode"
-		return 50;
+		return m_iNVectors;
 	}
 
 	///	<summary>
 	///		Get the number of tracer data instances.
 	///	</summary>
 	virtual int GetTracerDataInstances() const {
-#pragma message "Need to update with value from ARKode"
-		return 50;
+		return m_iNVectors;
 	}
 
 protected:
@@ -99,6 +98,11 @@ private:
 	///		Tempest NVector state vector.
 	///	</summary>
 	N_Vector m_Y;
+
+	///	<summary>
+	///		Number of NVectors.
+	///	</summary>
+	double m_iNVectors;
 
 	///	<summary>
 	///		ARKode absolute tolerance.

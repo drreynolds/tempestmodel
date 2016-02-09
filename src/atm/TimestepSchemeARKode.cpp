@@ -20,11 +20,14 @@
 // require SUNDIALS for compilation
 #ifdef USE_SUNDIALS
 
+#define DEBUG_PRINT_ON
+
 #include "TimestepSchemeARKode.h"
 #include "Model.h"
 #include "Grid.h"
 #include "HorizontalDynamics.h"
 #include "VerticalDynamics.h"
+#include "Announce.h"
 
 void * TimestepSchemeARKode::ARKodeMem = NULL;
 
@@ -34,25 +37,24 @@ TimestepSchemeARKode::TimestepSchemeARKode(
         Model & model,
 	ARKodeCommandLineVariables & ARKodeVars
 ) :
-        TimestepScheme(model)
+        TimestepScheme(model),
+	m_iNVectors(ARKodeVars.nvectors),
+	m_dRelTol(ARKodeVars.rtol),
+	m_dAbsTol(ARKodeVars.atol)
 {
         // Allocate ARKode memory
         ARKodeMem = ARKodeCreate();
 
 	if (ARKodeMem == NULL)
 	  _EXCEPTIONT("ERROR: ARKodeCreate returned NULL");		
-
-	// Copy ARKode parameters
-	m_dRelTol = ARKodeVars.rtol;
-	m_dAbsTol = ARKodeVars.atol;
-
-	std::cout << m_dRelTol << m_dAbsTol;
 }
 					  
 ///////////////////////////////////////////////////////////////////////////////
 
 void TimestepSchemeARKode::Initialize() {
   
+  AnnounceStartBlock("Initializeing ARKode");
+
   // error flag
   int ierr = 0;
 
@@ -80,11 +82,9 @@ void TimestepSchemeARKode::Initialize() {
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeInit, ierr = %i",ierr);		
 
   // Set diagnostics output file
-  FILE * pFile = stdout;
-  
-  ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
-
-  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);		
+  // FILE * pFile = stdout; 
+  // ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
+  // if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);
 
   // Set fixed step size in seconds
   Time timeDeltaT = m_model.GetDeltaT();
@@ -105,6 +105,8 @@ void TimestepSchemeARKode::Initialize() {
   ierr = ARKSpgmr(ARKodeMem, PREC_NONE, 0);
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
+
+  AnnounceEndBlock("Done");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -115,6 +117,10 @@ void TimestepSchemeARKode::Step(
 	const Time & time,
 	double dDeltaT
 ) {
+
+#ifdef DEBUG_PRINT_ON
+  AnnounceStartBlock("ARKode Step");
+#endif
 
   // error flag
   int ierr = 0;
@@ -157,6 +163,9 @@ void TimestepSchemeARKode::Step(
   pGrid->CopyData(iY, 0, DataType_State);
   pGrid->CopyData(iY, 0, DataType_Tracers);
 
+#ifdef DEBUG_PRINT_ON
+  AnnounceEndBlock("Done");
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -167,6 +176,10 @@ static int ARKodeExplicitRHS(
 	N_Vector Ydot, 
 	void * user_data
 ) {
+
+#ifdef DEBUG_PRINT_ON
+  AnnounceStartBlock("Explicit RHS");
+#endif
 
   // model time
   Time timeT = Time(0,0,0,time,0);
@@ -196,6 +209,10 @@ static int ARKodeExplicitRHS(
   pGrid->PostProcessSubstage(iYdot, DataType_State);
   pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
 
+#ifdef DEBUG_PRINT_ON
+  AnnounceEndBlock("Done");
+#endif
+
   return 0;
 }
 
@@ -208,6 +225,10 @@ static int ARKodeImplicitRHS(
 	void *user_data
 ) {
  
+#ifdef DEBUG_PRINT_ON
+  AnnounceStartBlock("Implicit RHS");
+#endif
+
   // model time
   Time timeT = Time(0,0,0,time,0);
 
@@ -235,6 +256,10 @@ static int ARKodeImplicitRHS(
 
   pGrid->PostProcessSubstage(iYdot, DataType_State);
   pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
+
+#ifdef DEBUG_PRINT_ON
+  AnnounceEndBlock("Done");
+#endif
 
   return 0;
 }
