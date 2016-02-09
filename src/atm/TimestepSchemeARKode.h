@@ -40,6 +40,9 @@ struct ARKodeCommandLineVariables {
   double atol;
   bool   FullyExplicit;
   bool   AAFP;
+  int    AAFPAccelVec;
+  int    NonlinIters;
+  int    LinIters;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -104,7 +107,7 @@ private:
 	///	<summary>
 	///		Number of NVectors.
 	///	</summary>
-	double m_iNVectors;
+	int m_iNVectors;
 
 	///	<summary>
 	///		ARKode absolute tolerance.
@@ -125,6 +128,21 @@ private:
 	///		ARKode flag for Anderson accelerated fixed point solver (AAFP).
 	///	</summary>
 	bool m_fAAFP;
+
+	///	<summary>
+	///		Max number of nonlinear iterations.
+	///	</summary>
+	int m_iAAFPAccelVec;
+
+	///	<summary>
+	///		Max number of nonlinear iterations.
+	///	</summary>
+	int m_iNonlinIters;
+
+	///	<summary>
+	///		Max number of linear iterations.
+	///	</summary>
+	int m_iLinIters;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

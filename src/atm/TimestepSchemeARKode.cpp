@@ -42,7 +42,10 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_dRelTol(ARKodeVars.rtol),
 	m_dAbsTol(ARKodeVars.atol),
 	m_fFullyExplicit(ARKodeVars.FullyExplicit),
-	m_fAAFP(ARKodeVars.AAFP)
+	m_fAAFP(ARKodeVars.AAFP),
+	m_iAAFPAccelVec(ARKodeVars.AAFPAccelVec),
+	m_iNonlinIters(ARKodeVars.NonlinIters),
+	m_iLinIters(ARKodeVars.LinIters)
 {
         // Allocate ARKode memory
         ARKodeMem = ARKodeCreate();
@@ -102,26 +105,27 @@ void TimestepSchemeARKode::Initialize() {
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSStolerances, ierr = %i",ierr);
 
+  // Nonlinear Solver Settings
   if (!m_fFullyExplicit) 
     {
-      // Nonlinear Solver Settings
-      if (m_fAAFP) // Using Anderson accelerated fixed point solver
+      if (m_fAAFP) // Anderson accelerated fixed point solver
 	{
-	  ierr = ARKodeSetFixedPoint(ARKodeMem, 9);
+	  ierr = ARKodeSetFixedPoint(ARKodeMem, m_iAAFPAccelVec);
 
 	  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedPoint, ierr = %i",ierr);
-
-	  ierr = ARKodeSetMaxNonlinIters(ARKodeMem, 10);
-
-	  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
 	}
-      else // Using Newton iteration
+      else // Newton iteration
 	{
 	  // Linear Solver Settings
-	  ierr = ARKSpgmr(ARKodeMem, PREC_NONE, 0);
+	  ierr = ARKSpgmr(ARKodeMem, PREC_NONE, m_iLinIters);
 	  
 	  if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
 	}
+
+      // Max nonlinear solver iterations
+      ierr = ARKodeSetMaxNonlinIters(ARKodeMem, m_iNonlinIters);
+      
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
     }
       
   AnnounceEndBlock("Done");

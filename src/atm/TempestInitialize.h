@@ -92,6 +92,9 @@ struct _TempestCommandLineVariables {
 	double dARKode_rtol;
 	double dARKode_atol;
 	bool fARKode_aafp;       
+        int iARKode_AAFPAccelVec;
+        int iARKode_NonlinIters;
+        int iARKode_LinIters;
 #endif
 };
 
@@ -127,7 +130,10 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.iARKode_nvectors, "arkode_nvectors", 50); \
 	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-3); \
 	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-15); \
-	CommandLineBool(_tempestvars.fARKode_aafp, "arkode_aafp"); 
+	CommandLineBool(_tempestvars.fARKode_aafp, "arkode_aafp"); \
+	CommandLineInt(_tempestvars.iARKode_AAFPAccelVec, "arkode_aafpaccelvec", 0); \
+	CommandLineInt(_tempestvars.iARKode_NonlinIters, "arkode_nonliniters", 0); \
+	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -238,6 +244,9 @@ void _TempestSetupMethodOfLines(
 		ARKodeVars.atol          = vars.dARKode_atol;
 		ARKodeVars.FullyExplicit = vars.fExplicitVertical;
 		ARKodeVars.AAFP          = vars.fARKode_aafp;
+		ARKodeVars.AAFPAccelVec  = vars.iARKode_AAFPAccelVec;
+		ARKodeVars.NonlinIters   = vars.iARKode_NonlinIters;
+		ARKodeVars.LinIters      = vars.iARKode_LinIters;
 
 		model.SetTimestepScheme(
 			new TimestepSchemeARKode(model, ARKodeVars));
