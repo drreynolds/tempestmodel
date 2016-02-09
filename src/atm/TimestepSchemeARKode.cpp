@@ -40,7 +40,9 @@ TimestepSchemeARKode::TimestepSchemeARKode(
         TimestepScheme(model),
 	m_iNVectors(ARKodeVars.nvectors),
 	m_dRelTol(ARKodeVars.rtol),
-	m_dAbsTol(ARKodeVars.atol)
+	m_dAbsTol(ARKodeVars.atol),
+	m_fFullyExplicit(ARKodeVars.FullyExplicit),
+	m_fAAFP(ARKodeVars.AAFP)
 {
         // Allocate ARKode memory
         ARKodeMem = ARKodeCreate();
@@ -61,23 +63,24 @@ void TimestepSchemeARKode::Initialize() {
   // Get a copy of the grid
   Grid * pGrid = m_model.GetGrid();
 
-  // Create a Tempest NVector for the model state
+  // Create a Tempest NVector for the model state (grid index 0)
   m_Y = N_VNew_Tempest(*pGrid, m_model);
 
   if (m_Y == NULL) _EXCEPTIONT("ERROR: N_VNew_Tempest returned NULL");
 
-  // Copy initial condition into current state vector
-  int iY = NV_INDEX_TEMPEST(m_Y);
-
-  pGrid->CopyData(0, iY, DataType_State);
-  pGrid->CopyData(0, iY, DataType_Tracers);
- 
   // Get current simulation time in seconds
   Time timeCurrentT = m_model.GetCurrentTime();
   double dCurrentT  = timeCurrentT.GetSeconds();
 
   // Initialize ARKode
-  ierr = ARKodeInit(ARKodeMem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
+  if (m_fFullyExplicit) 
+    {
+      ierr = ARKodeInit(ARKodeMem, ARKodeFullyExplicitRHS, NULL, dCurrentT, m_Y);
+    } 
+  else 
+    {
+      ierr = ARKodeInit(ARKodeMem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
+    }
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeInit, ierr = %i",ierr);		
 
@@ -94,18 +97,33 @@ void TimestepSchemeARKode::Initialize() {
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
   
-  // Specify tolerance
+  // Specify tolerances
   ierr = ARKodeSStolerances(ARKodeMem, m_dRelTol, m_dAbsTol);
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSStolerances, ierr = %i",ierr);
 
-  // Nonlinear Solver Settings
+  if (!m_fFullyExplicit) 
+    {
+      // Nonlinear Solver Settings
+      if (m_fAAFP) // Using Anderson accelerated fixed point solver
+	{
+	  ierr = ARKodeSetFixedPoint(ARKodeMem, 9);
 
-  // Linear Solver Settings
-  ierr = ARKSpgmr(ARKodeMem, PREC_NONE, 0);
+	  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedPoint, ierr = %i",ierr);
 
-  if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
+	  ierr = ARKodeSetMaxNonlinIters(ARKodeMem, 10);
 
+	  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
+	}
+      else // Using Newton iteration
+	{
+	  // Linear Solver Settings
+	  ierr = ARKSpgmr(ARKodeMem, PREC_NONE, 0);
+	  
+	  if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
+	}
+    }
+      
   AnnounceEndBlock("Done");
 }
 
@@ -135,12 +153,6 @@ void TimestepSchemeARKode::Step(
   // Get a copy of the grid
   Grid * pGrid = m_model.GetGrid();
 
-  // Copy current state in Tempest NVector
-  int iY = NV_INDEX_TEMPEST(m_Y);
-
-  pGrid->CopyData(0, iY, DataType_State);
-  pGrid->CopyData(0, iY, DataType_Tracers);
-
   // Get current and next time values in seconds
   Time timeCurrentT = m_model.GetCurrentTime();
   double dCurrentT  = timeCurrentT.GetSeconds();
@@ -149,19 +161,18 @@ void TimestepSchemeARKode::Step(
   Time timeDeltaT = m_model.GetDeltaT();
   timeNextT += timeDeltaT;
 
-  double dNextT  = timeNextT.GetSeconds();
-  
+  double dNextT = timeNextT.GetSeconds();
+ 
   // ARKode timestep
   ierr = ARKode(ARKodeMem, dNextT, m_Y, &dCurrentT, ARK_ONE_STEP);
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);		
 
+  // Copy current state in Tempest NVector
+  int iY = NV_INDEX_TEMPEST(m_Y);
+
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
-
-  // Copy new state into current state position
-  pGrid->CopyData(iY, 0, DataType_State);
-  pGrid->CopyData(iY, 0, DataType_Tracers);
 
 #ifdef DEBUG_PRINT_ON
   AnnounceEndBlock("Done");
@@ -253,6 +264,59 @@ static int ARKodeImplicitRHS(
 
   // Compute implicit RHS
   pVerticalDynamics->StepImplicitTermsExplicitly(iY, iYdot, timeT, 1.0);
+
+  pGrid->PostProcessSubstage(iYdot, DataType_State);
+  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
+
+#ifdef DEBUG_PRINT_ON
+  AnnounceEndBlock("Done");
+#endif
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+static int ARKodeFullyExplicitRHS(
+	realtype time, 
+	N_Vector Y, 
+	N_Vector Ydot, 
+	void * user_data
+) {
+
+#ifdef DEBUG_PRINT_ON
+  AnnounceStartBlock("Fully Explicit RHS");
+#endif
+
+  // model time
+  Time timeT = Time(0,0,0,time,0);
+
+  // index of input data in registry
+  int iY = NV_INDEX_TEMPEST(Y);
+
+  // index of output data in registry
+  int iYdot = NV_INDEX_TEMPEST(Ydot);
+
+  // Get a copy of the grid
+  Grid * pGrid = NV_GRID_TEMPEST(Y);
+
+  // Get a copy of the model
+  Model * pModel = NV_MODEL_TEMPEST(Y);
+
+  // Get a copy of the HorizontalDynamics
+  HorizontalDynamics * pHorizontalDynamics = pModel->GetHorizontalDynamics();
+
+  // Get a copy of the VerticalDynamics
+  VerticalDynamics * pVerticalDynamics = pModel->GetVerticalDynamics();
+
+  // zero out iYdot
+  pGrid->ZeroData(iYdot, DataType_State);
+  pGrid->ZeroData(iYdot, DataType_Tracers);
+
+  // Compute fully explicit RHS
+  pHorizontalDynamics->StepExplicit(iY, iYdot, timeT, 1.0);
+
+  pVerticalDynamics->StepExplicit(iY, iYdot, timeT, 1.0);
 
   pGrid->PostProcessSubstage(iYdot, DataType_State);
   pGrid->PostProcessSubstage(iYdot, DataType_Tracers);

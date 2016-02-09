@@ -91,6 +91,7 @@ struct _TempestCommandLineVariables {
         int iARKode_nvectors;
 	double dARKode_rtol;
 	double dARKode_atol;
+	bool fARKode_aafp;       
 #endif
 };
 
@@ -125,7 +126,8 @@ struct _TempestCommandLineVariables {
 	CommandLineStringD(_tempestvars.strHorizontalDynamics, "method", "SE", "(SE | DG)"); \
 	CommandLineInt(_tempestvars.iARKode_nvectors, "arkode_nvectors", 50); \
 	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-3); \
-	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-15);
+	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-15); \
+	CommandLineBool(_tempestvars.fARKode_aafp, "arkode_aafp"); 
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -231,9 +233,11 @@ void _TempestSetupMethodOfLines(
 	} else if (vars.strTimestepScheme == "arkode") {
  	        ARKodeCommandLineVariables ARKodeVars;
 		
-		ARKodeVars.nvectors = vars.iARKode_nvectors;
-		ARKodeVars.rtol     = vars.dARKode_rtol;
-		ARKodeVars.atol     = vars.dARKode_atol;
+		ARKodeVars.nvectors      = vars.iARKode_nvectors;
+		ARKodeVars.rtol          = vars.dARKode_rtol;
+		ARKodeVars.atol          = vars.dARKode_atol;
+		ARKodeVars.FullyExplicit = vars.fExplicitVertical;
+		ARKodeVars.AAFP          = vars.fARKode_aafp;
 
 		model.SetTimestepScheme(
 			new TimestepSchemeARKode(model, ARKodeVars));

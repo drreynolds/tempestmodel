@@ -38,6 +38,8 @@ struct ARKodeCommandLineVariables {
   int    nvectors;
   double rtol;
   double atol;
+  bool   FullyExplicit;
+  bool   AAFP;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -113,6 +115,16 @@ private:
 	///		ARKode relative tolerance.
 	///	</summary>
 	double m_dRelTol;
+
+	///	<summary>
+	///		ARKode flag for fully explicit integration.
+	///	</summary>
+	bool m_fFullyExplicit;
+
+	///	<summary>
+	///		ARKode flag for Anderson accelerated fixed point solver (AAFP).
+	///	</summary>
+	bool m_fAAFP;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -131,6 +143,16 @@ static int ARKodeExplicitRHS(
 ///		Wrapper funciton for ARKode to compute implicit RHS.
 ///	</summary>
 static int ARKodeImplicitRHS(
+	realtype time, 
+	N_Vector Y, 
+	N_Vector Ydot, 
+	void *user_data
+);
+
+///	<summary>
+///		Wrapper funciton for ARKode to compute a Fully explicit RHS.
+///	</summary>
+static int ARKodeFullyExplicitRHS(
 	realtype time, 
 	N_Vector Y, 
 	N_Vector Ydot, 
