@@ -95,6 +95,8 @@ struct _TempestCommandLineVariables {
         int iARKode_AAFPAccelVec;
         int iARKode_NonlinIters;
         int iARKode_LinIters;
+        int iARKode_ARKodeButcherTable;
+        int iARKode_SetButcherTable;
 #endif
 };
 
@@ -133,7 +135,9 @@ struct _TempestCommandLineVariables {
 	CommandLineBool(_tempestvars.fARKode_aafp, "arkode_aafp"); \
 	CommandLineInt(_tempestvars.iARKode_AAFPAccelVec, "arkode_aafpaccelvec", 0); \
 	CommandLineInt(_tempestvars.iARKode_NonlinIters, "arkode_nonliniters", 0); \
-	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0);
+	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0); \
+	CommandLineInt(_tempestvars.iARKode_ARKodeButcherTable, "arkode_arkodebutchertable", -1); \
+	CommandLineInt(_tempestvars.iARKode_SetButcherTable, "arkode_setbutchertable", -1);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -247,6 +251,9 @@ void _TempestSetupMethodOfLines(
 		ARKodeVars.AAFPAccelVec  = vars.iARKode_AAFPAccelVec;
 		ARKodeVars.NonlinIters   = vars.iARKode_NonlinIters;
 		ARKodeVars.LinIters      = vars.iARKode_LinIters;
+
+		ARKodeVars.ARKodeButcherTable = vars.iARKode_ARKodeButcherTable;
+		ARKodeVars.SetButcherTable    = vars.iARKode_SetButcherTable;
 
 		model.SetTimestepScheme(
 			new TimestepSchemeARKode(model, ARKodeVars));

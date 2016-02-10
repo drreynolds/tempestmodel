@@ -43,6 +43,8 @@ struct ARKodeCommandLineVariables {
   int    AAFPAccelVec;
   int    NonlinIters;
   int    LinIters;
+  int    ARKodeButcherTable;
+  int    SetButcherTable;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -66,6 +68,11 @@ private:
 	///		Initializer.  Called prior to model execution.
 	///	</summary>
 	virtual void Initialize();
+
+	///	<summary>
+	///		Set user supplied Butcher table.
+	///	</summary>
+	void SetButcherTable();
 
 public:
 	///	<summary>
@@ -125,6 +132,11 @@ private:
 	bool m_fFullyExplicit;
 
 	///	<summary>
+	///		ARKode flag for fully explicit integration.
+	///	</summary>
+	bool m_fFullyImplicit;
+
+	///	<summary>
 	///		ARKode flag for Anderson accelerated fixed point solver (AAFP).
 	///	</summary>
 	bool m_fAAFP;
@@ -143,6 +155,16 @@ private:
 	///		Max number of linear iterations.
 	///	</summary>
 	int m_iLinIters;
+
+	///	<summary>
+	///		ARKode Butcher table number.
+	///	</summary>
+	int m_iARKodeButcherTable;
+
+	///	<summary>
+	///		User set Butcher table number.
+	///	</summary>
+	int m_iSetButcherTable;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -168,9 +190,9 @@ static int ARKodeImplicitRHS(
 );
 
 ///	<summary>
-///		Wrapper funciton for ARKode to compute a Fully explicit RHS.
+///		Wrapper funciton for ARKode to compute the full RHS.
 ///	</summary>
-static int ARKodeFullyExplicitRHS(
+static int ARKodeFullRHS(
 	realtype time, 
 	N_Vector Y, 
 	N_Vector Ydot, 

@@ -39,9 +39,12 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 ) :
         TimestepScheme(model),
 	m_iNVectors(ARKodeVars.nvectors),
+	m_iARKodeButcherTable(ARKodeVars.ARKodeButcherTable),
+	m_iSetButcherTable(ARKodeVars.SetButcherTable),
 	m_dRelTol(ARKodeVars.rtol),
 	m_dAbsTol(ARKodeVars.atol),
 	m_fFullyExplicit(ARKodeVars.FullyExplicit),
+	m_fFullyImplicit(false),
 	m_fAAFP(ARKodeVars.AAFP),
 	m_iAAFPAccelVec(ARKodeVars.AAFPAccelVec),
 	m_iNonlinIters(ARKodeVars.NonlinIters),
@@ -50,8 +53,11 @@ TimestepSchemeARKode::TimestepSchemeARKode(
         // Allocate ARKode memory
         ARKodeMem = ARKodeCreate();
 
-	if (ARKodeMem == NULL)
-	  _EXCEPTIONT("ERROR: ARKodeCreate returned NULL");		
+	if (ARKodeMem == NULL) _EXCEPTIONT("ERROR: ARKodeCreate returned NULL");
+
+	// Check input paramters
+	if (m_iARKodeButcherTable >= 0 && m_iSetButcherTable >= 0)
+	  _EXCEPTIONT("ERROR: ARKodeButcherTable and SetButcherTable are both >= 0.");
 }
 					  
 ///////////////////////////////////////////////////////////////////////////////
@@ -76,18 +82,48 @@ void TimestepSchemeARKode::Initialize() {
   double dCurrentT  = timeCurrentT.GetSeconds();
 
   // Initialize ARKode
-  if (m_fFullyExplicit) 
-    {
-      ierr = ARKodeInit(ARKodeMem, ARKodeFullyExplicitRHS, NULL, dCurrentT, m_Y);
-    } 
-  else 
-    {
-      ierr = ARKodeInit(ARKodeMem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
+  if (m_fFullyExplicit) {
+    ierr = ARKodeInit(ARKodeMem, ARKodeFullRHS, NULL, dCurrentT, m_Y);
+  } else if (m_fFullyImplicit) {
+    ierr = ARKodeInit(ARKodeMem, NULL, ARKodeFullRHS, dCurrentT, m_Y);
+  } else {
+    ierr = ARKodeInit(ARKodeMem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
+  }
+  
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeInit, ierr = %i",ierr);
+
+  // Select ARKode Butcher table
+  if (m_iARKodeButcherTable >= 0) {
+    if (m_fFullyExplicit) {
+      ierr = ARKodeSetERKTableNum(ARKodeMem, m_iARKodeButcherTable);
+
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+    } else if (m_fFullyImplicit) {
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, m_iARKodeButcherTable);
+
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+    } else {
+
+      if (m_iARKodeButcherTable == 2 || m_iARKodeButcherTable == 15) {
+	ierr = ARKodeSetARKTableNum(ARKodeMem, 15, 2);
+      } else if (m_iARKodeButcherTable == 4 || m_iARKodeButcherTable == 20) {
+	ierr = ARKodeSetARKTableNum(ARKodeMem, 20, 4);
+      } else if (m_iARKodeButcherTable == 9 || m_iARKodeButcherTable == 22) {
+	ierr = ARKodeSetARKTableNum(ARKodeMem, 22, 9);
+      } else {
+	ierr = ARK_ILL_INPUT;
+      }
+
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
     }
+  } 
 
-  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeInit, ierr = %i",ierr);		
+  // Set a user supplied Butcher table
+  if (m_iSetButcherTable >= 0) {  
+    SetButcherTable();
+  }  
 
-  // Set diagnostics output file
+  //Set diagnostics output file
   // FILE * pFile = stdout; 
   // ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
   // if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);
@@ -281,7 +317,7 @@ static int ARKodeImplicitRHS(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static int ARKodeFullyExplicitRHS(
+static int ARKodeFullRHS(
 	realtype time, 
 	N_Vector Y, 
 	N_Vector Ydot, 
@@ -289,7 +325,7 @@ static int ARKodeFullyExplicitRHS(
 ) {
 
 #ifdef DEBUG_PRINT_ON
-  AnnounceStartBlock("Fully Explicit RHS");
+  AnnounceStartBlock("Full RHS");
 #endif
 
   // model time
@@ -330,6 +366,91 @@ static int ARKodeFullyExplicitRHS(
 #endif
 
   return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void TimestepSchemeARKode::SetButcherTable()
+{
+  // error flag  
+  int ierr = 0;
+
+  // number of RK stages
+  int iStages;
+
+  // global order of accuracy for the method
+  int iQorder;
+
+  // global order of accuracy for the embedding
+  int iPorder;
+
+  // stage times
+  double * pc = NULL;
+
+  // A matrix for implicit method
+  double * pAi = NULL;
+
+  // A matrix for explicit method
+  double * pAe = NULL;
+
+  // b coefficient array
+  double * pb = NULL;
+
+  // b embedding array
+  double * pbembed = NULL;
+
+  if (m_fFullyExplicit) {
+    _EXCEPTIONT("ERROR: SetButcherTable() not implemented for fully explicit");
+    // ierr = ARKodeSetIRKTables(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed)
+  } else if (m_fFullyImplicit) {
+    _EXCEPTIONT("ERROR: SetButcherTable() not implemented for fully implicit");
+    // ierr = ARKodeSetIRKTables(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pb, pbembed)
+  } else {
+
+    // ARS232
+    iStages = 3;
+    iQorder = 2;
+    iPorder = 0;
+
+    pc  = new double [iStages];
+    pAi = new double [iStages * iStages];
+    pAe = new double [iStages * iStages];
+    pb  = new double [iStages];
+    pbembed = new double [iStages];
+    
+    double gamma = 1.0 - 1.0/std::sqrt(2.0);
+    double delta = -2.0 * std::sqrt(2.0) / 3.0;
+
+    pc[0] = 0.0;
+    pc[1] = gamma;
+    pc[2] = 1.0;
+
+    pAi[0] = 0.0; pAi[1] = 0.0;         pAi[2] = 0.0;
+    pAi[3] = 0.0; pAi[4] = gamma;       pAi[5] = 0.0;
+    pAi[6] = 0.0; pAi[7] = 1.0 - gamma; pAi[8] = gamma;
+
+    pAe[0] = 0.0;   pAe[1] = 0.0;         pAe[2] = 0.0;
+    pAe[3] = gamma; pAe[4] = 0.0;         pAe[5] = 0.0;
+    pAe[6] = delta; pAe[7] = 1.0 - delta; pAe[8] = 0.0;
+
+    pb[0] = 0.0;
+    pb[1] = 1.0 - gamma;
+    pb[3] = gamma;
+
+    pbembed[0] = 0.0;
+    pbembed[1] = 0.0;
+    pbembed[3] = 0.0;
+
+    ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pAe, pb, pbembed);  
+        
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
+
+    delete[] pc;
+    delete[] pAi;
+    delete[] pAe;
+    delete[] pb;
+    delete[] pbembed;
+  } 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
