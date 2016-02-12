@@ -123,18 +123,34 @@ void TimestepSchemeARKode::Initialize() {
     SetButcherTable();
   }  
 
+#ifdef DEBUG_PRINT_ON
+  // Get processor rank
+  int nRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
+
   //Set diagnostics output file
-  // FILE * pFile = stdout; 
-  // ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
-  // if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);
+  if (nRank == 0) {
+    FILE * pFile; 
+    
+    pFile = fopen("ARKode.txt","w");
+    
+    ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);
+  }
+#endif 
 
-  // Set fixed step size in seconds
+  // get time step size
   Time timeDeltaT = m_model.GetDeltaT();
-  double dDeltaT  = timeDeltaT.GetSeconds();
 
-  ierr = ARKodeSetFixedStep(ARKodeMem, dDeltaT);
+  if (!timeDeltaT.IsZero()) {
 
-  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
+    // Set fixed step size in seconds
+    double dDeltaT  = timeDeltaT.GetSeconds();
+   
+    ierr = ARKodeSetFixedStep(ARKodeMem, dDeltaT);
+    
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
+  }
   
   // Specify tolerances
   ierr = ARKodeSStolerances(ARKodeMem, m_dRelTol, m_dAbsTol);
@@ -170,7 +186,7 @@ void TimestepSchemeARKode::Initialize() {
 #ifdef NVECTOR_TESTING  
   // Call NVector "test" routine on m_Y and then halt simulation
   N_VTest_Tempest(m_Y);
-  _EXCEPTION1("Halt: NVector Testing complete",0);
+  _EXCEPTIONT("Halt: NVector Testing complete");
 #endif
 
 }

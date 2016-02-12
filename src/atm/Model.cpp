@@ -306,11 +306,13 @@ void Model::Go() {
 		_EXCEPTIONT("TestCase not specified.");
 	}
 
+#ifndef USE_SUNDIALS
 	// Check time step
 	if (m_timeDeltaT.IsZero()) {
 		_EXCEPTIONT("Dynamic timestepping not implemented. "
 		            "DeltaT must be non-zero.");
 	}
+#endif
 
 	// Evaluate geometric terms in the grid
 	// NOTE: This needs to be called after EvaluateTestCase, since it relies

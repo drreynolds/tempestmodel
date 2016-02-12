@@ -130,8 +130,8 @@ struct _TempestCommandLineVariables {
 	CommandLineString(_tempestvars.strTimestepScheme, "timescheme", "strang"); \
 	CommandLineStringD(_tempestvars.strHorizontalDynamics, "method", "SE", "(SE | DG)"); \
 	CommandLineInt(_tempestvars.iARKode_nvectors, "arkode_nvectors", 50); \
-	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-3); \
-	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-15); \
+	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-6); \
+	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-11); \
 	CommandLineBool(_tempestvars.fARKode_aafp, "arkode_aafp"); \
 	CommandLineInt(_tempestvars.iARKode_AAFPAccelVec, "arkode_aafpaccelvec", 0); \
 	CommandLineInt(_tempestvars.iARKode_NonlinIters, "arkode_nonliniters", 0); \
