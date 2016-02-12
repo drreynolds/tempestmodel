@@ -363,9 +363,10 @@ public:
 	///	<summary>
 	///		Vector root-mean-square norm for active data (all data types) with specified data indices.
 	///	</summary>
-	double WRMSNormData(
-		int ix,
-		int iw
+	void WRMSNormData(
+                int ix,
+                int iw,
+		std::vector<double> & dSum
 	) const;
 
 	///	<summary>

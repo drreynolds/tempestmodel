@@ -1764,27 +1764,34 @@ double Grid::WRMSNormData(
         int iw
 ) const {
 	// Compute local contribution to overall dot product
-	double NormLocal = 0.0;
+        std::vector<double> dSum(2, 0.0);
+        double NormLocal[2] = {0.0, 0.0};
 	for (int n = 0; n < m_vecActiveGridPatches.size(); n++) {
-                NormLocal += m_vecActiveGridPatches[n]->WRMSNormData(ix,iw);
+                m_vecActiveGridPatches[n]->WRMSNormData(ix, iw, dSum);
+		NormLocal[0] += dSum[0];
+		NormLocal[1] += dSum[1];
 	}
 
 	// Global energy
-	double NormGlobal = NormLocal;
+	double NormGlobal[2];
+	NormGlobal[0] = NormLocal[0];
+	NormGlobal[1] = NormLocal[1];
 
 #ifdef USE_MPI
 	// Reduce to obtain global energy integral
 	MPI_Allreduce(
-                &NormLocal,
-		&NormGlobal,
-		1,
+                NormLocal,
+		NormGlobal,
+		2,
 		MPI_DOUBLE,
 		MPI_SUM,
 		MPI_COMM_WORLD);
 #endif
 
-	// Return global dot product
-        return sqrt(NormGlobal);
+	// Return WRMS norm:
+	//   NormGlobal[0] holds the sum-of-squares
+	//   NormGlobal[1] holds the number of vector entries
+        return sqrt(NormGlobal[0]/NormGlobal[1]);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

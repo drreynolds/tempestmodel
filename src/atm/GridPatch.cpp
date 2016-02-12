@@ -1835,9 +1835,10 @@ double GridPatch::MinimumData(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-double GridPatch::WRMSNormData(
+void GridPatch::WRMSNormData(
 	int ix,
-	int iw
+	int iw,
+	std::vector<double> & dSum
 ) const {
 
 	// Check that GridPatch has been initialized
@@ -1848,8 +1849,13 @@ double GridPatch::WRMSNormData(
 	// initialize reusable local variables 
 	int i, j, k, c;
 
-	// initialize output
-	double dSum=0.0;
+	// initialize output (if dSum is too short, extend)
+	for (i=0; i<2; i++) {
+	  if (dSum.size() < i+1)
+	    dSum.push_back(0.0);
+	  else
+	    dSum[i] = 0.0;
+	}
 
 	// determine state node/edge variables
 	std::vector<int> nodeVarsState;
@@ -1878,7 +1884,8 @@ double GridPatch::WRMSNormData(
 	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
 		double dvalue = (*pDataNodeX)[nodeVarsState[c]][k][i][j]
                               * (*pDataNodeW)[nodeVarsState[c]][k][i][j]; 
-		dSum += dvalue * dvalue * m_dataElementArea[k][i][j];
+		dSum[0] += dvalue * dvalue;
+		dSum[1] += 1;
 	      }
 	    }
 	  }
@@ -1891,7 +1898,8 @@ double GridPatch::WRMSNormData(
 	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
 		double dvalue = (*pDataREdgeX)[redgeVarsState[c]][k][i][j]
                               * (*pDataREdgeW)[redgeVarsState[c]][k][i][j];
-		dSum += dvalue * dvalue * m_dataElementAreaREdge[k][i][j];
+		dSum[0] += dvalue * dvalue;
+		dSum[1] += 1;
 	      }
 	    }
 	  }
@@ -1915,13 +1923,14 @@ double GridPatch::WRMSNormData(
 	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
 		double dvalue = (*pDataTracersX)[nodeVarsTracers[c]][k][i][j]
                               * (*pDataTracersW)[nodeVarsTracers[c]][k][i][j]; 
-		dSum += dvalue * dvalue * m_dataElementArea[k][i][j];
+		dSum[0] += dvalue * dvalue;
+		dSum[1] += 1;
 	      }
 	    }
 	  }
 	}
 
-	return dSum;
+	return;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
