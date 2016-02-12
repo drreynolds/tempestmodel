@@ -20,6 +20,7 @@
 
 #include "TempestNVector.h"
 #include "Model.h"
+#include "Announce.h"
 #include "Grid.h"
 #include <sundials/sundials_math.h>
 
@@ -117,6 +118,157 @@ N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
   v->ops     = ops;
 
   return(v);
+}
+
+
+// Function to run tests to verify a working TempestNVector
+void N_VTest_Tempest(N_Vector x) {
+
+  Announce("Testing TempestNVector");
+  
+  // Create a few extra NVectors
+  Announce("  Testing N_VClone");
+  N_Vector w = N_VClone(x);
+  N_Vector y = N_VClone(x);
+  N_Vector z = N_VClone(x);
+
+  // set NVector values to different constants
+  N_VConst( 1.0, w);    // w[i] = 1
+  N_VConst( 2.0, x);    // x[i] = 2
+  N_VConst(-1.0, y);    // y[i] = -1
+  N_VConst(-2.0, z);    // z[i] = -2
+  
+  // test N_VDotProd by computing number of vector entries different ways
+  Announce("  Testing N_VDotProd:");
+  if ((fabs(N_VDotProd(w,w) - N_VDotProd(y,y)) < 1e-15) && 
+      (fabs(N_VDotProd(w,w) - 0.25*N_VDotProd(x,x)) < 1e-15) && 
+      (fabs(N_VDotProd(y,y) - 0.25*N_VDotProd(z,z)) < 1e-15) &&
+      (fabs(N_VDotProd(x,x) - N_VDotProd(z,z)) < 1e-15))
+    Announce("    success");
+  else
+    Announce("    failure");
+
+  // test N_VMaxNorm
+  Announce("  Testing N_VMaxNorm:");
+  if ((fabs(N_VMaxNorm(w) - 1.0) < 1e-15) && 
+      (fabs(N_VMaxNorm(x) - 2.0) < 1e-15) && 
+      (fabs(N_VMaxNorm(y) - 1.0) < 1e-15) &&
+      (fabs(N_VMaxNorm(z) - 2.0) < 1e-15))
+    Announce("    success");
+  else
+    Announce("    failure");
+
+  // test N_VMin
+  Announce("  Testing N_VMin:");
+  if ((fabs(N_VMin(w) - 1.0) < 1e-15) && 
+      (fabs(N_VMin(x) - 2.0) < 1e-15) && 
+      (fabs(N_VMin(y) + 1.0) < 1e-15) &&
+      (fabs(N_VMin(z) + 2.0) < 1e-15))
+    Announce("    success");
+  else
+    Announce("    failure");
+
+  // get number of entries in NVectors
+  int n = int(N_VDotProd(w,w));
+  Announce("  Number of entries in vectors = %i", n);
+
+  // test N_VWrmsNorm
+  Announce("  N_VWrmsNorm tests: w[i] = 1, x[i] = 2, y[i] = -1, z[i] = -2: ");
+  Announce("    N_VWrmsNorm(x,w) = %g", N_VWrmsNorm(x,w));
+  Announce("    N_VWrmsNorm(y,w) = %g", N_VWrmsNorm(y,w));
+  Announce("    N_VWrmsNorm(z,w) = %g", N_VWrmsNorm(z,w));
+
+  // test N_VAbs
+  Announce("  Testing N_VAbs:");
+  N_VConst(-2.0, z);
+  N_VAbs(z, y);   // y[i] = 2
+  if (((sqrt(N_VDotProd(y,y)/n) - fabs(N_VMin(z))) < 1e-15) &&
+      (fabs(N_VMin(y) - 2.0) < 1e-15))
+    Announce("    success");
+  else {
+    Announce("    failure (y[i] should equal %g)",fabs(N_VMin(z)));
+    Announce("      sqrt(N_VDotProd(y,y)/n) = %g",sqrt(N_VDotProd(y,y)/n));
+    Announce("      N_VMin(y) = %g",N_VMin(y));
+  }
+
+  // test N_VLinearSum
+  Announce("  Testing N_VLinearSum:");
+  N_VConst( 5.0, w);                   // w[i] = 5
+  N_VConst(-1.0, x);                   // x[i] = -1
+  N_VLinearSum( 2.0, w, 10.0, x, y);   // y[i] = 0
+  if (N_VMaxNorm(y) < 1e-15)
+    Announce("    success");
+  else
+    Announce("    failure");
+  
+  // test N_VScale
+  Announce("  Testing N_VScale:");
+  N_VConst(3.0, w);                    // w[i] = 3
+  N_VScale(4.0, w, x);                 // x[i] = 12
+  N_VConst(-12.0, y);                  // y[i] = -12
+  N_VLinearSum( 1.0, x, 1.0, y, z);    // z[i] = 0
+  if (N_VMaxNorm(z) < 1e-15)
+    Announce("    success");
+  else
+    Announce("    failure");
+  
+  // test N_VAddConst
+  Announce("  Testing N_VAddConst:");
+  N_VConst(7.0, w);                    // w[i] = 7
+  N_VAddConst(w, -2.0, x);             // x[i] = 5
+  N_VConst(5.0, y);                    // y[i] = 5
+  N_VLinearSum( 1.0, x, -1.0, y, z);   // z[i] = 0
+  if (N_VMaxNorm(z) < 1e-15)
+    Announce("    success");
+  else {
+    Announce("    failure (x[i] and y[i] should both equal 5)");
+    Announce("      N_VMin(x) = %g",N_VMin(x));
+    Announce("      N_VMin(y) = %g",N_VMin(y));
+  }
+  
+  // test N_VProd
+  Announce("  Testing N_VProd:");
+  N_VConst(5.0, w);                    // w[i] = 5
+  N_VConst(0.2, x);                    // x[i] = 1/5
+  N_VProd(w, x, y);                    // y[i] = 1
+  N_VConst(1.0, x);                    // x[i] = 1
+  N_VLinearSum( 1.0, y, -1.0, x, z);   // z[i] = 0
+  if (N_VMaxNorm(z) < 1e-15)
+    Announce("    success");
+  else
+    Announce("    failure");
+  
+  // test N_VDiv
+  Announce("  Testing N_VDiv:");
+  N_VConst(6.0, w);                    // w[i] = 6
+  N_VConst(-2.0, x);                   // x[i] = -2
+  N_VDiv(w, x, y);                     // y[i] = -3
+  N_VConst(3.0, x);                    // x[i] = 3
+  N_VLinearSum( 1.0, y, 1.0, x, z);    // z[i] = 0
+  if (N_VMaxNorm(z) < 1e-15)
+    Announce("    success");
+  else
+    Announce("    failure");
+  
+  // test N_VInv
+  Announce("  Testing N_VInv:");
+  N_VConst(4.0, w);                    // w[i] = 4
+  N_VInv(w, x);                        // x[i] = 1/4
+  N_VConst(-0.25, y);                  // y[i] = -1/4
+  N_VLinearSum( 1.0, x, 1.0, y, z);    // z[i] = 0
+  if (N_VMaxNorm(z) < 1e-15)
+    Announce("    success");
+  else
+    Announce("    failure");
+
+  // Free temporary NVectors
+  Announce("  Testing N_VDestroy");
+  N_VDestroy(w);
+  N_VDestroy(y);
+  N_VDestroy(z);
+
+  Announce("TempestNVector tests complete");
+  return;
 }
 
 

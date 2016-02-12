@@ -64,7 +64,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 
 void TimestepSchemeARKode::Initialize() {
   
-  AnnounceStartBlock("Initializeing ARKode");
+  AnnounceStartBlock("Initializing ARKode");
 
   // error flag
   int ierr = 0;
@@ -163,8 +163,16 @@ void TimestepSchemeARKode::Initialize() {
       
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
     }
-      
+
   AnnounceEndBlock("Done");
+
+#define NO_NVECTOR_TESTING
+#ifdef NVECTOR_TESTING  
+  // Call NVector "test" routine on m_Y and then halt simulation
+  N_VTest_Tempest(m_Y);
+  _EXCEPTION1("Halt: NVector Testing complete",0);
+#endif
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
