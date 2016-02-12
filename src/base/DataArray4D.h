@@ -574,7 +574,7 @@ public:
 		size_t sTotalSize = GetTotalSize();
 
 		for (size_t i = 0; i < sTotalSize; i++) {
-			m_data1D[i] += da.m_data1D[i];
+			m_data1D[i] = da.m_data1D[i];
 		}
 	}
 
