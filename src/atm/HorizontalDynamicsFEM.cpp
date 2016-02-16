@@ -1527,8 +1527,10 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 		}
 	}
 
+#ifndef USE_SUNDIALS
 	// Apply positive definite filter to tracers
 	FilterNegativeTracers(iDataUpdate);
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////

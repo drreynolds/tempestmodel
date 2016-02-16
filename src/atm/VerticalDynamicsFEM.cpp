@@ -1709,8 +1709,10 @@ void VerticalDynamicsFEM::StepImplicit(
 		}
 	}
 
+#ifndef USE_SUNDIALS
 	// Filter negative tracers
 	FilterNegativeTracers(iDataUpdate);
+#endif
 }
 
 
