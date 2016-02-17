@@ -117,6 +117,16 @@ private:
 	int m_iNVectors;
 
 	///	<summary>
+	///		ARKode Butcher table number.
+	///	</summary>
+	int m_iARKodeButcherTable;
+
+	///	<summary>
+	///		User supplied Butcher table number.
+	///	</summary>
+	int m_iSetButcherTable;
+
+	///	<summary>
 	///		ARKode absolute tolerance.
 	///	</summary>
 	double m_dAbsTol;
@@ -132,17 +142,22 @@ private:
 	bool m_fFullyExplicit;
 
 	///	<summary>
-	///		ARKode flag for fully explicit integration.
+	///		ARKode flag for fully implicit integration.
 	///	</summary>
 	bool m_fFullyImplicit;
 
 	///	<summary>
-	///		ARKode flag for Anderson accelerated fixed point solver (AAFP).
+	///		ARKode flag to used fixed step sizes.
+	///	</summary>
+	bool m_fFixedStepSize;
+
+	///	<summary>
+	///		ARKode flag for Anderson Accelerated Fixed Point solver.
 	///	</summary>
 	bool m_fAAFP;
 
 	///	<summary>
-	///		Max number of nonlinear iterations.
+	///		Max number of acceleration vectors.
 	///	</summary>
 	int m_iAAFPAccelVec;
 
@@ -155,16 +170,6 @@ private:
 	///		Max number of linear iterations.
 	///	</summary>
 	int m_iLinIters;
-
-	///	<summary>
-	///		ARKode Butcher table number.
-	///	</summary>
-	int m_iARKodeButcherTable;
-
-	///	<summary>
-	///		User set Butcher table number.
-	///	</summary>
-	int m_iSetButcherTable;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

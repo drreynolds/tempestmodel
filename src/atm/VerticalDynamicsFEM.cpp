@@ -1426,20 +1426,20 @@ void VerticalDynamicsFEM::StepImplicit(
 */
 			// DEBUG (check for NANs in output)
 			if (!(m_dSoln[0] == m_dSoln[0])) {
-                DataArray1D<double> dEval;
-                dEval.Allocate(m_dColumnState.GetRows());
-                Evaluate(m_dSoln, dEval);
-
-                for (int p = 0; p < dEval.GetRows(); p++) {
-                    printf("%1.15e %1.15e %1.15e\n",
-						dEval[p], m_dSoln[p] - m_dColumnState[p], m_dColumnState[p]);
-                }
-				for (int p = 0; p < m_dExnerRefREdge.GetRows(); p++) {
-					printf("%1.15e %1.15e\n",
-						m_dExnerRefREdge[p], dataRefREdge[RIx][p][iA][iB]);
-				}
-                _EXCEPTIONT("Inversion failure");
-            }
+			  DataArray1D<double> dEval;
+			  dEval.Allocate(m_dColumnState.GetRows());
+			  Evaluate(m_dSoln, dEval);
+			  
+			  for (int p = 0; p < dEval.GetRows(); p++) {
+			    printf("%1.15e %1.15e %1.15e\n",
+				   dEval[p], m_dSoln[p] - m_dColumnState[p], m_dColumnState[p]);
+			  }
+			  for (int p = 0; p < m_dExnerRefREdge.GetRows(); p++) {
+			    printf("%1.15e %1.15e\n",
+				   m_dExnerRefREdge[p], dataRefREdge[RIx][p][iA][iB]);
+			  }
+			  _EXCEPTIONT("Inversion failure");
+			}
 
 #endif
 #ifdef USE_DIRECTSOLVE_APPROXJ

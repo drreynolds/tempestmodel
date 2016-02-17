@@ -27,6 +27,8 @@
 #include "Grid.h"
 #include "HorizontalDynamics.h"
 #include "VerticalDynamics.h"
+#include "HorizontalDynamicsFEM.h"
+#include "VerticalDynamicsFEM.h"
 #include "Announce.h"
 
 void * TimestepSchemeARKode::ARKodeMem = NULL;
@@ -45,6 +47,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_dAbsTol(ARKodeVars.atol),
 	m_fFullyExplicit(ARKodeVars.FullyExplicit),
 	m_fFullyImplicit(false),
+	m_fFixedStepSize(true),
 	m_fAAFP(ARKodeVars.AAFP),
 	m_iAAFPAccelVec(ARKodeVars.AAFPAccelVec),
 	m_iNonlinIters(ARKodeVars.NonlinIters),
@@ -58,6 +61,13 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	// Check input paramters
 	if (m_iARKodeButcherTable >= 0 && m_iSetButcherTable >= 0)
 	  _EXCEPTIONT("ERROR: ARKodeButcherTable and SetButcherTable are both >= 0.");
+
+	// Check if using adaptive time stepping
+	Time timeDeltaT = m_model.GetDeltaT();
+	
+	if (timeDeltaT.IsZero()) {
+	  m_fFixedStepSize = false;
+	}
 }
 					  
 ///////////////////////////////////////////////////////////////////////////////
@@ -92,6 +102,18 @@ void TimestepSchemeARKode::Initialize() {
   
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeInit, ierr = %i",ierr);
 
+  // Use a fixed step size
+  if (m_fFixedStepSize) {
+
+    // Set fixed step size in seconds
+    Time timeDeltaT = m_model.GetDeltaT();
+    double dDeltaT  = timeDeltaT.GetSeconds();
+   
+    ierr = ARKodeSetFixedStep(ARKodeMem, dDeltaT);
+    
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
+  }
+
   // Select ARKode Butcher table
   if (m_iARKodeButcherTable >= 0) {
     if (m_fFullyExplicit) {
@@ -122,35 +144,6 @@ void TimestepSchemeARKode::Initialize() {
   if (m_iSetButcherTable >= 0) {  
     SetButcherTable();
   }  
-
-#ifdef DEBUG_PRINT_ON
-  // Get processor rank
-  int nRank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
-
-  //Set diagnostics output file
-  if (nRank == 0) {
-    FILE * pFile; 
-    
-    pFile = fopen("ARKode.txt","w");
-    
-    ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);
-  }
-#endif 
-
-  // get time step size
-  Time timeDeltaT = m_model.GetDeltaT();
-
-  if (!timeDeltaT.IsZero()) {
-
-    // Set fixed step size in seconds
-    double dDeltaT  = timeDeltaT.GetSeconds();
-   
-    ierr = ARKodeSetFixedStep(ARKodeMem, dDeltaT);
-    
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
-  }
   
   // Specify tolerances
   ierr = ARKodeSStolerances(ARKodeMem, m_dRelTol, m_dAbsTol);
@@ -179,6 +172,22 @@ void TimestepSchemeARKode::Initialize() {
       
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
     }
+
+#ifdef DEBUG_PRINT_ON
+  // Get processor rank
+  int nRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
+
+  // Set diagnostics output file
+  if (nRank == 0) {
+    FILE * pFile; 
+    
+    pFile = fopen("ARKode.txt","w");
+    
+    ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);
+  }
+#endif 
 
   AnnounceEndBlock("Done");
 
@@ -217,6 +226,14 @@ void TimestepSchemeARKode::Step(
   // Get a copy of the grid
   Grid * pGrid = m_model.GetGrid();
 
+  // Get a copy of the HorizontalDynamics
+  HorizontalDynamicsFEM * pHorizontalDynamicsFEM 
+    = dynamic_cast<HorizontalDynamicsFEM*>(m_model.GetHorizontalDynamics());
+
+  // Get a copy of the VerticalDynamics
+  VerticalDynamicsFEM * pVerticalDynamicsFEM 
+    = dynamic_cast<VerticalDynamicsFEM*>(m_model.GetVerticalDynamics());
+
   // Get current and next time values in seconds
   Time timeCurrentT = m_model.GetCurrentTime();
   double dCurrentT  = timeCurrentT.GetSeconds();
@@ -230,13 +247,31 @@ void TimestepSchemeARKode::Step(
   // ARKode timestep
   ierr = ARKode(ARKodeMem, dNextT, m_Y, &dCurrentT, ARK_ONE_STEP);
 
-  if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);		
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
 
-  // Copy current state in Tempest NVector
+  // current state in Tempest NVector
   int iY = NV_INDEX_TEMPEST(m_Y);
 
+  // Filter negative tracers
+  pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
+  pVerticalDynamicsFEM->FilterNegativeTracers(iY);
+
+  // Exchange
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
+
+  // Adjust hyperdiffusion step size when using adaptive step sizes
+  double dLastDeltaT;
+  if (m_fFixedStepSize) {
+    dLastDeltaT = dDeltaT;
+  } else {
+    ierr = ARKodeGetLastStep(ARKodeMem, &dLastDeltaT);
+
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
+  }
+
+  // Apply hyperdiffusion
+  pHorizontalDynamicsFEM->StepAfterSubCycle(iY, iY, 1, time, dLastDeltaT);
 
 #ifdef DEBUG_PRINT_ON
   AnnounceEndBlock("Done");
@@ -272,17 +307,27 @@ static int ARKodeExplicitRHS(
   Model * pModel = NV_MODEL_TEMPEST(Y);
 
   // Get a copy of the HorizontalDynamics
-  HorizontalDynamics * pHorizontalDynamics = pModel->GetHorizontalDynamics();
+  HorizontalDynamicsFEM * pHorizontalDynamicsFEM 
+    = dynamic_cast<HorizontalDynamicsFEM*>(pModel->GetHorizontalDynamics());
+
+  // Get a copy of the VerticalDynamics
+  VerticalDynamicsFEM * pVerticalDynamicsFEM 
+    = dynamic_cast<VerticalDynamicsFEM*>(pModel->GetVerticalDynamics());
+
+  // Filter negative tracers
+  pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
+  pVerticalDynamicsFEM->FilterNegativeTracers(iY);
+
+  // Exchange
+  pGrid->PostProcessSubstage(iY, DataType_State);
+  pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
   // zero out iYdot
   pGrid->ZeroData(iYdot, DataType_State);
   pGrid->ZeroData(iYdot, DataType_Tracers);
 
   // Compute explicit RHS
-  pHorizontalDynamics->StepExplicit(iY, iYdot, timeT, 1.0);
-
-  pGrid->PostProcessSubstage(iYdot, DataType_State);
-  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
+  pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
 
 #ifdef DEBUG_PRINT_ON
   AnnounceEndBlock("Done");
@@ -319,18 +364,28 @@ static int ARKodeImplicitRHS(
   // Get a copy of the model
   Model * pModel = NV_MODEL_TEMPEST(Y);
 
+  // Get a copy of the HorizontalDynamics
+  HorizontalDynamicsFEM * pHorizontalDynamicsFEM 
+    = dynamic_cast<HorizontalDynamicsFEM*>(pModel->GetHorizontalDynamics());
+
   // Get a copy of the VerticalDynamics
-  VerticalDynamics * pVerticalDynamics = pModel->GetVerticalDynamics();
+  VerticalDynamicsFEM * pVerticalDynamicsFEM 
+    = dynamic_cast<VerticalDynamicsFEM*>(pModel->GetVerticalDynamics());
+
+  // Filter negative tracers
+  pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
+  pVerticalDynamicsFEM->FilterNegativeTracers(iY);
+
+  // Exchange
+  pGrid->PostProcessSubstage(iY, DataType_State);
+  pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
   // zero out iYdot
   pGrid->ZeroData(iYdot, DataType_State);
   pGrid->ZeroData(iYdot, DataType_Tracers);
 
   // Compute implicit RHS
-  pVerticalDynamics->StepImplicitTermsExplicitly(iY, iYdot, timeT, 1.0);
-
-  pGrid->PostProcessSubstage(iYdot, DataType_State);
-  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
+  pVerticalDynamicsFEM->StepImplicitTermsExplicitly(iY, iYdot, timeT, 1.0);
 
 #ifdef DEBUG_PRINT_ON
   AnnounceEndBlock("Done");
@@ -368,22 +423,28 @@ static int ARKodeFullRHS(
   Model * pModel = NV_MODEL_TEMPEST(Y);
 
   // Get a copy of the HorizontalDynamics
-  HorizontalDynamics * pHorizontalDynamics = pModel->GetHorizontalDynamics();
+  HorizontalDynamicsFEM * pHorizontalDynamicsFEM 
+    = dynamic_cast<HorizontalDynamicsFEM*>(pModel->GetHorizontalDynamics());
 
   // Get a copy of the VerticalDynamics
-  VerticalDynamics * pVerticalDynamics = pModel->GetVerticalDynamics();
+  VerticalDynamicsFEM * pVerticalDynamicsFEM 
+    = dynamic_cast<VerticalDynamicsFEM*>(pModel->GetVerticalDynamics());
+
+  // Filter negative tracers
+  pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
+  pVerticalDynamicsFEM->FilterNegativeTracers(iY);
+
+  // Exchange
+  pGrid->PostProcessSubstage(iY, DataType_State);
+  pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
   // zero out iYdot
   pGrid->ZeroData(iYdot, DataType_State);
   pGrid->ZeroData(iYdot, DataType_Tracers);
 
-  // Compute fully explicit RHS
-  pHorizontalDynamics->StepExplicit(iY, iYdot, timeT, 1.0);
-
-  pVerticalDynamics->StepExplicit(iY, iYdot, timeT, 1.0);
-
-  pGrid->PostProcessSubstage(iYdot, DataType_State);
-  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
+  // Compute full RHS
+  pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
+  pVerticalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
 
 #ifdef DEBUG_PRINT_ON
   AnnounceEndBlock("Done");
@@ -411,10 +472,10 @@ void TimestepSchemeARKode::SetButcherTable()
   // stage times
   double * pc = NULL;
 
-  // A matrix for implicit method
+  // A matrix for the implicit method
   double * pAi = NULL;
 
-  // A matrix for explicit method
+  // A matrix for the explicit method
   double * pAe = NULL;
 
   // b coefficient array
@@ -424,14 +485,69 @@ void TimestepSchemeARKode::SetButcherTable()
   double * pbembed = NULL;
 
   if (m_fFullyExplicit) {
-    _EXCEPTIONT("ERROR: SetButcherTable() not implemented for fully explicit");
-    // ierr = ARKodeSetIRKTables(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed)
+
+    // SSPRK(5,4) 5 stage 4th order SSPRK
+    Announce("Timestepping with SSPRK(5,4)");
+
+    iStages = 5;
+    iQorder = 4;
+    iPorder = 0;
+
+    pAe = new double [iStages * iStages];
+    pc  = new double [iStages];
+    pb  = new double [iStages];
+    pbembed = new double [iStages];
+    
+    double alpha1 = 0.555629506348765;
+    double alpha2 = 0.379898148511597;
+    double alpha3 = 0.821920045606868;
+
+    double beta1 = 0.517231671970585;
+    double beta2 = 0.096059710526147;
+    double beta3 = 0.386708617503259;
+
+    pAe[0]  = 0.0;               pAe[1]  = 0.0;               pAe[2]  = 0.0;               pAe[3]  = 0.0;               pAe[4]  = 0.0;
+    pAe[5]  = 0.391752226571890; pAe[6]  = 0.0;               pAe[7]  = 0.0;               pAe[8]  = 0.0;               pAe[9]  = 0.0;
+    pAe[10] = alpha1 * pAe[5];   pAe[11] = 0.368410593050371; pAe[12] = 0.0;               pAe[13] = 0.0;               pAe[14] = 0.0;
+    pAe[15] = alpha2 * pAe[10];  pAe[16] = alpha2 * pAe[11];  pAe[17] = 0.251891774271694; pAe[18] = 0.0;               pAe[19] = 0.0;
+    pAe[20] = alpha3 * pAe[15];  pAe[21] = alpha3 * pAe[16];  pAe[22] = alpha3 * pAe[17];  pAe[23] = 0.544974750228521; pAe[24] = 0.0; 
+
+    pc[0] = 0.0;
+    pc[1] = pAe[5];
+    pc[2] = pAe[10] + pAe[11];
+    pc[3] = pAe[15] + pAe[16] + pAe[17];
+    pc[4] = pAe[20] + pAe[21] + pAe[22] + pAe[23];
+
+    pb[0] = beta1 * pAe[10] + beta2 * pAe[15] + beta3 * pAe[20];
+    pb[1] = beta1 * pAe[11] + beta2 * pAe[16] + beta3 * pAe[21];
+    pb[2] = beta2 * pAe[17] + beta3 * pAe[22];
+    pb[3] = beta3 * pAe[23] + 0.063692468666290;
+    pb[4] = 0.226007483236906;
+
+    pbembed[0] = 0.0;
+    pbembed[1] = 0.0;
+    pbembed[2] = 0.0;
+    pbembed[3] = 0.0;
+    pbembed[4] = 0.0;
+
+    ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed);
+
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
+
+    delete[] pc;
+    delete[] pAe;
+    delete[] pb;
+    delete[] pbembed;
+
   } else if (m_fFullyImplicit) {
     _EXCEPTIONT("ERROR: SetButcherTable() not implemented for fully implicit");
-    // ierr = ARKodeSetIRKTables(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pb, pbembed)
+    // ierr = ARKodeSetIRKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pb, pbembed)
+    // if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
   } else {
 
     // ARS232
+    Announce("Timestepping with ARS232");
+
     iStages = 3;
     iQorder = 2;
     iPorder = 0;
@@ -459,11 +575,11 @@ void TimestepSchemeARKode::SetButcherTable()
 
     pb[0] = 0.0;
     pb[1] = 1.0 - gamma;
-    pb[3] = gamma;
+    pb[2] = gamma;
 
     pbembed[0] = 0.0;
     pbembed[1] = 0.0;
-    pbembed[3] = 0.0;
+    pbembed[2] = 0.0;
 
     ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pAe, pb, pbembed);  
         
