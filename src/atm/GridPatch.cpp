@@ -1392,10 +1392,8 @@ void GridPatch::ScaleData(
 	}
 
 	// perform operation on state
-	m_datavecStateNode[iz].Zero();
-	m_datavecStateNode[iz].AddProduct(m_datavecStateNode[ix], c);
-	m_datavecStateREdge[iz].Zero();
-	m_datavecStateREdge[iz].AddProduct(m_datavecStateREdge[ix], c);
+	m_datavecStateNode[iz].LinearSum(c, m_datavecStateNode[ix], 0.0, m_datavecStateNode[iz]);
+	m_datavecStateREdge[iz].LinearSum(c, m_datavecStateREdge[ix], 0.0, m_datavecStateREdge[iz]);
 
 	// Check bounds on ix and iz for Tracers data
 	if ((ix < 0) || (ix >= m_datavecTracers.size())) {
@@ -1414,8 +1412,7 @@ void GridPatch::ScaleData(
 	}
 
 	// perform operation on tracers
-	m_datavecTracers[iz].Zero();
-	m_datavecTracers[iz].AddProduct(m_datavecTracers[ix], c);
+	m_datavecTracers[iz].LinearSum(c, m_datavecTracers[ix], 0.0, m_datavecTracers[iz]);
 	
 }
 
