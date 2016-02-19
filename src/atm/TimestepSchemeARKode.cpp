@@ -319,8 +319,8 @@ static int ARKodeExplicitRHS(
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
 
   // Exchange
-  pGrid->PostProcessSubstage(iY, DataType_State);
-  pGrid->PostProcessSubstage(iY, DataType_Tracers);
+  // pGrid->PostProcessSubstage(iY, DataType_State);
+  // pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
   // zero out iYdot
   pGrid->ZeroData(iYdot, DataType_State);
@@ -328,6 +328,10 @@ static int ARKodeExplicitRHS(
 
   // Compute explicit RHS
   pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
+
+  // Exchange
+  pGrid->PostProcessSubstage(iYdot, DataType_State);
+  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
 
 #ifdef DEBUG_PRINT_ON
   AnnounceEndBlock("Done");
@@ -377,8 +381,8 @@ static int ARKodeImplicitRHS(
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
 
   // Exchange
-  pGrid->PostProcessSubstage(iY, DataType_State);
-  pGrid->PostProcessSubstage(iY, DataType_Tracers);
+  // pGrid->PostProcessSubstage(iY, DataType_State);
+  // pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
   // zero out iYdot
   pGrid->ZeroData(iYdot, DataType_State);
@@ -386,6 +390,10 @@ static int ARKodeImplicitRHS(
 
   // Compute implicit RHS
   pVerticalDynamicsFEM->StepImplicitTermsExplicitly(iY, iYdot, timeT, 1.0);
+
+  // Exchange
+  pGrid->PostProcessSubstage(iYdot, DataType_State);
+  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
 
 #ifdef DEBUG_PRINT_ON
   AnnounceEndBlock("Done");
@@ -435,8 +443,8 @@ static int ARKodeFullRHS(
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
 
   // Exchange
-  pGrid->PostProcessSubstage(iY, DataType_State);
-  pGrid->PostProcessSubstage(iY, DataType_Tracers);
+  // pGrid->PostProcessSubstage(iY, DataType_State);
+  // pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
   // zero out iYdot
   pGrid->ZeroData(iYdot, DataType_State);
@@ -445,6 +453,10 @@ static int ARKodeFullRHS(
   // Compute full RHS
   pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
   pVerticalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
+
+  // Exchange
+  pGrid->PostProcessSubstage(iYdot, DataType_State);
+  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
 
 #ifdef DEBUG_PRINT_ON
   AnnounceEndBlock("Done");
@@ -486,110 +498,172 @@ void TimestepSchemeARKode::SetButcherTable()
 
   if (m_fFullyExplicit) {
 
-    // SSPRK(5,4) 5 stage 4th order SSPRK
-    Announce("Timestepping with SSPRK(5,4)");
+    if (m_iSetButcherTable == 0) {
+      
+      // Kinnmark Gray Ullrich ERK 6 stage 3rd order
+      Announce("Timestepping with KGU(6,3)");
+      
+      iStages = 6;
+      iQorder = 3;
+      iPorder = 0;
+      
+      pAe = new double [iStages * iStages];
+      pc  = new double [iStages];
+      pb  = new double [iStages];
+      pbembed = new double [iStages];
+      
+      pAe[0]  = 0.0;  pAe[1]  = 0.0; pAe[2]  = 0.0;       pAe[3]  = 0.0;       pAe[4]  = 0.0;  pAe[5]  = 0.0;
+      pAe[6]  = 0.2;  pAe[7]  = 0.0; pAe[8]  = 0.0;       pAe[9]  = 0.0;       pAe[10] = 0.0;  pAe[11] = 0.0;
+      pAe[12] = 0.0;  pAe[13] = 0.2; pAe[14] = 0.0;       pAe[15] = 0.0;       pAe[16] = 0.0;  pAe[17] = 0.0;
+      pAe[18] = 0.0;  pAe[19] = 0.0; pAe[20] = 1.0 / 3.0; pAe[21] = 0.0;       pAe[22] = 0.0;  pAe[23] = 0.0;
+      pAe[24] = 0.0;  pAe[25] = 0.0; pAe[26] = 0.0;       pAe[27] = 2.0 / 3.0; pAe[28] = 0.0;  pAe[29] = 0.0;
+      pAe[30] = 0.25; pAe[31] = 0.0; pAe[32] = 0.0;       pAe[33] = 0.0;       pAe[34] = 0.75; pAe[35] = 0.0;
+      
+      pc[0] = 0.0;
+      pc[1] = 0.2;
+      pc[2] = 0.2;
+      pc[3] = 1.0 / 3.0;
+      pc[4] = 2.0 / 3.0;
+      pc[5] = 1.0;
+      
+      pb[0] = 0.25;
+      pb[1] = 0.0;
+      pb[2] = 0.0;
+      pb[3] = 0.0;
+      pb[4] = 0.75;
+      
+      pbembed[0] = 0.0;
+      pbembed[1] = 0.0;
+      pbembed[2] = 0.0;
+      pbembed[3] = 0.0;
+      pbembed[4] = 0.0;
+      
+      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed);
+      
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
+      
+      delete[] pc;
+      delete[] pAe;
+      delete[] pb;
+      delete[] pbembed; 
 
-    iStages = 5;
-    iQorder = 4;
-    iPorder = 0;
+    } else if (m_iSetButcherTable == 1) {
 
-    pAe = new double [iStages * iStages];
-    pc  = new double [iStages];
-    pb  = new double [iStages];
-    pbembed = new double [iStages];
+      // SSPRK(5,4) 5 stage 4th order SSPRK
+      Announce("Timestepping with SSPRK(5,4)");
+      
+      iStages = 5;
+      iQorder = 4;
+      iPorder = 0;
+      
+      pAe = new double [iStages * iStages];
+      pc  = new double [iStages];
+      pb  = new double [iStages];
+      pbembed = new double [iStages];
+      
+      double alpha1 = 0.555629506348765;
+      double alpha2 = 0.379898148511597;
+      double alpha3 = 0.821920045606868;
+      
+      double beta1 = 0.517231671970585;
+      double beta2 = 0.096059710526147;
+      double beta3 = 0.386708617503259;
+      
+      pAe[0]  = 0.0;               pAe[1]  = 0.0;               pAe[2]  = 0.0;               pAe[3]  = 0.0;               pAe[4]  = 0.0;
+      pAe[5]  = 0.391752226571890; pAe[6]  = 0.0;               pAe[7]  = 0.0;               pAe[8]  = 0.0;               pAe[9]  = 0.0;
+      pAe[10] = alpha1 * pAe[5];   pAe[11] = 0.368410593050371; pAe[12] = 0.0;               pAe[13] = 0.0;               pAe[14] = 0.0;
+      pAe[15] = alpha2 * pAe[10];  pAe[16] = alpha2 * pAe[11];  pAe[17] = 0.251891774271694; pAe[18] = 0.0;               pAe[19] = 0.0;
+      pAe[20] = alpha3 * pAe[15];  pAe[21] = alpha3 * pAe[16];  pAe[22] = alpha3 * pAe[17];  pAe[23] = 0.544974750228521; pAe[24] = 0.0; 
+      
+      pc[0] = 0.0;
+      pc[1] = pAe[5];
+      pc[2] = pAe[10] + pAe[11];
+      pc[3] = pAe[15] + pAe[16] + pAe[17];
+      pc[4] = pAe[20] + pAe[21] + pAe[22] + pAe[23];
+      
+      pb[0] = beta1 * pAe[10] + beta2 * pAe[15] + beta3 * pAe[20];
+      pb[1] = beta1 * pAe[11] + beta2 * pAe[16] + beta3 * pAe[21];
+      pb[2] = beta2 * pAe[17] + beta3 * pAe[22];
+      pb[3] = beta3 * pAe[23] + 0.063692468666290;
+      pb[4] = 0.226007483236906;
+      
+      pbembed[0] = 0.0;
+      pbembed[1] = 0.0;
+      pbembed[2] = 0.0;
+      pbembed[3] = 0.0;
+      pbembed[4] = 0.0;
+      
+      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed);
+      
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
+      
+      delete[] pc;
+      delete[] pAe;
+      delete[] pb;
+      delete[] pbembed;
+
+    } else {     
+      _EXCEPTIONT("ERROR: Invalid explicit Butcher table vaule");
+    }
     
-    double alpha1 = 0.555629506348765;
-    double alpha2 = 0.379898148511597;
-    double alpha3 = 0.821920045606868;
-
-    double beta1 = 0.517231671970585;
-    double beta2 = 0.096059710526147;
-    double beta3 = 0.386708617503259;
-
-    pAe[0]  = 0.0;               pAe[1]  = 0.0;               pAe[2]  = 0.0;               pAe[3]  = 0.0;               pAe[4]  = 0.0;
-    pAe[5]  = 0.391752226571890; pAe[6]  = 0.0;               pAe[7]  = 0.0;               pAe[8]  = 0.0;               pAe[9]  = 0.0;
-    pAe[10] = alpha1 * pAe[5];   pAe[11] = 0.368410593050371; pAe[12] = 0.0;               pAe[13] = 0.0;               pAe[14] = 0.0;
-    pAe[15] = alpha2 * pAe[10];  pAe[16] = alpha2 * pAe[11];  pAe[17] = 0.251891774271694; pAe[18] = 0.0;               pAe[19] = 0.0;
-    pAe[20] = alpha3 * pAe[15];  pAe[21] = alpha3 * pAe[16];  pAe[22] = alpha3 * pAe[17];  pAe[23] = 0.544974750228521; pAe[24] = 0.0; 
-
-    pc[0] = 0.0;
-    pc[1] = pAe[5];
-    pc[2] = pAe[10] + pAe[11];
-    pc[3] = pAe[15] + pAe[16] + pAe[17];
-    pc[4] = pAe[20] + pAe[21] + pAe[22] + pAe[23];
-
-    pb[0] = beta1 * pAe[10] + beta2 * pAe[15] + beta3 * pAe[20];
-    pb[1] = beta1 * pAe[11] + beta2 * pAe[16] + beta3 * pAe[21];
-    pb[2] = beta2 * pAe[17] + beta3 * pAe[22];
-    pb[3] = beta3 * pAe[23] + 0.063692468666290;
-    pb[4] = 0.226007483236906;
-
-    pbembed[0] = 0.0;
-    pbembed[1] = 0.0;
-    pbembed[2] = 0.0;
-    pbembed[3] = 0.0;
-    pbembed[4] = 0.0;
-
-    ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed);
-
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
-
-    delete[] pc;
-    delete[] pAe;
-    delete[] pb;
-    delete[] pbembed;
-
   } else if (m_fFullyImplicit) {
     _EXCEPTIONT("ERROR: SetButcherTable() not implemented for fully implicit");
     // ierr = ARKodeSetIRKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pb, pbembed)
     // if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
   } else {
 
-    // ARS232
-    Announce("Timestepping with ARS232");
+    if (m_iSetButcherTable == 0) {      
 
-    iStages = 3;
-    iQorder = 2;
-    iPorder = 0;
+      // ARS232
+      Announce("Timestepping with ARS232");
+      
+      iStages = 3;
+      iQorder = 2;
+      iPorder = 0;
+      
+      pc  = new double [iStages];
+      pAi = new double [iStages * iStages];
+      pAe = new double [iStages * iStages];
+      pb  = new double [iStages];
+      pbembed = new double [iStages];
+      
+      double gamma = 1.0 - 1.0/std::sqrt(2.0);
+      double delta = -2.0 * std::sqrt(2.0) / 3.0;
+      
+      pc[0] = 0.0;
+      pc[1] = gamma;
+      pc[2] = 1.0;
+      
+      pAi[0] = 0.0; pAi[1] = 0.0;         pAi[2] = 0.0;
+      pAi[3] = 0.0; pAi[4] = gamma;       pAi[5] = 0.0;
+      pAi[6] = 0.0; pAi[7] = 1.0 - gamma; pAi[8] = gamma;
+      
+      pAe[0] = 0.0;   pAe[1] = 0.0;         pAe[2] = 0.0;
+      pAe[3] = gamma; pAe[4] = 0.0;         pAe[5] = 0.0;
+      pAe[6] = delta; pAe[7] = 1.0 - delta; pAe[8] = 0.0;
+      
+      pb[0] = 0.0;
+      pb[1] = 1.0 - gamma;
+      pb[2] = gamma;
+      
+      pbembed[0] = 0.0;
+      pbembed[1] = 0.0;
+      pbembed[2] = 0.0;
+      
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pAe, pb, pbembed);  
+      
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
+      
+      delete[] pc;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pb;
+      delete[] pbembed;
 
-    pc  = new double [iStages];
-    pAi = new double [iStages * iStages];
-    pAe = new double [iStages * iStages];
-    pb  = new double [iStages];
-    pbembed = new double [iStages];
+    } else {      
+      _EXCEPTIONT("ERROR: Invalid IMEX Butcher table vaule");
+    }
     
-    double gamma = 1.0 - 1.0/std::sqrt(2.0);
-    double delta = -2.0 * std::sqrt(2.0) / 3.0;
-
-    pc[0] = 0.0;
-    pc[1] = gamma;
-    pc[2] = 1.0;
-
-    pAi[0] = 0.0; pAi[1] = 0.0;         pAi[2] = 0.0;
-    pAi[3] = 0.0; pAi[4] = gamma;       pAi[5] = 0.0;
-    pAi[6] = 0.0; pAi[7] = 1.0 - gamma; pAi[8] = gamma;
-
-    pAe[0] = 0.0;   pAe[1] = 0.0;         pAe[2] = 0.0;
-    pAe[3] = gamma; pAe[4] = 0.0;         pAe[5] = 0.0;
-    pAe[6] = delta; pAe[7] = 1.0 - delta; pAe[8] = 0.0;
-
-    pb[0] = 0.0;
-    pb[1] = 1.0 - gamma;
-    pb[2] = gamma;
-
-    pbembed[0] = 0.0;
-    pbembed[1] = 0.0;
-    pbembed[2] = 0.0;
-
-    ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pAe, pb, pbembed);  
-        
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
-
-    delete[] pc;
-    delete[] pAi;
-    delete[] pAe;
-    delete[] pb;
-    delete[] pbembed;
   } 
 }
 
