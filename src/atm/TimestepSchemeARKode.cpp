@@ -167,10 +167,21 @@ void TimestepSchemeARKode::Initialize() {
 	  if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
 	}
 
-      // Max nonlinear solver iterations
-      ierr = ARKodeSetMaxNonlinIters(ARKodeMem, m_iNonlinIters);
+      // if negative nonlinear iterations are specified, switch to linear-implicit mode
+      if (m_iNonlinIters < 0) {
+
+	ierr = ARKodeSetLinear(ARKodeMem, 1);
       
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
+	if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetLinear, ierr = %i",ierr);
+
+      // otherwise, set the Max nonlinear solver iterations
+      } else { 
+
+	ierr = ARKodeSetMaxNonlinIters(ARKodeMem, m_iNonlinIters);
+      
+	if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
+      }
+
     }
 
 #ifdef DEBUG_PRINT_ON
@@ -330,6 +341,8 @@ static int ARKodeExplicitRHS(
   pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
 
 #ifdef DEBUG_PRINT_ON
+  // output ||fe||_max for sanity check
+  //Announce("||fe|| = %g", N_VMaxNorm(Ydot));
   AnnounceEndBlock("Done");
 #endif
 
@@ -388,6 +401,8 @@ static int ARKodeImplicitRHS(
   pVerticalDynamicsFEM->StepImplicitTermsExplicitly(iY, iYdot, timeT, 1.0);
 
 #ifdef DEBUG_PRINT_ON
+  // output ||fi||_max for sanity check
+  //Announce("||fi|| = %g", N_VMaxNorm(Ydot));
   AnnounceEndBlock("Done");
 #endif
 
