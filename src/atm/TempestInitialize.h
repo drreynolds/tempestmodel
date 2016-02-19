@@ -87,17 +87,15 @@ struct _TempestCommandLineVariables {
 	int nLevels;
 	int nHorizontalOrder;
 	int nVerticalOrder;
-#ifdef USE_SUNDIALS
-        int iARKode_nvectors;
+    int iARKode_nvectors;
 	double dARKode_rtol;
 	double dARKode_atol;
 	bool fARKode_aafp;       
-        int iARKode_AAFPAccelVec;
-        int iARKode_NonlinIters;
-        int iARKode_LinIters;
-        int iARKode_ARKodeButcherTable;
-        int iARKode_SetButcherTable;
-#endif
+    int iARKode_AAFPAccelVec;
+    int iARKode_NonlinIters;
+    int iARKode_LinIters;
+    int iARKode_ARKodeButcherTable;
+    int iARKode_SetButcherTable;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
