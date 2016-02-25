@@ -173,6 +173,8 @@ void Model::SetTimestepScheme(TimestepScheme * pTimestepScheme) {
 	}
 
 	m_pTimestepScheme = pTimestepScheme;
+
+	m_fDynamicTimestepping = false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -306,13 +308,15 @@ void Model::Go() {
 		_EXCEPTIONT("TestCase not specified.");
 	}
 
-#ifndef USE_SUNDIALS
 	// Check time step
 	if (m_timeDeltaT.IsZero()) {
+#ifdef USE_SUNDIALS
+		m_fDynamicTimestepping = true;
+#else
 		_EXCEPTIONT("Dynamic timestepping not implemented. "
 		            "DeltaT must be non-zero.");
-	}
 #endif
+	}
 
 	// Evaluate geometric terms in the grid
 	// NOTE: This needs to be called after EvaluateTestCase, since it relies
@@ -365,20 +369,41 @@ void Model::Go() {
 		// Next time step
 		double dDeltaT;
 
+		// Time at next time step
 		Time timeNext = m_time;
-		timeNext += m_timeDeltaT;
 
-		if (timeNext >= m_timeEnd) {
-			dDeltaT = m_timeEnd - m_time;
-			fLastStep = true;
+		// Set step size for fixed timestepping
+		if (!m_fDynamicTimestepping) {
+		  
+		  timeNext += m_timeDeltaT;
+		  
+		  if (timeNext >= m_timeEnd) {
+		    dDeltaT = m_timeEnd - m_time;
+		    fLastStep = true;
+		    
+		  } else {
+		    dDeltaT = timeNext - m_time;
+		  }
 
 		} else {
-			dDeltaT = timeNext - m_time;
+		  dDeltaT = 0.0;
 		}
 
 		// Perform one time step
 		Announce("Step %s", m_time.ToString().c_str());
 		m_pTimestepScheme->Step(fFirstStep, fLastStep, m_time, dDeltaT);
+		
+		// Set timeNext for dynamic timestepping
+		if (m_fDynamicTimestepping) {
+
+		  dDeltaT = m_pTimestepScheme->GetDynamicDeltaT();
+
+		  // timeNext += dDeltaT;
+		  
+		  if (timeNext >= m_timeEnd) {
+		    fLastStep = true;		    
+		  } 
+		}
 
 		// Energy and enstrophy
 		{

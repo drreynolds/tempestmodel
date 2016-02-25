@@ -36,6 +36,21 @@ bool TempestNVectorRegistry[MAX_TEMPEST_NVECTORS];   // global bool arrays initi
 
 ////////////////////// Exported Functions /////////////////////////
 
+// Function to get number of vectors in registry
+int GetLengthTempestNVectorRegistry() {
+
+  int RegistryLength;
+
+  for (int i=0; i<MAX_TEMPEST_NVECTORS; i++) {
+    if (!TempestNVectorRegistry[i]) {
+      RegistryLength = i;
+      break;
+    }
+  }
+
+  return RegistryLength;
+}
+
 // Function to create a new TempestNVector
 N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
 

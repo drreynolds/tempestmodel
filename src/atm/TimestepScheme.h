@@ -66,6 +66,14 @@ public:
 		return 0;
 	}
 
+	///	<summary>
+	///		Get the most recent step size used with dynamic 
+	///             timestepping.
+	///	</summary>
+	virtual double GetDynamicDeltaT() const {
+		return 0.0;
+	}
+
 public:
 	///	<summary>
 	///		Mixed method part.

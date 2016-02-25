@@ -96,6 +96,7 @@ struct _TempestCommandLineVariables {
     int iARKode_LinIters;
     int iARKode_ARKodeButcherTable;
     int iARKode_SetButcherTable;
+	bool fARKode_Diagnostics;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -135,7 +136,9 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.iARKode_NonlinIters, "arkode_nonliniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_ARKodeButcherTable, "arkode_arkodebutchertable", -1); \
-	CommandLineInt(_tempestvars.iARKode_SetButcherTable, "arkode_setbutchertable", -1);
+	CommandLineInt(_tempestvars.iARKode_SetButcherTable, "arkode_setbutchertable", -1); \
+	CommandLineBool(_tempestvars.fARKode_Diagnostics, "arkode_diagnostics");
+
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -252,6 +255,7 @@ void _TempestSetupMethodOfLines(
 
 		ARKodeVars.ARKodeButcherTable = vars.iARKode_ARKodeButcherTable;
 		ARKodeVars.SetButcherTable    = vars.iARKode_SetButcherTable;
+		ARKodeVars.WriteDiagnostics   = vars.fARKode_Diagnostics;
 
 		model.SetTimestepScheme(
 			new TimestepSchemeARKode(model, ARKodeVars));

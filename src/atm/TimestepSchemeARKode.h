@@ -45,6 +45,7 @@ struct ARKodeCommandLineVariables {
   int    LinIters;
   int    ARKodeButcherTable;
   int    SetButcherTable;
+  bool   WriteDiagnostics;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -89,6 +90,14 @@ public:
 		return m_iNVectors;
 	}
 
+	///	<summary>
+	///		Get the most recent step size used with dynamic 
+	///             timestepping.
+	///	</summary>
+	virtual double GetDynamicDeltaT() const {
+		return m_dDynamicDeltaT;
+	}
+
 protected:
 	///	<summary>
 	///		Perform one time step.
@@ -99,6 +108,9 @@ protected:
 		const Time & time,
 		double dDeltaT
 	);
+
+private:
+	void ARKode_Test_Step(bool fFirstStep, double dDeltaT);
 
 private:
 	///	<summary>
@@ -170,6 +182,17 @@ private:
 	///		Max number of linear iterations.
 	///	</summary>
 	int m_iLinIters;
+
+	///	<summary>
+	///		Most recent step size in ARKode when using dynamic
+	///             timestepping.
+	///	</summary>
+	double m_dDynamicDeltaT;
+
+	///	<summary>
+	///		ARKode flag to write diagnostics file.
+	///	</summary>
+	bool m_fWriteDiagnostics;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

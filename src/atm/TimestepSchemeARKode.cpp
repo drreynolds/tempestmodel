@@ -51,7 +51,9 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_fAAFP(ARKodeVars.AAFP),
 	m_iAAFPAccelVec(ARKodeVars.AAFPAccelVec),
 	m_iNonlinIters(ARKodeVars.NonlinIters),
-	m_iLinIters(ARKodeVars.LinIters)
+	m_iLinIters(ARKodeVars.LinIters),
+	m_dDynamicDeltaT(0.0),
+	m_fWriteDiagnostics(ARKodeVars.WriteDiagnostics)
 {
         // Allocate ARKode memory
         ARKodeMem = ARKodeCreate();
@@ -67,6 +69,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	
 	if (timeDeltaT.IsZero()) {
 	  m_fFixedStepSize = false;
+	  Announce("Warning: Adaptive time stepping not yet tested.");
 	}
 }
 					  
@@ -116,22 +119,31 @@ void TimestepSchemeARKode::Initialize() {
 
   // Select ARKode Butcher table
   if (m_iARKodeButcherTable >= 0) {
+
     if (m_fFullyExplicit) {
+
       ierr = ARKodeSetERKTableNum(ARKodeMem, m_iARKodeButcherTable);
-
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
-    } else if (m_fFullyImplicit) {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, m_iARKodeButcherTable);
 
+    } else if (m_fFullyImplicit) {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, m_iARKodeButcherTable);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
     } else {
 
       if (m_iARKodeButcherTable == 2 || m_iARKodeButcherTable == 15) {
+
 	ierr = ARKodeSetARKTableNum(ARKodeMem, 15, 2);
+
       } else if (m_iARKodeButcherTable == 4 || m_iARKodeButcherTable == 20) {
+
 	ierr = ARKodeSetARKTableNum(ARKodeMem, 20, 4);
+
       } else if (m_iARKodeButcherTable == 9 || m_iARKodeButcherTable == 22) {
+
 	ierr = ARKodeSetARKTableNum(ARKodeMem, 22, 9);
+
       } else {
 	ierr = ARK_ILL_INPUT;
       }
@@ -151,56 +163,62 @@ void TimestepSchemeARKode::Initialize() {
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSStolerances, ierr = %i",ierr);
 
   // Nonlinear Solver Settings
-  if (!m_fFullyExplicit) 
-    {
-      if (m_fAAFP) // Anderson accelerated fixed point solver
-	{
-	  ierr = ARKodeSetFixedPoint(ARKodeMem, m_iAAFPAccelVec);
-
-	  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedPoint, ierr = %i",ierr);
-	}
-      else // Newton iteration
-	{
-	  // Linear Solver Settings
-	  ierr = ARKSpgmr(ARKodeMem, PREC_NONE, m_iLinIters);
-	  
-	  if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
-	}
-
-      // if negative nonlinear iterations are specified, switch to linear-implicit mode
-      if (m_iNonlinIters < 0) {
-
-	ierr = ARKodeSetLinear(ARKodeMem, 1);
+  if (!m_fFullyExplicit) {
+    
+    if (m_fAAFP) { // Anderson accelerated fixed point solver
       
-	if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetLinear, ierr = %i",ierr);
-
-      // otherwise, set the Max nonlinear solver iterations
-      } else { 
-
-	ierr = ARKodeSetMaxNonlinIters(ARKodeMem, m_iNonlinIters);
+      ierr = ARKodeSetFixedPoint(ARKodeMem, m_iAAFPAccelVec);
       
-	if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
-      }
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedPoint, ierr = %i",ierr);
 
+    } else { // Newton iteration
+      
+      // Linear Solver Settings 
+      ierr = ARKSpgmr(ARKodeMem, PREC_NONE, m_iLinIters);
+      
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
     }
 
-#ifdef DEBUG_PRINT_ON
-  // Get processor rank
-  int nRank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
+    // if negative nonlinear iterations are specified, switch to linear-implicit mode
+    if (m_iNonlinIters < 0) {
+      
+      ierr = ARKodeSetLinear(ARKodeMem, 1);
+      
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetLinear, ierr = %i",ierr);
+      
+      // otherwise, set the Max nonlinear solver iterations
+    } else { 
+      
+      ierr = ARKodeSetMaxNonlinIters(ARKodeMem, m_iNonlinIters);
+      
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
+    }
+    
+  }
 
   // Set diagnostics output file
-  if (nRank == 0) {
-    FILE * pFile; 
+  if (m_fWriteDiagnostics) {
+
+    // Get processor rank
+    int iRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
+
+    if (iRank == 0) {
+      FILE * pFile; 
     
-    pFile = fopen("ARKode.txt","w");
-    
-    ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);
+      pFile = fopen("ARKode_Diagnostics.txt","w");
+      
+      ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
+
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);
+    }
   }
-#endif 
 
   AnnounceEndBlock("Done");
+
+#ifdef DEBUG_PRINT_ON
+  //  int iRegistryLength = GetLengthTempestNVectorRegistry();
+#endif 
 
 #define NO_NVECTOR_TESTING
 #ifdef NVECTOR_TESTING  
@@ -224,11 +242,19 @@ void TimestepSchemeARKode::Step(
   AnnounceStartBlock("ARKode Step");
 #endif
 
+#define NO_TEST_STEP
+#ifdef TEST_STEP
+  // Call step step to compare Strang and ARKode
+  ARKode_Test_Step(fFirstStep, dDeltaT);
+  AnnounceEndBlock("Done");
+  return;
+#endif
+
   // error flag
   int ierr = 0;
 
-  // Adjust last time step size
-  if (fLastStep) {
+  // Adjust last time step size if using fixed step sizes
+  if (m_fFixedStepSize && fLastStep) {
     ierr = ARKodeSetFixedStep(ARKodeMem, dDeltaT);
 
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
@@ -245,20 +271,38 @@ void TimestepSchemeARKode::Step(
   VerticalDynamicsFEM * pVerticalDynamicsFEM 
     = dynamic_cast<VerticalDynamicsFEM*>(m_model.GetVerticalDynamics());
 
-  // Get current and next time values in seconds
+  // Current time in seconds
   Time timeCurrentT = m_model.GetCurrentTime();
   double dCurrentT  = timeCurrentT.GetSeconds();
 
-  Time timeNextT  = m_model.GetCurrentTime();
-  Time timeDeltaT = m_model.GetDeltaT();
-  timeNextT += timeDeltaT;
+  // Next time in seconds
+  double dNextT;
+  if (m_fFixedStepSize) {
+  
+    Time timeNextT  = m_model.GetCurrentTime();
+    Time timeDeltaT = m_model.GetDeltaT();
+    timeNextT += timeDeltaT; // Possibly too large on last step
 
-  double dNextT = timeNextT.GetSeconds();
+    dNextT = timeNextT.GetSeconds();
+
+  } else {
+    // should change to use next output time as dNextT
+
+    Time timeEnd = m_model.GetEndTime();
+    dNextT = timeEnd.GetSeconds();
+  }
  
   // ARKode timestep
   ierr = ARKode(ARKodeMem, dNextT, m_Y, &dCurrentT, ARK_ONE_STEP);
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
+
+  // Get dynamic step size
+  if (!m_fFixedStepSize) {
+    ierr = ARKodeGetLastStep(ARKodeMem, &m_dDynamicDeltaT);
+      
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
+  }
 
   // current state in Tempest NVector
   int iY = NV_INDEX_TEMPEST(m_Y);
@@ -276,16 +320,19 @@ void TimestepSchemeARKode::Step(
   if (m_fFixedStepSize) {
     dLastDeltaT = dDeltaT;
   } else {
-    ierr = ARKodeGetLastStep(ARKodeMem, &dLastDeltaT);
-
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
+    dLastDeltaT = m_dDynamicDeltaT;
   }
 
-  // Apply hyperdiffusion
-  pHorizontalDynamicsFEM->StepAfterSubCycle(iY, iY, 1, time, dLastDeltaT);
+  // Apply hyperdiffusion (initial, update, temp)
+  pHorizontalDynamicsFEM->StepAfterSubCycle(iY, 1, 2, time, dLastDeltaT);
+
+  pGrid->CopyData(1, iY, DataType_State);
+  pGrid->CopyData(1, iY, DataType_Tracers);
 
 #ifdef DEBUG_PRINT_ON
   AnnounceEndBlock("Done");
+
+  // int iRegistryLength = GetLengthTempestNVectorRegistry();
 #endif
 }
 
@@ -303,7 +350,7 @@ static int ARKodeExplicitRHS(
 #endif
 
   // model time
-  Time timeT = Time(0,0,0,time,0);
+  Time timeT = Time(0,0,0,time,0); // only works for integers
 
   // index of input data in registry
   int iY = NV_INDEX_TEMPEST(Y);
@@ -330,8 +377,8 @@ static int ARKodeExplicitRHS(
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
 
   // Exchange
-  // pGrid->PostProcessSubstage(iY, DataType_State);
-  // pGrid->PostProcessSubstage(iY, DataType_Tracers);
+  pGrid->PostProcessSubstage(iY, DataType_State);
+  pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
   // zero out iYdot
   pGrid->ZeroData(iYdot, DataType_State);
@@ -341,8 +388,8 @@ static int ARKodeExplicitRHS(
   pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
 
   // Exchange
-  pGrid->PostProcessSubstage(iYdot, DataType_State);
-  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
+  // pGrid->PostProcessSubstage(iYdot, DataType_State);
+  // pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
 
 #ifdef DEBUG_PRINT_ON
   // output ||fe||_max for sanity check
@@ -367,7 +414,7 @@ static int ARKodeImplicitRHS(
 #endif
 
   // model time
-  Time timeT = Time(0,0,0,time,0);
+  Time timeT = Time(0,0,0,time,0); // only works for integers
 
   // index of input data in registry
   int iY = NV_INDEX_TEMPEST(Y);
@@ -394,8 +441,8 @@ static int ARKodeImplicitRHS(
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
 
   // Exchange
-  // pGrid->PostProcessSubstage(iY, DataType_State);
-  // pGrid->PostProcessSubstage(iY, DataType_Tracers);
+  pGrid->PostProcessSubstage(iY, DataType_State);
+  pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
   // zero out iYdot
   pGrid->ZeroData(iYdot, DataType_State);
@@ -405,8 +452,8 @@ static int ARKodeImplicitRHS(
   pVerticalDynamicsFEM->StepImplicitTermsExplicitly(iY, iYdot, timeT, 1.0);
 
   // Exchange
-  pGrid->PostProcessSubstage(iYdot, DataType_State);
-  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
+  // pGrid->PostProcessSubstage(iYdot, DataType_State);
+  // pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
 
 #ifdef DEBUG_PRINT_ON
   // output ||fi||_max for sanity check
@@ -431,7 +478,7 @@ static int ARKodeFullRHS(
 #endif
 
   // model time
-  Time timeT = Time(0,0,0,time,0);
+  Time timeT = Time(0,0,0,time,0); // only works for integers
 
   // index of input data in registry
   int iY = NV_INDEX_TEMPEST(Y);
@@ -454,8 +501,8 @@ static int ARKodeFullRHS(
     = dynamic_cast<VerticalDynamicsFEM*>(pModel->GetVerticalDynamics());
 
   // Filter negative tracers
-  pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
-  pVerticalDynamicsFEM->FilterNegativeTracers(iY);
+  // pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
+  // pVerticalDynamicsFEM->FilterNegativeTracers(iY);
 
   // Exchange
   // pGrid->PostProcessSubstage(iY, DataType_State);
@@ -470,8 +517,8 @@ static int ARKodeFullRHS(
   pVerticalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
 
   // Exchange
-  pGrid->PostProcessSubstage(iYdot, DataType_State);
-  pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
+  // pGrid->PostProcessSubstage(iYdot, DataType_State);
+  // pGrid->PostProcessSubstage(iYdot, DataType_Tracers);
 
 #ifdef DEBUG_PRINT_ON
   AnnounceEndBlock("Done");
@@ -514,13 +561,49 @@ void TimestepSchemeARKode::SetButcherTable()
   if (m_fFullyExplicit) {
 
     if (m_iSetButcherTable == 0) {
+
+      // Forward Euler 2 stages 1st order
+      Announce("Timestepping with Forward Euler");
+
+      iStages = 2;
+      iQorder = 1;
+      iPorder = 1;
       
-      // Kinnmark Gray Ullrich ERK 6 stage 3rd order
+      pAe = new double [iStages * iStages];
+      pc  = new double [iStages];
+      pb  = new double [iStages];
+      pbembed = new double [iStages];
+      
+      pAe[0]  = 0.0;  pAe[1]  = 0.0; 
+      pAe[2]  = 1.0;  pAe[3]  = 0.0; 
+      
+      pc[0] = 0.0;
+      pc[1] = 1.0;
+      
+      pb[0] = 1.0;
+      pb[1] = 0.0;
+      
+      pbembed[0] = 0.0;
+      pbembed[1] = 0.0;
+      
+      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed);
+      
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
+      
+      delete[] pc;
+      delete[] pAe;
+      delete[] pb;
+      delete[] pbembed; 
+
+      
+    } else if (m_iSetButcherTable == 1) {
+      
+      // Kinnmark Gray Ullrich ERK 6 stages 3rd order
       Announce("Timestepping with KGU(6,3)");
       
       iStages = 6;
       iQorder = 3;
-      iPorder = 0;
+      iPorder = 1;
       
       pAe = new double [iStages * iStages];
       pc  = new double [iStages];
@@ -546,13 +629,15 @@ void TimestepSchemeARKode::SetButcherTable()
       pb[2] = 0.0;
       pb[3] = 0.0;
       pb[4] = 0.75;
+      pb[5] = 0.0;
       
       pbembed[0] = 0.0;
       pbembed[1] = 0.0;
       pbembed[2] = 0.0;
       pbembed[3] = 0.0;
       pbembed[4] = 0.0;
-      
+      pbembed[5] = 0.0;
+       
       ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed);
       
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
@@ -562,14 +647,14 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pb;
       delete[] pbembed; 
 
-    } else if (m_iSetButcherTable == 1) {
+    } else if (m_iSetButcherTable == 2) {
 
-      // SSPRK(5,4) 5 stage 4th order SSPRK
+      // Strong Stability Preserving ERK 5 stages 4th order
       Announce("Timestepping with SSPRK(5,4)");
       
       iStages = 5;
       iQorder = 4;
-      iPorder = 0;
+      iPorder = 1;
       
       pAe = new double [iStages * iStages];
       pc  = new double [iStages];
@@ -634,7 +719,7 @@ void TimestepSchemeARKode::SetButcherTable()
       
       iStages = 3;
       iQorder = 2;
-      iPorder = 0;
+      iPorder = 1;
       
       pc  = new double [iStages];
       pAi = new double [iStages * iStages];
@@ -683,5 +768,211 @@ void TimestepSchemeARKode::SetButcherTable()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+
+void TimestepSchemeARKode::ARKode_Test_Step(bool fFirstStep, 
+					    double dDeltaT) {
+
+  // Idx = 49, Y0
+  // Idx = 48, ARKode
+  // Idx = 47, Strang
+  // Idx = 46, Diff
+
+  if (!m_fFullyExplicit) {
+    _EXCEPTIONT("ARKode_Test_Step() ERROR: Not running fully explicitly");
+  }
+
+  Announce("ARKode_Test_Step()");
+
+  // counter for function calls, controls output at end of function
+  static int iCallCount = 0;
+
+  // inrement function call counter
+  iCallCount++;
+
+  // dummy time variable
+  Time time = Time(0,0,0,0,0);
+  
+  // Get a copy of the grid
+  Grid * pGrid = m_model.GetGrid();
+  
+  // Take first step with ARKode and Tempest
+  if (fFirstStep) {
+   
+    // Get a copy of the HorizontalDynamics
+    HorizontalDynamics * pHorizontalDynamics =
+      m_model.GetHorizontalDynamics();
+    
+    // Get a copy of the VerticalDynamics
+    VerticalDynamics * pVerticalDynamics =
+      m_model.GetVerticalDynamics();
+    
+    // Save Initial State
+    pGrid->CopyData(0, 49, DataType_State);
+    pGrid->CopyData(0, 49, DataType_Tracers);
+    
+    AnnounceStartBlock("Computing ARKode Step");
+    
+    // Current model time
+    Time timeCurrentT = m_model.GetCurrentTime();
+    double dCurrentT  = timeCurrentT.GetSeconds();
+       
+    Time timeNextT  = m_model.GetCurrentTime();
+    Time timeDeltaT = m_model.GetDeltaT();
+    timeNextT += timeDeltaT;
+    
+    double dNextT;
+    dNextT = timeNextT.GetSeconds();
+    
+    int ierr;
+    ierr = ARKode(ARKodeMem, dNextT, m_Y, &dCurrentT, ARK_ONE_STEP);
+    
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
+
+    if (m_iSetButcherTable == 0) {
+      // Exchange work with FE, still need to test KGU
+      pGrid->PostProcessSubstage(0, DataType_State);
+      pGrid->PostProcessSubstage(0, DataType_Tracers);
+    }
+    
+    // Save ARKode Solution
+    pGrid->CopyData(0, 48, DataType_State);
+    pGrid->CopyData(0, 48, DataType_Tracers);
+
+    AnnounceEndBlock("Done");
+
+    AnnounceStartBlock("Computing Tempest Step");
+    
+    // Reset Initial State
+    pGrid->CopyData(49, 0, DataType_State);
+    pGrid->CopyData(49, 0, DataType_Tracers);
+    
+    if (m_iSetButcherTable == 0) {
+
+      // Compare to Forward Euler
+      pGrid->CopyData(0, 4, DataType_State);
+      pGrid->CopyData(0, 4, DataType_Tracers);
+
+      pHorizontalDynamics->StepExplicit(0, 4, time, dDeltaT);
+      pVerticalDynamics->StepExplicit(0, 4, time, dDeltaT);
+
+      pGrid->PostProcessSubstage(4, DataType_State);
+      pGrid->PostProcessSubstage(4, DataType_Tracers);
+
+    } else if (m_iSetButcherTable == 1) { 
+
+      // Compare to KGU(6,3) ERK method
+      DataArray1D<double> dKinnmarkGrayUllrichCombination;
+      
+      dKinnmarkGrayUllrichCombination.Allocate(5);
+      
+      dKinnmarkGrayUllrichCombination[0] = - 1.0 / 4.0;
+      dKinnmarkGrayUllrichCombination[1] =   5.0 / 4.0;
+      dKinnmarkGrayUllrichCombination[2] =   0.0;
+      dKinnmarkGrayUllrichCombination[3] =   0.0;
+      dKinnmarkGrayUllrichCombination[4] =   0.0;
+      
+      // Z1 = Z0 = Yn
+      pGrid->CopyData(0, 1, DataType_State);
+      pGrid->CopyData(0, 1, DataType_Tracers);
+      
+      // Z1 = Z1 + 1/5 F(Z0) 
+      pHorizontalDynamics->StepExplicit(0, 1, time, dDeltaT / 5.0);
+      pVerticalDynamics->StepExplicit(0, 1, time, dDeltaT / 5.0);
+      
+      // pGrid->PostProcessSubstage(1, DataType_State);
+      // pGrid->PostProcessSubstage(1, DataType_Tracers);
+      
+      //-------------------------------------------------------------------------
+      
+      // Z2 = Z0
+      pGrid->CopyData(0, 2, DataType_State);
+      pGrid->CopyData(0, 2, DataType_Tracers);
+      
+      // Z2 = Z2 + 1/5 F(Z1)
+      pHorizontalDynamics->StepExplicit(1, 2, time, dDeltaT / 5.0);
+      pVerticalDynamics->StepExplicit(1, 2, time, dDeltaT / 5.0);
+      
+      // pGrid->PostProcessSubstage(2, DataType_State);
+      // pGrid->PostProcessSubstage(2, DataType_Tracers);
+      
+      //-------------------------------------------------------------------------
+      
+      // Z3 = Z0
+      pGrid->CopyData(0, 3, DataType_State);
+      pGrid->CopyData(0, 3, DataType_Tracers);
+      
+      // Z3 = Z3 + 1/3 F(Z2)
+      pHorizontalDynamics->StepExplicit(2, 3, time, dDeltaT / 3.0);
+      pVerticalDynamics->StepExplicit(2, 3, time, dDeltaT / 3.0);
+      
+      // pGrid->PostProcessSubstage(3, DataType_State);
+      // pGrid->PostProcessSubstage(3, DataType_Tracers);
+      
+      //-------------------------------------------------------------------------
+      
+      // Z4 = Z0 (save over Z2)
+      pGrid->CopyData(0, 2, DataType_State);
+      pGrid->CopyData(0, 2, DataType_Tracers);
+      
+      // Z4 = Z4 + 2/3 F(Z3)
+      pHorizontalDynamics->StepExplicit(3, 2, time, 2.0 * dDeltaT / 3.0);
+      pVerticalDynamics->StepExplicit(3, 2, time, 2.0 * dDeltaT / 3.0);
+      
+      // pGrid->PostProcessSubstage(2, DataType_State);
+      // pGrid->PostProcessSubstage(2, DataType_Tracers);
+      
+      //-------------------------------------------------------------------------
+      
+      // Z* = -1/4 Z0 + 5/4 Z1
+      pGrid->LinearCombineData(dKinnmarkGrayUllrichCombination, 4, DataType_State);
+      pGrid->LinearCombineData(dKinnmarkGrayUllrichCombination, 4, DataType_Tracers);
+      
+      // Yn+1 = Z5 = Z* + 3/4 F(Z4)
+      pHorizontalDynamics->StepExplicit(2, 4, time, 3.0 * dDeltaT / 4.0);
+      pVerticalDynamics->StepExplicit(2, 4, time, 3.0 * dDeltaT / 4.0);
+      
+      // pGrid->PostProcessSubstage(4, DataType_State);
+      // pGrid->PostProcessSubstage(4, DataType_Tracers); 
+      
+      //-------------------------------------------------------------------------
+      
+    } else {
+      _EXCEPTIONT("ARKode_Test_Step() ERROR: Invalid ERK Butcher table vaule");
+    }
+
+    // Save Tempest solution
+    pGrid->CopyData(4, 47, DataType_State);
+    pGrid->CopyData(4, 47, DataType_Tracers);
+
+    AnnounceEndBlock("Done");
+    
+    // Compute difference between ARKode and Tempest solutions
+    pGrid->LinearSumData(1.0, 48, -1.0, 47, 46);
+  }
+
+  // Output 
+  if (iCallCount == 1) {
+    // output ARKode
+    Announce("Output ARKode Step");
+    pGrid->CopyData(48, 0, DataType_State);
+    pGrid->CopyData(48, 0, DataType_Tracers);
+
+  } else if (iCallCount == 2) {
+    // output Tempest
+    Announce("Output Tempest Step");
+    pGrid->CopyData(47, 0, DataType_State);
+    pGrid->CopyData(47, 0, DataType_Tracers);
+
+  } else if (iCallCount == 3) {
+    // output diff
+    Announce("Output Diff");
+    pGrid->CopyData(46, 0, DataType_State);
+    pGrid->CopyData(46, 0, DataType_Tracers);   
+  } else {
+    Announce("Test Step Complete"); 
+    pGrid->CopyData(49, 0, DataType_State);
+    pGrid->CopyData(49, 0, DataType_Tracers);
+  }
+}
 
 #endif

@@ -79,6 +79,8 @@ typedef struct _N_VectorContent_Tempest *N_VectorContent_Tempest;
 
 ///// Part III -- Functions and macros exported by TempestNVector /////
 
+int GetLengthTempestNVectorRegistry();
+
 // N_VNew_Tempest
 // This function creates a new TempestNVector by locking a vector from the registry
 N_Vector N_VNew_Tempest(Grid & grid, Model & model);

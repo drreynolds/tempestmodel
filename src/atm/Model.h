@@ -258,7 +258,7 @@ public:
 	}
 
 	///	<summary>
-	///		Get the time step size.
+	///		Set the time step size.
 	///	</summary>
 	void SetDeltaT(const Time & timeDeltaT) {
 		m_timeDeltaT = timeDeltaT;
@@ -297,6 +297,11 @@ protected:
 	///		Flag indicating the Grid has been initialized from a restart file.
 	///	</summary>
 	bool m_fGridFromRestartFile;
+
+	///	<summary>
+	///		Flag indicating dynamic time stepping.
+	///	</summary>
+	bool m_fDynamicTimestepping;
 
 protected:
 	///	<summary>
