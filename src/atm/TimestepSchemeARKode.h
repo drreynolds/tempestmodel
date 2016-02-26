@@ -110,7 +110,18 @@ protected:
 	);
 
 private:
+	///	<summary>
+	///		Debugging function to compate ARKode and Tempest steps.
+	///	</summary>
 	void ARKode_Test_Step(bool fFirstStep, double dDeltaT);
+
+	///	<summary>
+	///		Debugging function to emulate ARKode step in Tempest.
+	///	</summary>
+	void Step_Like_ARKode(bool fFirstStep,
+			      bool fLastStep,
+			      const Time & time,
+			      double dDeltaT);
 
 private:
 	///	<summary>
