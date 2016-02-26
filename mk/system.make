@@ -7,6 +7,7 @@
 # Detects the system and includes the system-specific makefile.
 
 UNAME := $(shell uname)
+HOSTNAME := $(shell hostname)
 
 ifeq ($(UNAME),Darwin)
   SYSTEM= MACOSX
@@ -15,6 +16,9 @@ else ifeq ($(UNAME),Linux)
   ifeq ($(NERSC_HOST),babbage)
     SYSTEM= BABBAGE
     SYSTEM_MAKEFILE= babbage.make
+  else ifeq ($(HOSTNAME),faraday)
+    SYSTEM= FARADAY
+    SYSTEM_MAKEFILE= faraday.make
   else # FIXME: Add a test condition
     SYSTEM= AGRI
     SYSTEM_MAKEFILE= agri.make

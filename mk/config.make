@@ -11,11 +11,13 @@
 # PARALLEL: Parallel programming framework (options: MPIOMP, HPX)
 # NETCDF:   If TRUE, use NETCDF
 # PETSC:    If TRUE, use PETSC
+# SUNDIALS: If TRUE, use SUNDIALS
 
 DEBUG=    FALSE
 OPT=      TRUE
 PARALLEL= MPIOMP
 NETCDF=   TRUE
 PETSC=    FALSE
+SUNDIALS= TRUE
 
 # DO NOT DELETE
