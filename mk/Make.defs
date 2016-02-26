@@ -14,6 +14,8 @@ PETSC_LIBDIR= /usr/local/petsc-dev/lib
 USE_SUNDIALS= true
 SUNDIALS_INCLUDEDIR= /home/dreynolds/research/ARKode/install_opt/include
 SUNDIALS_LIBDIR= /home/dreynolds/research/ARKode/install_opt/lib
+#SUNDIALS_INCLUDEDIR= /home/dreynolds/research/ARKode/install_dbg/include
+#SUNDIALS_LIBDIR= /home/dreynolds/research/ARKode/install_dbg/lib
 
 # X11 lib directory
 X11_LIBDIR= /usr/lib/x86_64-linux-gnu/
@@ -92,6 +94,9 @@ ifeq ($(system),Linux)
   FORTFLAGS+= -O3
   CFLAGS+= -fPIC -O3
   LDFLAGS+= -fPIC -O3
+  #FORTFLAGS+= -O0 -g
+  #CFLAGS+= -fPIC -O0 -g
+  #LDFLAGS+= -fPIC -O0 -g
 
   # Check for BLAS
   ifdef USEBLAS
