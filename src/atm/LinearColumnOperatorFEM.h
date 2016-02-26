@@ -59,6 +59,18 @@ public:
 		const DataArray1D<double> & dREtaOut,
 		bool fZeroBoundaries = false
 	);
+
+	///	<summary>
+	///		Initialize the operator using a finite difference approach
+	///	</summary>
+	void InitializeReconstructed(
+		InterpSource eInterpSource,
+		InterpSource eInterpDest,
+		int nVerticalOrder,
+		const DataArray1D<double> & dREtaNode,
+		const DataArray1D<double> & dREtaREdge
+	);
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -124,6 +136,17 @@ public:
 	///		Initialize a differentiation operator applied to GLL nodes.
 	///	</summary>
 	void InitializeVariationalNodeToREdge(
+		int nVerticalOrder,
+		const DataArray1D<double> & dREtaNode,
+		const DataArray1D<double> & dREtaREdge
+	);
+
+	///	<summary>
+	///		Initialize the operator using a finite difference approach
+	///	</summary>
+	void InitializeReconstructed(
+		InterpSource eInterpSource,
+		InterpSource eInterpDest,
 		int nVerticalOrder,
 		const DataArray1D<double> & dREtaNode,
 		const DataArray1D<double> & dREtaREdge
@@ -229,6 +252,15 @@ public:
 		int nVerticalOrder,
 		const DataArray1D<double> & dREtaNode,
 		const DataArray1D<double> & dREtaREdge
+	);
+
+	///	<summary>
+	///		Initialize the operator using a finite difference approach
+	///	</summary>
+	void InitializeReconstructed(
+		int nVerticalOrder,
+		const DataArray1D<double> & dREtaIn,
+		const DataArray1D<double> & dREtaOut
 	);
 
 	///	<summary>

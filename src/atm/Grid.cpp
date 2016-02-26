@@ -26,12 +26,12 @@
 #include <cfloat>
 #include <cmath>
 
-#ifndef NO_NETCDF
+#ifdef TEMPEST_NETCDF
 #include <netcdfcpp.h>
 #endif
 
-#ifdef USE_MPI
-#include "mpi.h"
+#ifdef TEMPEST_MPIOMP
+#include <mpi.h>
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -60,6 +60,7 @@ void Grid::DefineParameters() {
 	m_dcGridParameters.PushDataChunk(&m_nMaxPatchCount);
 	m_dcGridParameters.PushDataChunk(&m_nRElements);
 	m_dcGridParameters.PushDataChunk(&m_iGridStamp);
+	m_dcGridParameters.PushDataChunk(&m_eVerticalDiscretization);
 	m_dcGridParameters.PushDataChunk(&m_eVerticalStaggering);
 	m_dcGridParameters.PushDataChunk(&m_nABaseResolution);
 	m_dcGridParameters.PushDataChunk(&m_nBBaseResolution);
@@ -81,6 +82,7 @@ void Grid::SetParameters(
 	int nABaseResolution,
 	int nBBaseResolution,
 	int nRefinementRatio,
+	VerticalStaggering eVerticalDiscretization,
 	VerticalStaggering eVerticalStaggering
 ) {
 	if (!m_dcGridParameters.IsAttached()) {
@@ -91,6 +93,7 @@ void Grid::SetParameters(
 	m_nMaxPatchCount = nMaxPatchCount;
 	m_nRElements = nRElements;
 	m_iGridStamp = 0;
+	m_eVerticalDiscretization = eVerticalDiscretization;
 	m_eVerticalStaggering = eVerticalStaggering;
 	m_nABaseResolution = nABaseResolution;
 	m_nBBaseResolution = nBBaseResolution;
@@ -433,7 +436,7 @@ void Grid::Checksum(
 	int iDataIndex,
 	ChecksumType eChecksumType
 ) const {
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Identify root process
 	int nRank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
@@ -509,7 +512,7 @@ double Grid::ComputeTotalEnergy(
 	// Global energy
 	double dGlobalEnergy = 0.0;
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Reduce to obtain global energy integral
 	MPI_Reduce(
 		&dLocalEnergy,
@@ -544,7 +547,7 @@ double Grid::ComputeTotalPotentialEnstrophy(
 	// Global potential enstrophy
 	double dGlobalPotentialEnstrophy = 0.0;
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Reduce to obtain global energy integral
 	MPI_Reduce(
 		&dLocalPotentialEnstrophy,
@@ -571,7 +574,7 @@ void Grid::Exchange(
 		return;
 	}
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Verify all processors are prepared to exchange
 	MPI_Barrier(MPI_COMM_WORLD);
 #endif
@@ -607,7 +610,7 @@ void Grid::ExchangeBuffers() {
 		return;
 	}
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Verify all processors are prepared to exchange
 	MPI_Barrier(MPI_COMM_WORLD);
 #endif
@@ -645,7 +648,7 @@ void Grid::ExchangeBuffersAndUnpack(
 		return;
 	}
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Verify all processors are prepared to exchange
 	MPI_Barrier(MPI_COMM_WORLD);
 #endif
@@ -834,7 +837,7 @@ void Grid::ReduceInterpolate(
 	) {
 		_EXCEPTIONT("Unable to Interpolate with no tracers.");
 	}
-	
+
 	// Check interpolation data array size
 	if ((eDataType == DataType_State) &&
 		(dInterpData.GetRows() != m_model.GetEquationSet().GetComponents())
@@ -909,7 +912,7 @@ void Grid::ReduceInterpolate(
 			fConvertToPrimitive);
 	}
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Perform an Reduce operation to combine all data
 	int nRank;
 	MPI_Comm_rank(MPI_COMM_WORLD, &nRank);
@@ -986,7 +989,7 @@ void Grid::DeactivatePatch(
 ///////////////////////////////////////////////////////////////////////////////
 
 void Grid::DistributePatches() {
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Number of processors
 	int nSize;
 	MPI_Comm_size(MPI_COMM_WORLD, &nSize);

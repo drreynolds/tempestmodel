@@ -20,6 +20,9 @@
 #include "TimestepScheme.h"
 #include "Exception.h"
 #include "DataArray1D.h"
+#include "Grid.h"
+#include "HorizontalDynamics.h"
+#include "VerticalDynamics.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -68,22 +71,53 @@ protected:
 	);
 
 private:
-        ///	<summary>
+	///	<summary>
+	///		Cycle an explicit step within a stage.
+	///	</summary>
+	virtual void SubcycleStageExplicit(
+		const Time & time,
+		double dStageCoeff,
+		double dDeltaT,
+		int iNS,
+		int iinpIndex,
+		int ioutIndex,
+		HorizontalDynamics * pHorizontalDynamics,
+		VerticalDynamics * pVerticalDynamics,
+		Grid * pGrid
+	);
+
+	///	<summary>
+	///		Cycle an explicit step of implicit terms within a stage.
+	///	</summary>
+	virtual void SubcycleStageImplicitExplicitly(
+		const Time & time,
+		double dStageCoeff,
+		double dDeltaT,
+		int iNS,
+		int iinpIndex,
+		int ioutIndex,
+		HorizontalDynamics * pHorizontalDynamics,
+		VerticalDynamics * pVerticalDynamics,
+		Grid * pGrid
+	);
+
+private:
+	///	<summary>
 	///		ARK232 parameter gamma
 	///	</summary>
 	static const double m_dgamma;
 
-        ///	<summary>
+	///	<summary>
 	///		ARK232 parameter alpha
 	///	</summary>
 	static const double m_dalpha;
 
-        ///	<summary>
+	///	<summary>
 	///		ARK232 parameter delta
 	///	</summary>
 	static const double m_ddelta;
 
-        ///	<summary>
+	///	<summary>
 	///		Coefficients for the explicit ARK232.
 	///	</summary>
 	static const double m_dExpCf[3][3];

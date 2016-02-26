@@ -203,6 +203,136 @@ void LinearColumnInterpFEM::Initialize(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+
+void LinearColumnInterpFEM::InitializeReconstructed(
+	InterpSource eInterpSource,
+	InterpSource eInterpDest,
+	int nVerticalOrder,
+	const DataArray1D<double> & dREtaNode,
+	const DataArray1D<double> & dREtaREdge
+) {
+	const int nRElementsNode  = dREtaNode.GetRows();
+	const int nRElementsREdge = dREtaREdge.GetRows();
+
+	// Verify input parameters
+	if (nRElementsNode == 0) {
+		_EXCEPTIONT("At least one row required for dREtaNode");
+	}
+	if (nRElementsREdge == 0) {
+		_EXCEPTIONT("At least one row required for dREtaREdge");
+	}
+	if (nVerticalOrder % 2 != 0) {
+		_EXCEPTIONT("Only even vertical orders allowed");
+	}
+
+	// Interpolation from interfaces to levels (central difference)
+	if ((eInterpSource == InterpSource_Interfaces) &&
+		(eInterpDest == InterpSource_Levels)
+	) {
+		LinearColumnOperator::Initialize(nRElementsREdge, nRElementsNode);
+
+		for (int k = 0; k < nRElementsNode; k++) {
+			double dDeltaVolume = dREtaREdge[k+1] - dREtaREdge[k];
+
+			m_dCoeff[k][k]   = 0.5;
+			m_dCoeff[k][k+1] = 0.5;
+
+			m_iBegin[k] = k;
+			m_iEnd[k] = k+2;
+		}
+
+	// Interpolation from levels to interfaces
+	} else if (
+		(eInterpSource == InterpSource_Levels) &&
+		(eInterpDest == InterpSource_Interfaces)
+	) {
+		LinearColumnOperator::Initialize(nRElementsNode, nRElementsREdge);
+
+		DataArray1D<double> dCoeffLeft(nVerticalOrder);
+		DataArray1D<double> dCoeffRight(nVerticalOrder);
+
+		for (int k = 0; k < nRElementsREdge; k++) {
+
+			int kbegin;
+			int klast;
+
+			double dWeight = 0.5;
+			if ((k == 0) || (k == nRElementsREdge-1)) {
+				dWeight = 1.0;
+			}
+
+			// Left interpolation
+			if (k != 0) {
+				kbegin = k - (nVerticalOrder - 2) / 2 - 1;
+				klast  = k + (nVerticalOrder - 2) / 2 - 1;
+
+				if (kbegin < 0) {
+					kbegin = 0;
+				}
+				if (klast >= nRElementsNode) {
+					klast = nRElementsNode - 1;
+				}
+
+				PolynomialInterp::LagrangianPolynomialCoeffs(
+					klast - kbegin + 1,
+					&(dREtaNode[kbegin]),
+					&(dCoeffLeft[0]),
+					dREtaREdge[k]);
+
+				for (int j = kbegin; j <= klast; j++) {
+					m_dCoeff[k][j] += dWeight * dCoeffLeft[j - kbegin];
+				}
+
+				m_iBegin[k] = kbegin;
+
+			} else {
+				m_iBegin[k] = 0;
+			}
+
+			// Right interpolation
+			if (k != nRElementsREdge-1) {
+				kbegin = k - (nVerticalOrder - 2) / 2;
+				klast  = k + (nVerticalOrder - 2) / 2;
+
+				if (kbegin < 0) {
+					kbegin = 0;
+				}
+				if (klast >= nRElementsNode) {
+					klast = nRElementsNode - 1;
+				}
+
+				PolynomialInterp::LagrangianPolynomialCoeffs(
+					klast - kbegin + 1,
+					&(dREtaNode[kbegin]),
+					&(dCoeffRight[0]),
+					dREtaREdge[k]);
+
+				for (int j = kbegin; j <= klast; j++) {
+					m_dCoeff[k][j] += dWeight * dCoeffRight[j - kbegin];
+				}
+
+				m_iEnd[k] = klast + 1;
+
+			} else {
+				m_iEnd[k] = nRElementsNode;
+			}
+		}
+
+	// Invalid interpolation operator
+	} else {
+		_EXCEPTIONT("Invalid interpolation operator");
+	}
+/*
+	// DEBUGGING
+	if ((eInterpSource == InterpSource_Levels) &&
+		(eInterpDest == InterpSource_Interfaces)
+	) {
+		DebugOutput(&dREtaNode, &dREtaREdge);
+	}
+*/
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// LinearColumnDiffFEM
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -784,6 +914,142 @@ void LinearColumnDiffFEM::InitializeVariationalNodeToREdge(
 /*
 	// DEBUGGING
 	DebugOutput(&dREtaNode, &dREtaREdge);
+*/
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void LinearColumnDiffFEM::InitializeReconstructed(
+	InterpSource eInterpSource,
+	InterpSource eInterpDest,
+	int nVerticalOrder,
+	const DataArray1D<double> & dREtaNode,
+	const DataArray1D<double> & dREtaREdge
+) {
+	const int nRElementsNode = dREtaNode.GetRows();
+	const int nRElementsREdge = dREtaREdge.GetRows();
+
+	// Verify input parameters
+	if (nRElementsNode == 0) {
+		_EXCEPTIONT("At least one row required for dREtaNode");
+	}
+	if (nRElementsREdge == 0) {
+		_EXCEPTIONT("At least one row required for dREtaREdge");
+	}
+	if (nVerticalOrder < 2) {
+		_EXCEPTIONT("Reconstructed interpolant requires 2nd order or higher");
+	}
+
+	if (nVerticalOrder % 2 != 0) {
+		_EXCEPTIONT("Odd vertical order not supported");
+	}
+
+	// Differentiation from interfaces to levels (central difference)
+	if ((eInterpSource == InterpSource_Interfaces) &&
+		(eInterpDest == InterpSource_Levels)
+	) {
+		LinearColumnOperator::Initialize(nRElementsREdge, nRElementsNode);
+
+		for (int k = 0; k < nRElementsNode; k++) {
+			double dDeltaVolume = dREtaREdge[k+1] - dREtaREdge[k];
+
+			m_dCoeff[k][k]   = -1.0 / dDeltaVolume;
+			m_dCoeff[k][k+1] = +1.0 / dDeltaVolume;
+
+			m_iBegin[k] = k;
+			m_iEnd[k] = k+2;
+		}
+
+	// Differentiation from levels to levels
+	} else if (
+		(eInterpSource == InterpSource_Levels) &&
+		(eInterpDest == InterpSource_Levels)
+	) {
+		LinearColumnInterpFEM opInterp;
+		opInterp.InitializeReconstructed(
+			LinearColumnInterpFEM::InterpSource_Levels,
+			LinearColumnInterpFEM::InterpSource_Interfaces,
+			nVerticalOrder,
+			dREtaNode,
+			dREtaREdge);
+
+		InitializeReconstructed(
+			InterpSource_Interfaces,
+			InterpSource_Levels,
+			nVerticalOrder,
+			dREtaNode,
+			dREtaREdge);
+
+		ComposeWith(opInterp);
+
+	// Differentiation from interfaces to interfaces
+	} else if (
+		(eInterpSource == InterpSource_Interfaces) &&
+		(eInterpDest == InterpSource_Interfaces)
+	) {
+
+		// Initialize
+		LinearColumnOperator::Initialize(nRElementsREdge, nRElementsREdge);
+
+		for (int k = 0; k < nRElementsREdge; k++) {
+			int kbegin = k - nVerticalOrder/2;
+			int klast = k + nVerticalOrder/2;
+
+			if (kbegin < 0) {
+				kbegin = 0;
+			}
+			if (klast >= nRElementsREdge) {
+				klast = nRElementsREdge-1;
+			}
+
+			PolynomialInterp::DiffLagrangianPolynomialCoeffs(
+				klast - kbegin + 1,
+				&(dREtaREdge[kbegin]),
+				&(m_dCoeff[k][kbegin]),
+				dREtaREdge[k]);
+
+			m_iBegin[k] = kbegin;
+			m_iEnd[k] = klast + 1;
+		}
+
+	// Differentiation from levels to interfaces
+	} else if (
+		(eInterpSource == InterpSource_Levels) &&
+		(eInterpDest == InterpSource_Interfaces)
+	) {
+
+		// Initialize
+		LinearColumnOperator::Initialize(nRElementsNode, nRElementsREdge);
+
+		for (int k = 0; k < nRElementsREdge; k++) {
+			int kbegin = k - nVerticalOrder/2;
+			int klast = k + nVerticalOrder/2 - 1;
+
+			if (kbegin < 0) {
+				kbegin = 0;
+			}
+			if (klast >= nRElementsNode) {
+				klast = nRElementsNode-1;
+			}
+
+			PolynomialInterp::DiffLagrangianPolynomialCoeffs(
+				klast - kbegin + 1,
+				&(dREtaNode[kbegin]),
+				&(m_dCoeff[k][kbegin]),
+				dREtaREdge[k]);
+
+			m_iBegin[k] = kbegin;
+			m_iEnd[k] = klast + 1;
+		}
+
+	}
+/*
+	// DEBUGGING
+	if ((eInterpSource == InterpSource_Levels) &&
+		(eInterpDest == InterpSource_Levels)
+	) {
+		DebugOutput(&dREtaNode, &dREtaREdge);
+	}
 */
 }
 
@@ -1397,11 +1663,11 @@ void LinearColumnDiscPenaltyFEM::Initialize(
 		for (int i = 0; i < nVerticalOrder; i++) {
 			for (int j = 0; j < nVerticalOrder; j++) {
 				dLeftPenaltyCoeff[ax + i][ax + j] =
-					- dDiffFluxCorrection[i]
+					- 0.5 * dDiffFluxCorrection[i]
 					* dLeftInterpRElementEdge[a][j];
 
 				dLeftPenaltyCoeff[ax + i][ax + nVerticalOrder + j] =
-					+ dDiffFluxCorrection[i]
+					+ 0.5 * dDiffFluxCorrection[i]
 					* dRightInterpRElementEdge[a][j];
 			}
 
@@ -1438,16 +1704,146 @@ void LinearColumnDiscPenaltyFEM::Initialize(
 		for (int i = 0; i < nVerticalOrder; i++) {
 			for (int j = 0; j < nVerticalOrder; j++) {
 				dRightPenaltyCoeff[ax + i][ax - nVerticalOrder + j] =
-					- dDiffFluxCorrection[i]
+					- 0.5 * dDiffFluxCorrection[i]
 					* dLeftInterpRElementEdge[a-1][j];
 
 				dRightPenaltyCoeff[ax + i][ax + j] =
-					+ dDiffFluxCorrection[i]
+					+ 0.5 * dDiffFluxCorrection[i]
 					* dRightInterpRElementEdge[a-1][j];
 			}
 
 			iRightPenaltyBegin[ax + i] = (a-1) * nVerticalOrder;
 			iRightPenaltyEnd[ax + i] = (a+1) * nVerticalOrder;
+		}
+	}
+
+	// Allocate buffer array
+	m_dBuffer.Allocate(dREtaNode.GetRows());
+/*
+	// DEBUGGING
+	m_opLeft.DebugOutput(&dREtaNode, &dREtaREdge, "L", false);
+	m_opRight.DebugOutput(&dREtaNode, &dREtaREdge, "R", true);
+*/
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void LinearColumnDiscPenaltyFEM::InitializeReconstructed(
+	int nVerticalOrder,
+	const DataArray1D<double> & dREtaNode,
+	const DataArray1D<double> & dREtaREdge
+) {
+	const int ParamFluxCorrectionType = 2;
+
+	// Store equivalent FEM vertical order
+	m_nVerticalOrder = 1;
+
+	// Number of levels and interfaces
+	int nRElementsNode = dREtaNode.GetRows();
+	int nRElementsREdge = dREtaREdge.GetRows();
+
+	// Number of finite elements
+	m_nRFiniteElements = dREtaNode.GetRows();
+
+	// Do not initialize if only one finite element present
+	if (m_nRFiniteElements == 1) {
+		return;
+	}
+
+	// Verify input parameters
+	if (dREtaNode.GetRows() == 0) {
+		_EXCEPTIONT("At least one row required for dREtaNode");
+	}
+
+	// Buffer data
+	DataArray1D<double> dCoeffLeft(nVerticalOrder);
+	DataArray1D<double> dCoeffRight(nVerticalOrder);
+
+	// Operators associated with penalty at left and right of finite volume
+	m_opLeft.Initialize(
+		dREtaNode.GetRows(),
+		dREtaNode.GetRows());
+
+	m_opRight.Initialize(
+		dREtaNode.GetRows(),
+		dREtaNode.GetRows());
+
+	DataArray2D<double> & dLeftPenaltyCoeff = m_opLeft.GetCoeffs();
+	DataArray1D<int> & iLeftPenaltyBegin = m_opLeft.GetIxBegin();
+	DataArray1D<int> & iLeftPenaltyEnd = m_opLeft.GetIxEnd();
+
+	DataArray2D<double> & dRightPenaltyCoeff = m_opRight.GetCoeffs();
+	DataArray1D<int> & iRightPenaltyBegin = m_opRight.GetIxBegin();
+	DataArray1D<int> & iRightPenaltyEnd = m_opRight.GetIxEnd();
+
+	// Interpolation to interior finite volume edges
+	for (int k = 1; k < nRElementsREdge - 1; k++) {
+
+		int kbegin;
+		int klast;
+
+		// Interpolation to left of finite volume edge
+		{
+			kbegin = k - (nVerticalOrder - 2) / 2 - 1;
+			klast  = k + (nVerticalOrder - 2) / 2 - 1;
+
+			if (kbegin < 0) {
+				kbegin = 0;
+			}
+			if (klast >= nRElementsNode) {
+				klast = nRElementsNode - 1;
+			}
+
+			PolynomialInterp::LagrangianPolynomialCoeffs(
+				klast - kbegin + 1,
+				&(dREtaNode[kbegin]),
+				&(dCoeffRight[0]),
+				dREtaREdge[k]);
+
+			for (int j = kbegin; j <= klast; j++) {
+				dLeftPenaltyCoeff[k-1][j] -= 0.5 * dCoeffRight[j - kbegin];
+				dRightPenaltyCoeff[k][j] += 0.5 * dCoeffRight[j - kbegin];
+			}
+			iLeftPenaltyBegin[k-1] = kbegin;
+			iRightPenaltyBegin[k] = kbegin;
+		}
+
+		// Interpolation to right of finite volume edge
+		{
+			kbegin = k - (nVerticalOrder - 2) / 2;
+			klast  = k + (nVerticalOrder - 2) / 2;
+
+			if (kbegin < 0) {
+				kbegin = 0;
+			}
+			if (klast >= nRElementsNode) {
+				klast = nRElementsNode - 1;
+			}
+
+			PolynomialInterp::LagrangianPolynomialCoeffs(
+				klast - kbegin + 1,
+				&(dREtaNode[kbegin]),
+				&(dCoeffLeft[0]),
+				dREtaREdge[k]);
+
+			for (int j = kbegin; j <= klast; j++) {
+				dLeftPenaltyCoeff[k-1][j] += 0.5 * dCoeffLeft[j - kbegin];
+				dRightPenaltyCoeff[k][j] -= 0.5 * dCoeffLeft[j - kbegin];
+			}
+			iLeftPenaltyEnd[k-1] = klast + 1;
+			iRightPenaltyEnd[k] = klast + 1;
+		}
+	}
+
+	// Rescale by volume area
+	for (int k = 0; k < nRElementsNode; k++) {
+		double dDeltaVolume = dREtaREdge[k+1] - dREtaREdge[k];
+
+		for (int j = iLeftPenaltyBegin[k]; j < iLeftPenaltyEnd[k]; j++) {
+			dLeftPenaltyCoeff[k][j] /= dDeltaVolume;
+		}
+		for (int j = iRightPenaltyBegin[k]; j < iRightPenaltyEnd[k]; j++) {
+			dRightPenaltyCoeff[k][j] /= dDeltaVolume;
 		}
 	}
 

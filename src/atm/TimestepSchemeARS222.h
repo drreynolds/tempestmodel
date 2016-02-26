@@ -68,7 +68,7 @@ protected:
 	);
 
 private:
-    ///	<summary>
+	///	<summary>
 	///		ARS222 parameter gamma
 	///	</summary>
 	static const double m_dgamma;
@@ -77,12 +77,12 @@ private:
 	///	</summary>
 	static const double m_ddelta;
 
-    ///	<summary>
+	///	<summary>
 	///		Coefficients for the time increment ARS222.
 	///	</summary>
 	static const double m_dTimeCf[2];
 
-    ///	<summary>
+	///	<summary>
 	///		Coefficients for the explicit ARS222.
 	///	</summary>
 	static const double m_dExpCf[2][2];

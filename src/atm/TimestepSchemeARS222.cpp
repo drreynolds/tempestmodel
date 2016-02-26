@@ -66,7 +66,7 @@ void TimestepSchemeARS222::Step(
 	// u2 explicit evaluation combination
 	m_du2fCombo[0] = 1.0 - m_dExpCf[1][0] / m_dExpCf[0][0];
 	m_du2fCombo[1] = m_dExpCf[1][0] / m_dExpCf[0][0] - 
-                         m_dImpCf[1][0] / m_dImpCf[0][0];
+					 m_dImpCf[1][0] / m_dImpCf[0][0];
 	m_du2fCombo[2] = m_dImpCf[1][0] / m_dImpCf[0][0];
 	m_du2fCombo[3] = 0.0;
 
@@ -75,7 +75,7 @@ void TimestepSchemeARS222::Step(
 	// STAGE 1
 	// Compute uf1 into index 1
 	pGrid->CopyData(0, 1, DataType_State);
-        pGrid->CopyData(0, 1, DataType_Tracers);
+	pGrid->CopyData(0, 1, DataType_Tracers);
 	pHorizontalDynamics->StepExplicit(
 		0, 1, time, m_dExpCf[0][0] * dDeltaT);
 	pVerticalDynamics->StepExplicit(
@@ -85,7 +85,7 @@ void TimestepSchemeARS222::Step(
 
 	// Compute u1 into index 2
 	pGrid->CopyData(1, 2, DataType_State);
-        pGrid->CopyData(1, 2, DataType_State);        
+	pGrid->CopyData(1, 2, DataType_State);
 	pVerticalDynamics->StepImplicit(
 		2, 2, time, m_dImpCf[0][0] * dDeltaT);
 	pGrid->PostProcessSubstage(2, DataType_State);
@@ -94,7 +94,7 @@ void TimestepSchemeARS222::Step(
 	// STAGE 2
 	// Compute uf2 from u1 (index 2) into index 3
 	pGrid->LinearCombineData(m_du2fCombo, 3, DataType_State);
-        pGrid->LinearCombineData(m_du2fCombo, 3, DataType_Tracers);
+	pGrid->LinearCombineData(m_du2fCombo, 3, DataType_Tracers);
 	pHorizontalDynamics->StepExplicit(
 		2, 3, time, m_dExpCf[1][1] * dDeltaT);
 	pVerticalDynamics->StepExplicit(
@@ -110,10 +110,10 @@ void TimestepSchemeARS222::Step(
 
 	// Apply hyperdiffusion at the end of the explicit substep (ask Paul)
 	pGrid->CopyData(3, 2, DataType_State);
-        pGrid->CopyData(3, 2, DataType_Tracers);
+	pGrid->CopyData(3, 2, DataType_Tracers);
 	pHorizontalDynamics->StepAfterSubCycle(2, 1, 3, time, dDeltaT);
 	pGrid->CopyData(1, 0, DataType_State);
-        pGrid->CopyData(1, 0, DataType_Tracers);
+	pGrid->CopyData(1, 0, DataType_Tracers);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

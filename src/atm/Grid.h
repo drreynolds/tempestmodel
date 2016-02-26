@@ -23,8 +23,8 @@
 #include "Connectivity.h"
 #include "DataStruct.h"
 
-#ifdef USE_MPI
-#include "mpi.h"
+#ifdef TEMPEST_MPIOMP
+#include <mpi.h>
 #endif
 
 #include <string>
@@ -40,7 +40,7 @@ class ConsolidationStatus;
 class GridSpacing;
 class VerticalStretchFunction;
 
-#ifndef NO_NETCDF
+#ifdef TEMPEST_NETCDF
 class NcFile;
 #else
 typedef int NcFile;
@@ -67,13 +67,21 @@ public:
 
 public:
 	///	<summary>
+	///		Type of vertical discretization to be used.
+	///	</summary>
+	typedef int VerticalDiscretization;
+	static const int VerticalDiscretization_FiniteElement = 0;
+	static const int VerticalDiscretization_FiniteVolume = 1;
+
+public:
+	///	<summary>
 	///		Boundary condition type applied in each direction.
 	///	</summary>
 	typedef int BoundaryCondition;
 	static const int BoundaryCondition_Default = 0;
 	static const int BoundaryCondition_Periodic = 0;
 	static const int BoundaryCondition_NoFlux = 1;
-        static const int BoundaryCondition_NoSlip = 2;
+	static const int BoundaryCondition_NoSlip = 2;
 
 public:
 	///	<summary>
@@ -102,8 +110,8 @@ public:
 		int nABaseResolution,
 		int nBBaseResolution,
 		int nRefinementRatio,
+		VerticalDiscretization eVerticalDiscretization,
 		VerticalStaggering eVerticalStaggering
-			= VerticalStaggering_CharneyPhillips
 	);
 
 	///	<summary>
@@ -760,7 +768,7 @@ public:
 		return m_vecActiveGridPatches[ix];
 	}
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	///	<summary>
 	///		Get the node that contains the specified GridPatch.
 	///	</summary>
@@ -809,6 +817,13 @@ public:
 	///	</summary>
 	double GetZtop() const {
 		return m_dZtop;
+	}
+
+	///	<summary>
+	///		Get the type of vertical discretization.
+	///	</summary>
+	VerticalDiscretization GetVerticalDiscretization() const {
+		return m_eVerticalDiscretization;
 	}
 
 	///	<summary>
@@ -977,7 +992,7 @@ protected:
 	///	</summary>
 	std::vector<int> m_vecActiveGridPatchIndices;
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	///	<summary>
 	///		Vector of processors that contain the specified GridPatch.
 	///	</summary>
@@ -1020,6 +1035,11 @@ protected:
 	///		Refinement ratio.
 	///	</summary>
 	DataStruct<int> m_nRefinementRatio;
+
+	///	<summary>
+	///		Type of vertical stretching being applied.
+	///	</summary>
+	DataStruct<VerticalDiscretization> m_eVerticalDiscretization;
 
 	///	<summary>
 	///		Type of vertical stretching being applied.

@@ -23,6 +23,7 @@
 #include "TimestepSchemeARS222.h"
 #include "TimestepSchemeARS232.h"
 #include "TimestepSchemeARK232.h"
+#include "TimestepSchemeGARK2.h"
 #include "TimestepSchemeARS343.h"
 #include "TimestepSchemeARS443.h"
 #include "TimestepSchemeSplitExp.h"
@@ -43,10 +44,12 @@
 #include "Announce.h"
 #include "CommandLine.h"
 #include "STLStringHelper.h"
-#include <string>
-#include "mpi.h"
 
-#ifdef USE_PETSC
+#include <mpi.h>
+
+#include <string>
+
+#ifdef TEMPEST_PETSC
 #include <petscsnes.h>
 #endif
 
@@ -79,6 +82,7 @@ struct _TempestCommandLineVariables {
 	std::string strVerticalStaggering;
 	bool fForceMassFluxOnLevels;
 	std::string strVerticalStretch;
+	std::string strVerticalDiscretization;
 	int nVerticalHyperdiffOrder;
 	std::string strTimestepScheme;
 	std::string strHorizontalDynamics;
@@ -123,6 +127,7 @@ struct _TempestCommandLineVariables {
 	CommandLineDouble(_tempestvars.dInstepNuDiv, "inud", 0.0); \
 	CommandLineBool(_tempestvars.fExplicitVertical, "explicitvertical"); \
 	CommandLineStringD(_tempestvars.strVerticalStaggering, "vstagger", "CPH", "(LEV | INT | LOR | CPH)"); \
+	CommandLineStringD(_tempestvars.strVerticalDiscretization, "vdisc", "FE", "(FE | FV)"); \
 	CommandLineBool(_tempestvars.fForceMassFluxOnLevels, "vmassfluxlevels"); \
 	CommandLineString(_tempestvars.strVerticalStretch, "vstretch", "uniform"); \
 	CommandLineInt(_tempestvars.nVerticalHyperdiffOrder, "vhypervisorder", 0); \
@@ -227,6 +232,10 @@ void _TempestSetupMethodOfLines(
 	} else if (vars.strTimestepScheme == "ark232") {
 		model.SetTimestepScheme(
 			new TimestepSchemeARK232(model));
+
+        } else if (vars.strTimestepScheme == "gark2") {
+		model.SetTimestepScheme(
+			new TimestepSchemeGARK2(model));
 
 	} else if (vars.strTimestepScheme == "ars343") {
 		model.SetTimestepScheme(
@@ -409,6 +418,19 @@ void _TempestSetupCubedSphereModel(
 	// Setup Method of Lines
 	_TempestSetupMethodOfLines(model, vars);
 
+	// Get the vertical discretization from --vdisc
+	Grid::VerticalDiscretization eVerticalDiscretization;
+	STLStringHelper::ToLower(vars.strVerticalDiscretization);
+	if (vars.strVerticalDiscretization == "fe") {
+		eVerticalDiscretization = Grid::VerticalDiscretization_FiniteElement;
+
+	} else if (vars.strVerticalDiscretization == "fv") {
+		eVerticalDiscretization = Grid::VerticalDiscretization_FiniteVolume;
+
+	} else {
+		_EXCEPTIONT("Invalid value for --vdisc");
+	}
+
 	// Get the vertical staggering from --vstagger
 	Grid::VerticalStaggering eVerticalStaggering;
 	STLStringHelper::ToLower(vars.strVerticalStaggering);
@@ -451,6 +473,7 @@ void _TempestSetupCubedSphereModel(
 			4,
 			vars.nHorizontalOrder,
 			vars.nVerticalOrder,
+			eVerticalDiscretization,
 			eVerticalStaggering);
 
 		pGrid->InitializeDataLocal();
@@ -470,6 +493,9 @@ void _TempestSetupCubedSphereModel(
 		} else {
 			_EXCEPTIONT("Invalid value for --vstretch");
 		}
+
+		// Vertical type
+		STLStringHelper::ToLower(vars.strVerticalDiscretization);
 
 		// Set the Model Grid
 		model.SetGrid(pGrid);
@@ -506,6 +532,19 @@ void _TempestSetupCartesianModel(
 
 	// Setup Method of Lines
 	_TempestSetupMethodOfLines(model, vars);
+
+	// Get the vertical discretization from --vdisc
+	Grid::VerticalDiscretization eVerticalDiscretization;
+	STLStringHelper::ToLower(vars.strVerticalDiscretization);
+	if (vars.strVerticalDiscretization == "fe") {
+		eVerticalDiscretization = Grid::VerticalDiscretization_FiniteElement;
+
+	} else if (vars.strVerticalDiscretization == "fv") {
+		eVerticalDiscretization = Grid::VerticalDiscretization_FiniteVolume;
+
+	} else {
+		_EXCEPTIONT("Invalid value for --vdisc");
+	}
 
 	// Get the vertical staggering from --vstagger
 	Grid::VerticalStaggering eVerticalStaggering;
@@ -548,7 +587,8 @@ void _TempestSetupCartesianModel(
 			vars.nVerticalOrder,
 			dGDim,
 			dRefLat,
-                        iLatBC,
+			iLatBC,
+			eVerticalDiscretization,
 			eVerticalStaggering);
                 
 		pGrid->InitializeDataLocal();
@@ -602,7 +642,7 @@ void _TempestSetupCartesianModel(
 
 void TempestInitialize(int * argc, char*** argv) {
 
-#ifdef USE_PETSC
+#ifdef TEMPEST_PETSC
 	// Initialize PetSc
 	PetscInitialize(argc, argv, NULL, NULL);
 #else
@@ -616,7 +656,7 @@ void TempestInitialize(int * argc, char*** argv) {
 
 void TempestDeinitialize() {
 
-#ifdef USE_PETSC
+#ifdef TEMPEST_PETSC
 	// Finalize PetSc
 	PetscFinalize();
 #else
