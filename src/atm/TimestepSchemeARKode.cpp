@@ -20,9 +20,7 @@
 // require SUNDIALS for compilation
 #ifdef USE_SUNDIALS
 
-//#define DEBUG_PRINT_ON
-//#define STEP_LIKE_ARKODE
-//#define TEST_STEP
+//#define DEBUG_OUTPUT
 
 #include "TimestepSchemeARKode.h"
 #include "Model.h"
@@ -80,10 +78,6 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 void TimestepSchemeARKode::Initialize() {
   
   AnnounceStartBlock("Initializing ARKode");
-
-#ifdef STEP_LIKE_ARKODE
-  Announce("DEBUGGING: STEP_LIKE_ARKODE");
-#endif
 
   // error flag
   int ierr = 0;
@@ -203,7 +197,6 @@ void TimestepSchemeARKode::Initialize() {
       
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
     }
-    
   }
 
   // Set diagnostics output file
@@ -227,9 +220,20 @@ void TimestepSchemeARKode::Initialize() {
 
   AnnounceEndBlock("Done");
 
-#ifdef DEBUG_PRINT_ON
-  //  int iRegistryLength = GetLengthTempestNVectorRegistry();
-#endif 
+#ifdef DEBUG_OUTPUT
+  // Get process rank
+  int iRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
+
+  if (iRank == 0) {
+    std::cout << std::endl
+	      << " Proc "
+	      << iRank
+	      << " N_Vector Registry Length After Init: "
+	      << GetLengthTempestNVectorRegistry()
+	      << std::endl;
+  }
+#endif
 
 #define NO_NVECTOR_TESTING
 #ifdef NVECTOR_TESTING  
@@ -249,20 +253,8 @@ void TimestepSchemeARKode::Step(
 	double dDeltaT
 ) {
 
-#ifdef DEBUG_PRINT_ON
+#ifdef DEBUG_OUTPUT
   AnnounceStartBlock("ARKode Step");
-#endif
-
-#ifdef TEST_STEP
-  // Call step step to compare Strang and ARKode
-  ARKode_Test_Step(fFirstStep, dDeltaT);
-  return;
-#endif
-
-#ifdef STEP_LIKE_ARKODE
-  // Debugging step function that takes and ARKode like step within Tempest
-  Step_Like_ARKode(fFirstStep, fLastStep, time, dDeltaT);
-  return;
 #endif
 
   // error flag
@@ -296,8 +288,8 @@ void TimestepSchemeARKode::Step(
   
     Time timeNextT  = m_model.GetCurrentTime();
     Time timeDeltaT = m_model.GetDeltaT();
-    timeNextT += timeDeltaT; // Possibly too large on last step because value 
-                             // that GetDeltaT returns is not changed for last step
+    timeNextT += timeDeltaT; // Possibly too large on last step because value that 
+                             // GetDeltaT returns is not changed for the last step
 
     dNextT = timeNextT.GetSeconds();
 
@@ -348,9 +340,32 @@ void TimestepSchemeARKode::Step(
   pGrid->CopyData(1, iY, DataType_State);
   pGrid->CopyData(1, iY, DataType_Tracers);
 
-#ifdef DEBUG_PRINT_ON
+  // Reinitialize ARKode with state after filter, exchange, and hyperdiffusion
+  if (m_fFullyExplicit) {
+    ierr = ARKodeReInit(ARKodeMem, ARKodeFullRHS, NULL, dCurrentT, m_Y);
+  } else if (m_fFullyImplicit) {
+    ierr = ARKodeReInit(ARKodeMem, NULL, ARKodeFullRHS, dCurrentT, m_Y);
+  } else {
+    ierr = ARKodeReInit(ARKodeMem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
+  }
+
+#ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");
-  // int iRegistryLength = GetLengthTempestNVectorRegistry();
+
+  // Get process rank
+  if (fFirstStep) {
+    int iRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
+    
+    if (iRank == 0) {
+      std::cout << std::endl
+		<< " Proc "
+		<< iRank
+		<< "N_Vector Registry Length After First Step: "
+		<< GetLengthTempestNVectorRegistry()
+		<< std::endl;
+    }
+  }
 #endif
 }
 
@@ -363,12 +378,12 @@ static int ARKodeExplicitRHS(
 	void * user_data
 ) {
 
-#ifdef DEBUG_PRINT_ON
+#ifdef DEBUG_OUTPUT
   AnnounceStartBlock("Explicit RHS");
 #endif
 
-  // model time
-  Time timeT = Time(0,0,0,time,0); // only works for integers
+  // model time (not used in RHS)
+  Time timeT; //= Time(0,0,0,0,0); // only works for integers
 
   // index of input data in registry
   int iY = NV_INDEX_TEMPEST(Y);
@@ -405,7 +420,7 @@ static int ARKodeExplicitRHS(
   // Compute explicit RHS
   pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
 
-#ifdef DEBUG_PRINT_ON
+#ifdef DEBUG_OUTPUT
   // output ||fe||_max for sanity check
   //Announce("||fe|| = %g", N_VMaxNorm(Ydot));
   AnnounceEndBlock("Done");
@@ -420,15 +435,15 @@ static int ARKodeImplicitRHS(
 	realtype time, 
 	N_Vector Y, 
 	N_Vector Ydot, 
-	void *user_data
+	void * user_data
 ) {
  
-#ifdef DEBUG_PRINT_ON
+#ifdef DEBUG_OUTPUT
   AnnounceStartBlock("Implicit RHS");
 #endif
 
-  // model time
-  Time timeT = Time(0,0,0,time,0); // only works for integers
+  // model time (not used in RHS)
+  Time timeT; //= Time(0,0,0,0,0); // only works for integers
 
   // index of input data in registry
   int iY = NV_INDEX_TEMPEST(Y);
@@ -465,7 +480,7 @@ static int ARKodeImplicitRHS(
   // Compute implicit RHS
   pVerticalDynamicsFEM->StepImplicitTermsExplicitly(iY, iYdot, timeT, 1.0);
 
-#ifdef DEBUG_PRINT_ON
+#ifdef DEBUG_OUTPUT
   // output ||fi||_max for sanity check
   //Announce("||fi|| = %g", N_VMaxNorm(Ydot));
   AnnounceEndBlock("Done");
@@ -483,12 +498,27 @@ static int ARKodeFullRHS(
 	void * user_data
 ) {
 
-#ifdef DEBUG_PRINT_ON
+#ifdef DEBUG_OUTPUT
   AnnounceStartBlock("Full RHS");
+
+  // Get process rank
+  int iRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
+
+  if (iRank == 0) {
+    std::cout << std::endl
+	      << " Proc "
+	      << iRank
+	      << " Y Vector Registry Index: "
+	      << NV_INDEX_TEMPEST(Y)
+	      << " Ydot Vector Registry Index: "
+	      << NV_INDEX_TEMPEST(Ydot) 
+	      << std::endl;
+  }
 #endif
 
-  // model time (never used in RHS)
-  Time timeT = Time(0,0,0,0,0); // only works for integers
+  // model time (not used in RHS)
+  Time timeT; //= Time(0,0,0,0,0); // only works for integers
 
   // index of input data in registry
   int iY = NV_INDEX_TEMPEST(Y);
@@ -526,7 +556,7 @@ static int ARKodeFullRHS(
   pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
   pVerticalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
 
-#ifdef DEBUG_PRINT_ON
+#ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");
 #endif
 
@@ -573,7 +603,7 @@ void TimestepSchemeARKode::SetButcherTable()
 
       iStages = 2;
       iQorder = 1;
-      iPorder = 1;
+      iPorder = 0;
       
       pAe = new double [iStages * iStages];
       pc  = new double [iStages];
@@ -609,7 +639,7 @@ void TimestepSchemeARKode::SetButcherTable()
       
       iStages = 6;
       iQorder = 3;
-      iPorder = 1;
+      iPorder = 0;
       
       pAe = new double [iStages * iStages];
       pc  = new double [iStages];
@@ -660,7 +690,7 @@ void TimestepSchemeARKode::SetButcherTable()
       
       iStages = 5;
       iQorder = 4;
-      iPorder = 1;
+      iPorder = 0;
       
       pAe = new double [iStages * iStages];
       pc  = new double [iStages];
@@ -725,7 +755,7 @@ void TimestepSchemeARKode::SetButcherTable()
       
       iStages = 3;
       iQorder = 2;
-      iPorder = 1;
+      iPorder = 0;
       
       pc  = new double [iStages];
       pAi = new double [iStages * iStages];
@@ -774,426 +804,5 @@ void TimestepSchemeARKode::SetButcherTable()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-void TimestepSchemeARKode::ARKode_Test_Step(bool fFirstStep, 
-					    double dDeltaT) {
-
-  int iIdx_initial     = 20;
-  int iIdx_arkode      = 21;
-  int iIdx_tempest     = 22;
-  int iIdx_arkode_like = 23;
-  int iIdx_diff1       = 24;
-  int iIdx_diff2       = 25; 
-  int iIdx_diff3       = 26; 
-
-  if (!m_fFullyExplicit) {
-    _EXCEPTIONT("ARKode_Test_Step() ERROR: Not running fully explicitly");
-  }
-
-  Announce("ARKode_Test_Step()");
-
-  // counter for function calls, controls output at end of function
-  static int iCallCount = 0;
-
-  // inrement function call counter
-  iCallCount++;
-
-  // dummy time variable
-  Time time = Time(0,0,0,0,0);
-  
-  // Get a copy of the grid
-  Grid * pGrid = m_model.GetGrid();
-  
-  // Take first step with ARKode and Tempest
-  if (fFirstStep) {
-   
-    // Get a copy of the HorizontalDynamics
-    HorizontalDynamics * pHorizontalDynamics =
-      m_model.GetHorizontalDynamics();
-    
-    // Get a copy of the VerticalDynamics
-    VerticalDynamics * pVerticalDynamics =
-      m_model.GetVerticalDynamics();
-    
-    // Save Initial State
-    pGrid->CopyData(0, iIdx_initial, DataType_State);
-    pGrid->CopyData(0, iIdx_initial, DataType_Tracers);
-    
-    AnnounceStartBlock("Computing ARKode Step");
-    
-    // Current model time
-    Time timeCurrentT = m_model.GetCurrentTime();
-    double dCurrentT  = timeCurrentT.GetSeconds();
-       
-    Time timeNextT  = m_model.GetCurrentTime();
-    Time timeDeltaT = m_model.GetDeltaT();
-    timeNextT += timeDeltaT;
-    
-    double dNextT;
-    dNextT = timeNextT.GetSeconds();
-    
-    int ierr;
-    ierr = ARKode(ARKodeMem, dNextT, m_Y, &dCurrentT, ARK_ONE_STEP);
-    
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
-
-    // Exchange
-    // pGrid->PostProcessSubstage(0, DataType_State);
-    // pGrid->PostProcessSubstage(0, DataType_Tracers);
-    
-    // Save ARKode Solution
-    pGrid->CopyData(0, iIdx_arkode, DataType_State);
-    pGrid->CopyData(0, iIdx_arkode, DataType_Tracers);
-
-    AnnounceEndBlock("Done");
-
-    AnnounceStartBlock("Computing Tempest Step");
-    
-    // Reset Initial State
-    pGrid->CopyData(iIdx_initial, 0, DataType_State);
-    pGrid->CopyData(iIdx_initial, 0, DataType_Tracers);
-    
-    if (m_iSetButcherTable == 0) {
-
-      // Compare to Forward Euler
-      pGrid->CopyData(0, 4, DataType_State);
-      pGrid->CopyData(0, 4, DataType_Tracers);
-
-      pHorizontalDynamics->StepExplicit(0, 4, time, dDeltaT);
-      pVerticalDynamics->StepExplicit(0, 4, time, dDeltaT);
-
-      // pGrid->PostProcessSubstage(4, DataType_State);
-      // pGrid->PostProcessSubstage(4, DataType_Tracers);
-
-    } else if (m_iSetButcherTable == 1) { 
-
-      // Compare to KGU(6,3) ERK method
-      DataArray1D<double> dKinnmarkGrayUllrichCombination;
-      
-      dKinnmarkGrayUllrichCombination.Allocate(5);
-      
-      dKinnmarkGrayUllrichCombination[0] = - 1.0 / 4.0;
-      dKinnmarkGrayUllrichCombination[1] =   5.0 / 4.0;
-      dKinnmarkGrayUllrichCombination[2] =   0.0;
-      dKinnmarkGrayUllrichCombination[3] =   0.0;
-      dKinnmarkGrayUllrichCombination[4] =   0.0;
-      
-      // Z1 = Z0 = Yn
-      pGrid->CopyData(0, 1, DataType_State);
-      pGrid->CopyData(0, 1, DataType_Tracers);
-      
-      // Z1 = Z1 + 1/5 F(Z0) 
-      pHorizontalDynamics->StepExplicit(0, 1, time, dDeltaT / 5.0);
-      pVerticalDynamics->StepExplicit(0, 1, time, dDeltaT / 5.0);
-      
-      // pGrid->PostProcessSubstage(1, DataType_State);
-      // pGrid->PostProcessSubstage(1, DataType_Tracers);
-      
-      //-------------------------------------------------------------------------
-      
-      // Z2 = Z0
-      pGrid->CopyData(0, 2, DataType_State);
-      pGrid->CopyData(0, 2, DataType_Tracers);
-      
-      // Z2 = Z2 + 1/5 F(Z1)
-      pHorizontalDynamics->StepExplicit(1, 2, time, dDeltaT / 5.0);
-      pVerticalDynamics->StepExplicit(1, 2, time, dDeltaT / 5.0);
-      
-      // pGrid->PostProcessSubstage(2, DataType_State);
-      // pGrid->PostProcessSubstage(2, DataType_Tracers);
-      
-      //-------------------------------------------------------------------------
-      
-      // Z3 = Z0
-      pGrid->CopyData(0, 3, DataType_State);
-      pGrid->CopyData(0, 3, DataType_Tracers);
-      
-      // Z3 = Z3 + 1/3 F(Z2)
-      pHorizontalDynamics->StepExplicit(2, 3, time, dDeltaT / 3.0);
-      pVerticalDynamics->StepExplicit(2, 3, time, dDeltaT / 3.0);
-      
-      // pGrid->PostProcessSubstage(3, DataType_State);
-      // pGrid->PostProcessSubstage(3, DataType_Tracers);
-      
-      //-------------------------------------------------------------------------
-      
-      // Z4 = Z0 (save over Z2)
-      pGrid->CopyData(0, 2, DataType_State);
-      pGrid->CopyData(0, 2, DataType_Tracers);
-      
-      // Z4 = Z4 + 2/3 F(Z3)
-      pHorizontalDynamics->StepExplicit(3, 2, time, 2.0 * dDeltaT / 3.0);
-      pVerticalDynamics->StepExplicit(3, 2, time, 2.0 * dDeltaT / 3.0);
-      
-      // pGrid->PostProcessSubstage(2, DataType_State);
-      // pGrid->PostProcessSubstage(2, DataType_Tracers);
-      
-      //-------------------------------------------------------------------------
-      
-      // Z* = -1/4 Z0 + 5/4 Z1
-      pGrid->LinearCombineData(dKinnmarkGrayUllrichCombination, 4, DataType_State);
-      pGrid->LinearCombineData(dKinnmarkGrayUllrichCombination, 4, DataType_Tracers);
-      
-      // Yn+1 = Z5 = Z* + 3/4 F(Z4)
-      pHorizontalDynamics->StepExplicit(2, 4, time, 3.0 * dDeltaT / 4.0);
-      pVerticalDynamics->StepExplicit(2, 4, time, 3.0 * dDeltaT / 4.0);
-      
-      // pGrid->PostProcessSubstage(4, DataType_State);
-      // pGrid->PostProcessSubstage(4, DataType_Tracers); 
-      
-      //-------------------------------------------------------------------------
-      
-    } else {
-      _EXCEPTIONT("ARKode_Test_Step() ERROR: Invalid ERK Butcher table vaule");
-    }
-
-    // Save Tempest solution
-    pGrid->CopyData(4, iIdx_tempest, DataType_State);
-    pGrid->CopyData(4, iIdx_tempest, DataType_Tracers);
-
-    AnnounceEndBlock("Done");
-
-    AnnounceStartBlock("ARKode-Like Tempest Step");
-    
-    // Reset Initial State
-    pGrid->CopyData(iIdx_initial, 0, DataType_State);
-    pGrid->CopyData(iIdx_initial, 0, DataType_Tracers);
-    
-    if (m_iSetButcherTable == 0) {
-
-      // Compare to Forward Euler
-
-      // Zero vector to store RHS
-      pGrid->ZeroData(1, DataType_State);
-      pGrid->ZeroData(1, DataType_Tracers);
-
-      // evaluate RHS F(Z0) = F(Yn)
-      pHorizontalDynamics->StepExplicit(0, 1, time, 1.0);
-      pVerticalDynamics->StepExplicit(0, 1, time, 1.0);
-
-      // compute new solution 
-      pGrid->LinearSumData(1.0, 0, dDeltaT, 1, 2);
-
-      // save solution
-      pGrid->CopyData(2, iIdx_arkode_like, DataType_State);
-      pGrid->CopyData(2, iIdx_arkode_like, DataType_Tracers);
-
-    } else if (m_iSetButcherTable == 1) { 
-
-      // scaling factor for time steps
-      double dC;
-      
-      // F(Z0)
-      pGrid->ZeroData(1, DataType_State);
-      pGrid->ZeroData(1, DataType_Tracers);
-      
-      pHorizontalDynamics->StepExplicit(0, 1, time, 1.0);
-      pVerticalDynamics->StepExplicit(0, 1, time, 1.0);
-
-      // Z1
-      dC = 0.2 * dDeltaT;
-      pGrid->LinearSumData(1.0, 0, dC, 1, 2);
-
-      // F(Z1)
-      pGrid->ZeroData(3, DataType_State);
-      pGrid->ZeroData(3, DataType_Tracers);
-      
-      pHorizontalDynamics->StepExplicit(2, 3, time, 1.0);
-      pVerticalDynamics->StepExplicit(2, 3, time, 1.0);
-
-      // Z2
-      dC = 0.2 * dDeltaT;
-      pGrid->LinearSumData(1.0, 0, dC, 3, 2);
-
-      // F(Z2)
-      pGrid->ZeroData(3, DataType_State);
-      pGrid->ZeroData(3, DataType_Tracers);
-      
-      pHorizontalDynamics->StepExplicit(2, 3, time, 1.0);
-      pVerticalDynamics->StepExplicit(2, 3, time, 1.0);
-
-      // Z3
-      dC = dDeltaT / 3.0;
-      pGrid->LinearSumData(1.0, 0, dC, 3, 2);
-
-      // F(Z3)
-      pGrid->ZeroData(3, DataType_State);
-      pGrid->ZeroData(3, DataType_Tracers);
-      
-      pHorizontalDynamics->StepExplicit(2, 3, time, 1.0);
-      pVerticalDynamics->StepExplicit(2, 3, time, 1.0);
-
-      // Z4
-      dC = 2.0 * dDeltaT / 3.0;
-      pGrid->LinearSumData(1.0, 0, dC, 3, 2);
-
-      // F(Z4)
-      pGrid->ZeroData(3, DataType_State);
-      pGrid->ZeroData(3, DataType_Tracers);
-      
-      pHorizontalDynamics->StepExplicit(2, 3, time, 1.0);
-      pVerticalDynamics->StepExplicit(2, 3, time, 1.0);
-
-      // Z5 = Yn+1
-      pGrid->LinearSumData(0.25, 1, 0.75, 3, 2);
-      pGrid->LinearSumData(1.0, 0, dDeltaT, 2, 3);
-
-      // save solution
-      pGrid->CopyData(3, iIdx_arkode_like, DataType_State);
-      pGrid->CopyData(3, iIdx_arkode_like, DataType_Tracers);
-    }
-
-    // Compute difference between ARKode and Tempest solutions
-    pGrid->LinearSumData(1.0, iIdx_arkode, -1.0, iIdx_tempest, iIdx_diff1);
-
-    // Compute difference between ARKode-Like and Tempest solutions
-    pGrid->LinearSumData(1.0, iIdx_arkode_like, -1.0, iIdx_tempest, iIdx_diff2);
-
-    // Difference between initial and saved initial
-    pGrid->LinearSumData(1.0, 0, -1.0, iIdx_initial, iIdx_diff3);
-  }
-
-  // Output 
-  if (iCallCount == 1) {
-    // output ARKode
-    Announce("Output ARKode Step");
-    pGrid->CopyData(iIdx_arkode, 0, DataType_State);
-    pGrid->CopyData(iIdx_arkode, 0, DataType_Tracers);
-
-  } else if (iCallCount == 2) {
-    // output Tempest
-    Announce("Output Tempest Step");
-    pGrid->CopyData(iIdx_tempest, 0, DataType_State);
-    pGrid->CopyData(iIdx_tempest, 0, DataType_Tracers);
-
-  } else if (iCallCount == 3) {
-    // output diff
-    Announce("Output ARKode-Like");
-    pGrid->CopyData(iIdx_arkode_like, 0, DataType_State);
-    pGrid->CopyData(iIdx_arkode_like, 0, DataType_Tracers);   
-
-  } else if (iCallCount == 4) {
-    // output diff
-    Announce("Output Diff1");
-    pGrid->CopyData(iIdx_diff1, 0, DataType_State);
-    pGrid->CopyData(iIdx_diff1, 0, DataType_Tracers);   
-
-  } else if (iCallCount == 5) {
-    // output diff
-    Announce("Output Diff2");
-    pGrid->CopyData(iIdx_diff2, 0, DataType_State);
-    pGrid->CopyData(iIdx_diff2, 0, DataType_Tracers);   
-
-  } else if (iCallCount == 6) {
-    // output diff
-    Announce("OutputDiff3"); 
-    pGrid->CopyData(iIdx_diff3, 0, DataType_State);
-    pGrid->CopyData(iIdx_diff3, 0, DataType_Tracers);
- 
- } else {
-    Announce("End of Test Step"); 
-  }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-void TimestepSchemeARKode::Step_Like_ARKode(bool fFirstStep, 
-					    bool fLastStep,
-					    const Time & time,
-					    double dDeltaT) {
- 
-  // Get a copy of the grid
-  Grid * pGrid = m_model.GetGrid();
-
-  // Get a copy of the HorizontalDynamics
-  HorizontalDynamics * pHorizontalDynamics =
-    m_model.GetHorizontalDynamics();
-  
-  // Get a copy of the VerticalDynamics
-  VerticalDynamics * pVerticalDynamics =
-    m_model.GetVerticalDynamics();
-  
-  // scaling factor for time steps
-  double dC;
-  
-  // Evalutate RHS(Z0), Z0 = Yn
-  pGrid->ZeroData(1, DataType_State);
-  pGrid->ZeroData(1, DataType_Tracers);
-  
-  pHorizontalDynamics->StepExplicit(0, 1, time, 1.0);
-  pVerticalDynamics->StepExplicit(0, 1, time, 1.0);
-  
-  // Compute Z1 = Yn + 1/5 dt RHS(Z0)
-  dC = 0.2 * dDeltaT;
-  pGrid->LinearSumData(1.0, 0, dC, 1, 2);
-
-  pGrid->PostProcessSubstage(2, DataType_State);
-  pGrid->PostProcessSubstage(2, DataType_Tracers); 
-  
-  // Evaluate RHS(Z1)
-  pGrid->ZeroData(3, DataType_State);
-  pGrid->ZeroData(3, DataType_Tracers);
-  
-  pHorizontalDynamics->StepExplicit(2, 3, time, 1.0);
-  pVerticalDynamics->StepExplicit(2, 3, time, 1.0);
-  
-  // Compute Z2 = Yn + 1/5 dt RHS(Z1)
-  dC = 0.2 * dDeltaT;
-  pGrid->LinearSumData(1.0, 0, dC, 3, 2);
-
-  pGrid->PostProcessSubstage(2, DataType_State);
-  pGrid->PostProcessSubstage(2, DataType_Tracers); 
-  
-  // Evaluate RHS(Z2)
-  pGrid->ZeroData(3, DataType_State);
-  pGrid->ZeroData(3, DataType_Tracers);
-  
-  pHorizontalDynamics->StepExplicit(2, 3, time, 1.0);
-  pVerticalDynamics->StepExplicit(2, 3, time, 1.0);
-  
-  // Compute Z3 = Yn + 1/3 dt RHS(Z2)
-  dC = dDeltaT / 3.0;
-  pGrid->LinearSumData(1.0, 0, dC, 3, 2);
-
-  pGrid->PostProcessSubstage(2, DataType_State);
-  pGrid->PostProcessSubstage(2, DataType_Tracers); 
-  
-  // Evaluate RHS(Z3)
-  pGrid->ZeroData(3, DataType_State);
-  pGrid->ZeroData(3, DataType_Tracers);
-  
-  pHorizontalDynamics->StepExplicit(2, 3, time, 1.0);
-  pVerticalDynamics->StepExplicit(2, 3, time, 1.0);
-  
-  // Compute Z4 = Yn + 2/3 dt RHS(Z3)
-  dC = 2.0 * dDeltaT / 3.0;
-  pGrid->LinearSumData(1.0, 0, dC, 3, 2);
-
-  pGrid->PostProcessSubstage(2, DataType_State);
-  pGrid->PostProcessSubstage(2, DataType_Tracers); 
-  
-  // Evaluate RHS(Z4)
-  pGrid->ZeroData(3, DataType_State);
-  pGrid->ZeroData(3, DataType_Tracers);
-  
-  pHorizontalDynamics->StepExplicit(2, 3, time, 1.0);
-  pVerticalDynamics->StepExplicit(2, 3, time, 1.0);
-  
-  // Compute Z5 = Yn+1 = Yn + 1/4 RHS(Z0) + 3/4 RHS(Z4)
-  pGrid->LinearSumData(0.25, 1, 0.75, 3, 2);
-  pGrid->LinearSumData(1.0, 0, dDeltaT, 2, 1);
-
-  pGrid->PostProcessSubstage(1, DataType_State);
-  pGrid->PostProcessSubstage(1, DataType_Tracers); 
-
-  // Apply hyperdiffusion (initial, update, temp)
-  pGrid->CopyData(1, 2, DataType_State);
-  pGrid->CopyData(1, 2, DataType_Tracers);
-
-  pHorizontalDynamics->StepAfterSubCycle(1, 2, 3, time, dDeltaT);
-
-  pGrid->CopyData(2, 0, DataType_State);
-  pGrid->CopyData(2, 0, DataType_Tracers);
-}
 
 #endif

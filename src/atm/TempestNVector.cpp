@@ -18,6 +18,8 @@
 // require SUNDIALS for compilation
 #ifdef USE_SUNDIALS
 
+//#define DEBUG_OUTPUT
+
 #include "TempestNVector.h"
 #include "Model.h"
 #include "Announce.h"
@@ -122,6 +124,21 @@ N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
     return(NULL);
   }
 
+#ifdef DEBUG_OUTPUT
+  // Get process rank
+  int iRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
+
+  if (iRank == 0) {
+    std::cout << std::endl
+	      << " Proc "
+	      << iRank
+	      << " N_Vector created at Registry Index: "
+	      << content->mVectorIndex
+	      << std::endl;
+  }
+#endif
+  
   // store reference to Grid object
   content->mGrid = &grid;
 
