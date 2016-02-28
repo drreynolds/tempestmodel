@@ -20,8 +20,11 @@ else ifeq ($(UNAME),Linux)
     SYSTEM= FARADAY
     SYSTEM_MAKEFILE= faraday.make
   else # FIXME: Add a test condition
-    SYSTEM= AGRI
-    SYSTEM_MAKEFILE= agri.make
+    SYSTEM= CAB
+    SYSTEM_MAKEFILE= cab.make
+  # else # FIXME: Add a test condition
+  #   SYSTEM= AGRI
+  #   SYSTEM_MAKEFILE= agri.make
   endif   
 endif
 
