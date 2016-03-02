@@ -53,6 +53,19 @@ int GetLengthTempestNVectorRegistry() {
   return RegistryLength;
 }
 
+// Marks first available vector from registry as used (if any are available)
+int ReserveNextTempestNVectorRegistryIdx() {
+  
+  for (int i=0; i<MAX_TEMPEST_NVECTORS; i++) {
+    if (!TempestNVectorRegistry[i]) {
+      TempestNVectorRegistry[i] = true;
+      return i;
+    }
+  }
+  // no places available
+  return -1;
+}
+
 // Function to create a new TempestNVector
 N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
 

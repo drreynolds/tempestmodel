@@ -292,6 +292,13 @@ public:
 		m_timeEnd = timeEnd;
 	}
 
+	///	<summary>
+	///		Set flag for dynamic time stepping.
+	///	</summary>
+	void SetDynamicTimestepping(bool fDynamicTimestepping) {
+		m_fDynamicTimestepping = fDynamicTimestepping;
+	}
+
 protected:
 	///	<summary>
 	///		Flag indicating the Grid has been initialized from a restart file.

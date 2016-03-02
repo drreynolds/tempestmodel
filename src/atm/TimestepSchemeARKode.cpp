@@ -47,12 +47,12 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_dAbsTol(ARKodeVars.atol),
 	m_fFullyExplicit(ARKodeVars.FullyExplicit),
 	m_fFullyImplicit(false),
-	m_fFixedStepSize(true),
+	m_fDynamicStepSize(ARKodeVars.DynamicStepSize),
+	m_dDynamicDeltaT(0.0),
 	m_fAAFP(ARKodeVars.AAFP),
 	m_iAAFPAccelVec(ARKodeVars.AAFPAccelVec),
 	m_iNonlinIters(ARKodeVars.NonlinIters),
 	m_iLinIters(ARKodeVars.LinIters),
-	m_dDynamicDeltaT(0.0),
 	m_fWriteDiagnostics(ARKodeVars.WriteDiagnostics)
 {
         // Allocate ARKode memory
@@ -63,14 +63,6 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	// Check input paramters
 	if (m_iARKodeButcherTable >= 0 && m_iSetButcherTable >= 0)
 	  _EXCEPTIONT("ERROR: ARKodeButcherTable and SetButcherTable are both >= 0.");
-
-	// Check if using adaptive time stepping
-	Time timeDeltaT = m_model.GetDeltaT();
-	
-	if (timeDeltaT.IsZero()) {
-	  m_fFixedStepSize = false;
-	  Announce("Warning: Adaptive time stepping not yet tested.");
-	}
 }
 					  
 ///////////////////////////////////////////////////////////////////////////////
@@ -85,14 +77,22 @@ void TimestepSchemeARKode::Initialize() {
   // Get a copy of the grid
   Grid * pGrid = m_model.GetGrid();
 
-  // Create a Tempest NVector for the model state
+  // Create a Tempest NVector for the model state (registry index 0)
   m_Y = N_VNew_Tempest(*pGrid, m_model);
-
   if (m_Y == NULL) _EXCEPTIONT("ERROR: N_VNew_Tempest returned NULL");
 
   int iY = NV_INDEX_TEMPEST(m_Y);
-
   if (iY != 0) _EXCEPTION1("ERROR: iY != 0, iY = %i",iY);
+
+  // Reserve next two places (registry index 1 and 2) in nvector registry
+  // to use as temporary states with hyperdiffusion
+  int iRegistryIdx;
+
+  iRegistryIdx = ReserveNextTempestNVectorRegistryIdx();
+  if (iRegistryIdx < 0) _EXCEPTIONT("ERROR: NVector Registry is full");
+
+  iRegistryIdx = ReserveNextTempestNVectorRegistryIdx();
+  if (iRegistryIdx < 0) _EXCEPTIONT("ERROR: NVector Registry is full");
 
   // Get current simulation time in seconds
   Time timeCurrentT = m_model.GetCurrentTime();
@@ -106,18 +106,33 @@ void TimestepSchemeARKode::Initialize() {
   } else {
     ierr = ARKodeInit(ARKodeMem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
   }
-  
+
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeInit, ierr = %i",ierr);
 
-  // Use a fixed step size
-  if (m_fFixedStepSize) {
+  // Set stop time 
+  Time timeEndT = m_model.GetEndTime();
+  double dEndT  = timeEndT.GetSeconds();
+
+  ierr = ARKodeSetStopTime(ARKodeMem, dEndT);
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetStopTime, ierr = %i",ierr);  
+
+  // Set function to post process arkode steps
+  ierr = ARKodeSetPostprocessStepFn(ARKodeMem, ARKodePostProcessStep);
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetPostprocessStepFn, ierr = %i",ierr);
+
+  // Set adaptive or fixed time stepping  
+  if (m_fDynamicStepSize) {
+
+    // set dynamic timestepping flag to true
+    m_model.SetDynamicTimestepping(m_fDynamicStepSize);
+
+  } else {
 
     // Set fixed step size in seconds
     Time timeDeltaT = m_model.GetDeltaT();
     double dDeltaT  = timeDeltaT.GetSeconds();
    
-    ierr = ARKodeSetFixedStep(ARKodeMem, dDeltaT);
-    
+    ierr = ARKodeSetFixedStep(ARKodeMem, dDeltaT);   
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
   }
 
@@ -163,7 +178,6 @@ void TimestepSchemeARKode::Initialize() {
   
   // Specify tolerances
   ierr = ARKodeSStolerances(ARKodeMem, m_dRelTol, m_dAbsTol);
-
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSStolerances, ierr = %i",ierr);
 
   // Nonlinear Solver Settings
@@ -172,14 +186,12 @@ void TimestepSchemeARKode::Initialize() {
     if (m_fAAFP) { // Anderson accelerated fixed point solver
       
       ierr = ARKodeSetFixedPoint(ARKodeMem, m_iAAFPAccelVec);
-      
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedPoint, ierr = %i",ierr);
 
     } else { // Newton iteration
       
       // Linear Solver Settings 
-      ierr = ARKSpgmr(ARKodeMem, PREC_NONE, m_iLinIters);
-      
+      ierr = ARKSpgmr(ARKodeMem, PREC_NONE, m_iLinIters);      
       if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
     }
 
@@ -187,14 +199,12 @@ void TimestepSchemeARKode::Initialize() {
     if (m_iNonlinIters < 0) {
       
       ierr = ARKodeSetLinear(ARKodeMem, 1);
-      
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetLinear, ierr = %i",ierr);
       
       // otherwise, set the Max nonlinear solver iterations
     } else { 
       
       ierr = ARKodeSetMaxNonlinIters(ARKodeMem, m_iNonlinIters);
-      
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
     }
   }
@@ -208,12 +218,10 @@ void TimestepSchemeARKode::Initialize() {
 
     // Root process writes diagnostic file
     if (iRank == 0) {
-      FILE * pFile; 
-    
+      FILE * pFile;
       pFile = fopen("ARKode_Diagnostics.txt","w");
       
       ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
-
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);
     }
   }
@@ -261,9 +269,8 @@ void TimestepSchemeARKode::Step(
   int ierr = 0;
 
   // Adjust last time step size if using fixed step sizes
-  if (m_fFixedStepSize && fLastStep) {
+  if (!m_fDynamicStepSize && fLastStep) {
     ierr = ARKodeSetFixedStep(ARKodeMem, dDeltaT);
-
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
   }
 
@@ -279,74 +286,27 @@ void TimestepSchemeARKode::Step(
     = dynamic_cast<VerticalDynamicsFEM*>(m_model.GetVerticalDynamics());
 
   // Current time in seconds
-  Time timeCurrentT = m_model.GetCurrentTime();
-  double dCurrentT  = timeCurrentT.GetSeconds();
+  double dCurrentT = time.GetSeconds();
 
-  // Next time in seconds
-  double dNextT;
-  if (m_fFixedStepSize) {
-  
-    Time timeNextT  = m_model.GetCurrentTime();
-    Time timeDeltaT = m_model.GetDeltaT();
-    timeNextT += timeDeltaT; // Possibly too large on last step because value that 
-                             // GetDeltaT returns is not changed for the last step
+  // Next time in seconds  
+  Time timeDeltaT = m_model.GetDeltaT();
+  Time timeNextT  = time;
 
-    dNextT = timeNextT.GetSeconds();
+  // timeDeltaT is possibly too large on last step because value that 
+  // GetDeltaT returns is not adjusted if necessary on the last step,
+  // stop time in arkode will adjust time step to match end time
+  timeNextT += timeDeltaT; 
 
-  } else {
-    // should change to use next output time as dNextT
+  double dNextT = timeNextT.GetSeconds();
 
-    Time timeEnd = m_model.GetEndTime();
-    dNextT = timeEnd.GetSeconds();
-  }
- 
   // ARKode timestep
   ierr = ARKode(ARKodeMem, dNextT, m_Y, &dCurrentT, ARK_ONE_STEP);
-
   if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
 
-  // Get dynamic step size
-  if (!m_fFixedStepSize) {
+  // With dynamic stepping, get the last step size to update model time
+  if (m_fDynamicStepSize) {
     ierr = ARKodeGetLastStep(ARKodeMem, &m_dDynamicDeltaT);
-      
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
-  }
-
-  // Get idex of Tempest NVector in the grid
-  int iY = NV_INDEX_TEMPEST(m_Y);
-
-  // Filter negative tracers
-  pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
-  pVerticalDynamicsFEM->FilterNegativeTracers(iY);
-
-  // Exchange
-  pGrid->PostProcessSubstage(iY, DataType_State);
-  pGrid->PostProcessSubstage(iY, DataType_Tracers);
-
-  // Adjust hyperdiffusion step size when using adaptive step sizes
-  double dLastDeltaT;
-  if (m_fFixedStepSize) {
-    dLastDeltaT = dDeltaT;
-  } else {
-    dLastDeltaT = m_dDynamicDeltaT;
-  }
-
-  // Apply hyperdiffusion (initial, update, temp)
-  pGrid->CopyData(iY, 1, DataType_State);
-  pGrid->CopyData(iY, 1, DataType_Tracers);
-
-  pHorizontalDynamicsFEM->StepAfterSubCycle(iY, 1, 2, time, dLastDeltaT);
-
-  pGrid->CopyData(1, iY, DataType_State);
-  pGrid->CopyData(1, iY, DataType_Tracers);
-
-  // Reinitialize ARKode with state after filter, exchange, and hyperdiffusion
-  if (m_fFullyExplicit) {
-    ierr = ARKodeReInit(ARKodeMem, ARKodeFullRHS, NULL, dCurrentT, m_Y);
-  } else if (m_fFullyImplicit) {
-    ierr = ARKodeReInit(ARKodeMem, NULL, ARKodeFullRHS, dCurrentT, m_Y);
-  } else {
-    ierr = ARKodeReInit(ARKodeMem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
   }
 
 #ifdef DEBUG_OUTPUT
@@ -367,6 +327,66 @@ void TimestepSchemeARKode::Step(
     }
   }
 #endif
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+static int ARKodePostProcessStep(
+	realtype time, 
+	N_Vector Y, 
+	void * user_data
+) {
+#ifdef DEBUG_OUTPUT
+  AnnounceStartBlock("Post Process Step");
+#endif
+  
+  // error flag
+  int ierr;
+
+  // Get idex of Tempest NVector in the grid
+  int iY = NV_INDEX_TEMPEST(Y);
+
+  // Get a copy of the grid
+  Grid * pGrid = NV_GRID_TEMPEST(Y);
+
+  // Get a copy of the model
+  Model * pModel = NV_MODEL_TEMPEST(Y);
+
+  // Get a copy of the HorizontalDynamics
+  HorizontalDynamicsFEM * pHorizontalDynamicsFEM 
+    = dynamic_cast<HorizontalDynamicsFEM*>(pModel->GetHorizontalDynamics());
+
+  // Get a copy of the VerticalDynamics
+  VerticalDynamicsFEM * pVerticalDynamicsFEM 
+    = dynamic_cast<VerticalDynamicsFEM*>(pModel->GetVerticalDynamics());
+
+  // Filter negative tracers
+  pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
+  pVerticalDynamicsFEM->FilterNegativeTracers(iY);
+  
+  // Exchange
+  pGrid->PostProcessSubstage(iY, DataType_State);
+  pGrid->PostProcessSubstage(iY, DataType_Tracers);
+
+  // Get last time step size
+  Time timeT     = pModel->GetCurrentTime();  // model still has old time
+  double dOldT   = timeT.GetSeconds();
+  double dDeltaT = time - dOldT;
+   
+  // Apply hyperdiffusion (initial, update, temp)
+  pGrid->CopyData(iY, 1, DataType_State);
+  pGrid->CopyData(iY, 1, DataType_Tracers);
+  
+  pHorizontalDynamicsFEM->StepAfterSubCycle(iY, 1, 2, timeT, dDeltaT);
+  
+  pGrid->CopyData(1, iY, DataType_State);
+  pGrid->CopyData(1, iY, DataType_Tracers);
+
+#ifdef DEBUG_OUTPUT
+  AnnounceEndBlock("Done");
+#endif
+
+  return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

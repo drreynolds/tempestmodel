@@ -39,6 +39,7 @@ struct ARKodeCommandLineVariables {
   double rtol;
   double atol;
   bool   FullyExplicit;
+  bool   DynamicStepSize;
   bool   AAFP;
   int    AAFPAccelVec;
   int    NonlinIters;
@@ -156,9 +157,15 @@ private:
 	bool m_fFullyImplicit;
 
 	///	<summary>
-	///		ARKode flag to used fixed step sizes.
+	///		ARKode flag to used adaptive step sizes.
 	///	</summary>
-	bool m_fFixedStepSize;
+	bool m_fDynamicStepSize;
+
+	///	<summary>
+	///		Most recent step size in ARKode when using dynamic
+	///             timestepping.
+	///	</summary>
+	double m_dDynamicDeltaT;
 
 	///	<summary>
 	///		ARKode flag for Anderson Accelerated Fixed Point solver.
@@ -179,12 +186,6 @@ private:
 	///		Max number of linear iterations.
 	///	</summary>
 	int m_iLinIters;
-
-	///	<summary>
-	///		Most recent step size in ARKode when using dynamic
-	///             timestepping.
-	///	</summary>
-	double m_dDynamicDeltaT;
 
 	///	<summary>
 	///		ARKode flag to write diagnostics file.
@@ -222,6 +223,15 @@ static int ARKodeFullRHS(
 	N_Vector Y, 
 	N_Vector Ydot, 
 	void *user_data
+);
+
+///	<summary>
+///		Function to perform operations on ARKode step solution.
+///	</summary>
+static int ARKodePostProcessStep(
+	realtype time, 
+	N_Vector Y, 
+	void * user_data
 );
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -310,12 +310,8 @@ void Model::Go() {
 
 	// Check time step
 	if (m_timeDeltaT.IsZero()) {
-#ifdef USE_SUNDIALS
-		m_fDynamicTimestepping = true;
-#else
 		_EXCEPTIONT("Dynamic timestepping not implemented. "
 		            "DeltaT must be non-zero.");
-#endif
 	}
 
 	// Evaluate geometric terms in the grid
@@ -371,22 +367,15 @@ void Model::Go() {
 
 		// Time at next time step
 		Time timeNext = m_time;
+		timeNext += m_timeDeltaT;
 
-		// Set step size for fixed timestepping
-		if (!m_fDynamicTimestepping) {
-		  
-		  timeNext += m_timeDeltaT;
-		  
-		  if (timeNext >= m_timeEnd) {
-		    dDeltaT = m_timeEnd - m_time;
-		    fLastStep = true;
-		    
-		  } else {
-		    dDeltaT = timeNext - m_time;
-		  }
+		// Adjust step size for last step
+		if (timeNext >= m_timeEnd) {
+			dDeltaT = m_timeEnd - m_time;
+			fLastStep = true;
 
 		} else {
-		  dDeltaT = 0.0;
+			dDeltaT = timeNext - m_time;
 		}
 
 		// Perform one time step

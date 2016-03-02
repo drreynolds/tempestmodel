@@ -94,12 +94,13 @@ struct _TempestCommandLineVariables {
     int iARKode_nvectors;
 	double dARKode_rtol;
 	double dARKode_atol;
+	bool fARKode_DynamicStepSize;
 	bool fARKode_aafp;       
-    int iARKode_AAFPAccelVec;
-    int iARKode_NonlinIters;
-    int iARKode_LinIters;
-    int iARKode_ARKodeButcherTable;
-    int iARKode_SetButcherTable;
+	int iARKode_AAFPAccelVec;
+	int iARKode_NonlinIters;
+	int iARKode_LinIters;
+	int iARKode_ARKodeButcherTable;
+	int iARKode_SetButcherTable;
 	bool fARKode_Diagnostics;
 };
 
@@ -136,6 +137,7 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.iARKode_nvectors, "arkode_nvectors", 50); \
 	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-6); \
 	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-11); \
+	CommandLineBool(_tempestvars.fARKode_DynamicStepSize, "arkode_dynamicstepsize"); \
 	CommandLineBool(_tempestvars.fARKode_aafp, "arkode_aafp"); \
 	CommandLineInt(_tempestvars.iARKode_AAFPAccelVec, "arkode_aafpaccelvec", 0); \
 	CommandLineInt(_tempestvars.iARKode_NonlinIters, "arkode_nonliniters", 0); \
@@ -253,14 +255,15 @@ void _TempestSetupMethodOfLines(
 	} else if (vars.strTimestepScheme == "arkode") {
  	        ARKodeCommandLineVariables ARKodeVars;
 		
-		ARKodeVars.nvectors      = vars.iARKode_nvectors;
-		ARKodeVars.rtol          = vars.dARKode_rtol;
-		ARKodeVars.atol          = vars.dARKode_atol;
-		ARKodeVars.FullyExplicit = vars.fExplicitVertical;
-		ARKodeVars.AAFP          = vars.fARKode_aafp;
-		ARKodeVars.AAFPAccelVec  = vars.iARKode_AAFPAccelVec;
-		ARKodeVars.NonlinIters   = vars.iARKode_NonlinIters;
-		ARKodeVars.LinIters      = vars.iARKode_LinIters;
+		ARKodeVars.nvectors        = vars.iARKode_nvectors;
+		ARKodeVars.rtol            = vars.dARKode_rtol;
+		ARKodeVars.atol            = vars.dARKode_atol;
+		ARKodeVars.DynamicStepSize = vars.fARKode_DynamicStepSize;
+		ARKodeVars.FullyExplicit   = vars.fExplicitVertical;
+		ARKodeVars.AAFP            = vars.fARKode_aafp;
+		ARKodeVars.AAFPAccelVec    = vars.iARKode_AAFPAccelVec;
+		ARKodeVars.NonlinIters     = vars.iARKode_NonlinIters;
+		ARKodeVars.LinIters        = vars.iARKode_LinIters;
 
 		ARKodeVars.ARKodeButcherTable = vars.iARKode_ARKodeButcherTable;
 		ARKodeVars.SetButcherTable    = vars.iARKode_SetButcherTable;
