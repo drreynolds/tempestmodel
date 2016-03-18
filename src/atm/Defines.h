@@ -28,6 +28,12 @@
 //#define USE_DIRECTSOLVE
 
 ///	<summary>
+///		Allows allocation of the Jacobian matrix when a JFNK method 
+///             is specified above (for use in ARKode preconditioning).
+///	</summary>
+#define ENABLE_JFNK_PRECONDITIONING
+
+///	<summary>
 ///		Jacobian storage form
 ///	</summary>
 //#define USE_JACOBIAN_DEBUG

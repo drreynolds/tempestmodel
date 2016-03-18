@@ -21,6 +21,7 @@
 #ifdef USE_SUNDIALS
 
 //#define DEBUG_OUTPUT
+#define STATISTICS_OUTPUT
 
 #include "TimestepSchemeARKode.h"
 #include "Model.h"
@@ -53,7 +54,8 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_iAAFPAccelVec(ARKodeVars.AAFPAccelVec),
 	m_iNonlinIters(ARKodeVars.NonlinIters),
 	m_iLinIters(ARKodeVars.LinIters),
-	m_fWriteDiagnostics(ARKodeVars.WriteDiagnostics)
+	m_fWriteDiagnostics(ARKodeVars.WriteDiagnostics),
+	m_fUsePreconditioning(ARKodeVars.UsePreconditioning)
 {
         // Allocate ARKode memory
         ARKodeMem = ARKodeCreate();
@@ -151,17 +153,17 @@ void TimestepSchemeARKode::Initialize() {
 
     } else {
 
-      if (m_iARKodeButcherTable == 2 || m_iARKodeButcherTable == 15) {
+      if (m_iARKodeButcherTable == 2 || m_iARKodeButcherTable == 16) {
 
-	ierr = ARKodeSetARKTableNum(ARKodeMem, 15, 2);
+	ierr = ARKodeSetARKTableNum(ARKodeMem, 16, 2);
 
-      } else if (m_iARKodeButcherTable == 4 || m_iARKodeButcherTable == 20) {
+      } else if (m_iARKodeButcherTable == 4 || m_iARKodeButcherTable == 21) {
 
-	ierr = ARKodeSetARKTableNum(ARKodeMem, 20, 4);
+	ierr = ARKodeSetARKTableNum(ARKodeMem, 21, 4);
 
-      } else if (m_iARKodeButcherTable == 9 || m_iARKodeButcherTable == 22) {
+      } else if (m_iARKodeButcherTable == 9 || m_iARKodeButcherTable == 23) {
 
-	ierr = ARKodeSetARKTableNum(ARKodeMem, 22, 9);
+	ierr = ARKodeSetARKTableNum(ARKodeMem, 23, 9);
 
       } else {
 	ierr = ARK_ILL_INPUT;
@@ -189,10 +191,20 @@ void TimestepSchemeARKode::Initialize() {
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedPoint, ierr = %i",ierr);
 
     } else { // Newton iteration
-      
-      // Linear Solver Settings 
-      ierr = ARKSpgmr(ARKodeMem, PREC_NONE, m_iLinIters);      
+
+      int precflag = PREC_NONE;
+      if (m_fUsePreconditioning)  precflag = PREC_RIGHT;
+
+      // Linear Solver Settings
+      ierr = ARKSpgmr(ARKodeMem, precflag, m_iLinIters);      
       if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
+
+      // Use preconditioning if requested
+      if (m_fUsePreconditioning) {
+	ierr = ARKSpilsSetPreconditioner(ARKodeMem, NULL, ARKodePreconditionerSolve);
+	if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetPreconditioner, ierr = %i",ierr);
+      }
+  
     }
 
     // if negative nonlinear iterations are specified, switch to linear-implicit mode
@@ -299,15 +311,64 @@ void TimestepSchemeARKode::Step(
 
   double dNextT = timeNextT.GetSeconds();
 
+  // set up call to ARKode to evolve to dNextT, using either a single step or adaptivity
+  int stepmode = ARK_ONE_STEP;
+  if (m_fDynamicStepSize) {
+    stepmode = ARK_NORMAL;
+    ierr = ARKodeSetStopTime(ARKodeMem, dNextT);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetStopTime, ierr = %i",ierr);
+  } else {
+    stepmode = ARK_ONE_STEP;
+  }
+
   // ARKode timestep
-  ierr = ARKode(ARKodeMem, dNextT, m_Y, &dCurrentT, ARK_ONE_STEP);
+  ierr = ARKode(ARKodeMem, dNextT, m_Y, &dCurrentT, stepmode);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
 
-  // With dynamic stepping, get the last step size to update model time
-  if (m_fDynamicStepSize) {
-    ierr = ARKodeGetLastStep(ARKodeMem, &m_dDynamicDeltaT);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
+  // // With dynamic stepping, get the last step size to update model time
+  // if (m_fDynamicStepSize) {
+  //   ierr = ARKodeGetLastStep(ARKodeMem, &m_dDynamicDeltaT);
+  //   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
+  // }
+
+#ifdef STATISTICS_OUTPUT
+  int iRank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
+    
+  if (iRank == 0) {
+    long int nsteps, expsteps, accsteps, step_attempts, nfe_evals, nfi_evals, nlinsetups, 
+      netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
+    realtype hinused, hlast, hcur, tcur;
+    ierr = ARKodeGetIntegratorStats(ARKodeMem, &nsteps, &expsteps, &accsteps, &step_attempts, 
+				    &nfe_evals, &nfi_evals, &nlinsetups, &netfails, &hinused, 
+				    &hlast, &hcur, &tcur);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetIntegratorStats, ierr = %i",ierr);
+
+    ierr = ARKodeGetNonlinSolvStats(ARKodeMem, &nniters, &nncfails);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNonlinSolvStats, ierr = %i",ierr);
+
+    ierr = ARKSpilsGetNumPrecSolves(ARKodeMem, &npsolves);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNumPrecSolves, ierr = %i",ierr);
+
+    ierr = ARKSpilsGetNumLinIters(ARKodeMem, &nliters);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumLinIters, ierr = %i",ierr);
+
+    ierr = ARKSpilsGetNumConvFails(ARKodeMem, &nlcfails);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumConvFails, ierr = %i",ierr);
+
+    ierr = ARKSpilsGetNumRhsEvals(ARKodeMem, &nfevalsLS);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumRhsEvals, ierr = %i",ierr);
+
+    std::cout << std::endl
+              << "TimestepSchemeARKode::Step cumulative stats:\n"
+              << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
+              << "  step size: " << hlast << " previous, " << hcur << " next\n"
+              << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp, " << nfevalsLS << " lin solve\n" 
+              << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
+              << "  linear: " << nliters << " iters, " << nlcfails << " fails, " << npsolves << " prec solves\n"
+              << std::endl;
   }
+#endif
 
 #ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");
@@ -575,6 +636,63 @@ static int ARKodeFullRHS(
   // Compute full RHS
   pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
   pVerticalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
+
+#ifdef DEBUG_OUTPUT
+  AnnounceEndBlock("Done");
+#endif
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+static int ARKodePreconditionerSolve(
+	realtype time, 
+	N_Vector Y, 
+	N_Vector F, 
+	N_Vector R,
+	N_Vector Z,
+	realtype gamma,
+	realtype delta,
+	int lr,
+	void *user_data,
+	N_Vector TMP
+) {
+
+#ifdef DEBUG_OUTPUT
+  AnnounceStartBlock("Preconditioner Solve");
+#endif
+
+  // model time (not used in RHS)
+  Time timeT;
+
+  // index of various N_Vector arguments in registry
+  int iY = NV_INDEX_TEMPEST(Y);
+  int iF = NV_INDEX_TEMPEST(F);
+  int iR = NV_INDEX_TEMPEST(R);
+  int iZ = NV_INDEX_TEMPEST(Z);
+
+  // Get a copy of the grid
+  Grid * pGrid = NV_GRID_TEMPEST(Y);
+
+  // Get a copy of the model
+  Model * pModel = NV_MODEL_TEMPEST(Y);
+
+  // Get a copy of the VerticalDynamics
+  VerticalDynamicsFEM * pVerticalDynamicsFEM 
+    = dynamic_cast<VerticalDynamicsFEM*>(pModel->GetVerticalDynamics());
+
+  // Exchange state and RHS vector data
+  pGrid->PostProcessSubstage(iY, DataType_State);
+  pGrid->PostProcessSubstage(iY, DataType_Tracers);
+  pGrid->PostProcessSubstage(iR, DataType_State);
+  pGrid->PostProcessSubstage(iR, DataType_Tracers);
+    
+  // Call column-wise linear solver (iR holds RHS on input, solution on output)
+  pVerticalDynamicsFEM->SolveImplicit(iY, iR, timeT, gamma);
+
+  // Copy solution into output N_Vector
+  N_VScale_Tempest(1.0, R, Z);
 
 #ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");

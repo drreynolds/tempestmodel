@@ -91,7 +91,7 @@ struct _TempestCommandLineVariables {
 	int nLevels;
 	int nHorizontalOrder;
 	int nVerticalOrder;
-    int iARKode_nvectors;
+        int iARKode_nvectors;
 	double dARKode_rtol;
 	double dARKode_atol;
 	bool fARKode_DynamicStepSize;
@@ -102,6 +102,7 @@ struct _TempestCommandLineVariables {
 	int iARKode_ARKodeButcherTable;
 	int iARKode_SetButcherTable;
 	bool fARKode_Diagnostics;
+        bool fARKode_UsePreconditioning;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -144,7 +145,8 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_ARKodeButcherTable, "arkode_arkodebutchertable", -1); \
 	CommandLineInt(_tempestvars.iARKode_SetButcherTable, "arkode_setbutchertable", -1); \
-	CommandLineBool(_tempestvars.fARKode_Diagnostics, "arkode_diagnostics");
+	CommandLineBool(_tempestvars.fARKode_Diagnostics, "arkode_diagnostics"); \
+	CommandLineBool(_tempestvars.fARKode_UsePreconditioning, "arkode_usepreconditioning");
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -268,6 +270,7 @@ void _TempestSetupMethodOfLines(
 		ARKodeVars.ARKodeButcherTable = vars.iARKode_ARKodeButcherTable;
 		ARKodeVars.SetButcherTable    = vars.iARKode_SetButcherTable;
 		ARKodeVars.WriteDiagnostics   = vars.fARKode_Diagnostics;
+		ARKodeVars.UsePreconditioning = vars.fARKode_UsePreconditioning,
 
 		model.SetTimestepScheme(
 			new TimestepSchemeARKode(model, ARKodeVars));

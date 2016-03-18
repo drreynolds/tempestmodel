@@ -182,6 +182,16 @@ public:
 		double dDeltaT
 	);
 
+	///	<summary>
+	///		Solve linearly implicit problem on the vertical column for a provided RHS state
+	///	</summary>
+	void SolveImplicit(
+                int iDataInitial,
+                int iDataRHS,
+                const Time & time,
+                double dDeltaT
+	);
+
 public:
 	///	<summary>
 	///		Set up the reference column.  This function is called once for
@@ -675,7 +685,8 @@ private:
 	Vec m_vecR;
 #endif
 #if defined(USE_DIRECTSOLVE_APPROXJ) \
- || defined(USE_DIRECTSOLVE)
+ || defined(USE_DIRECTSOLVE) \
+ || defined(ENABLE_JFNK_PRECONDITIONING)
 private:
 	///	<summary>
 	///		Jacobian matrix used in direct solve.

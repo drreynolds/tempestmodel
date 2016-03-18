@@ -44,6 +44,7 @@ struct ARKodeCommandLineVariables {
   int    AAFPAccelVec;
   int    NonlinIters;
   int    LinIters;
+  bool   UsePreconditioning;
   int    ARKodeButcherTable;
   int    SetButcherTable;
   bool   WriteDiagnostics;
@@ -191,12 +192,17 @@ private:
 	///		ARKode flag to write diagnostics file.
 	///	</summary>
 	bool m_fWriteDiagnostics;
+
+	///	<summary>
+	///		ARKode flag to enable preconditioning.
+	///	</summary>
+	bool m_fUsePreconditioning;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
 ///	<summary>
-///		Wrapper funciton for ARKode to compute explicit RHS.
+///		Wrapper function for ARKode to compute explicit RHS.
 ///	</summary>
 static int ARKodeExplicitRHS(
 	realtype time, 
@@ -206,7 +212,7 @@ static int ARKodeExplicitRHS(
 );
 
 ///	<summary>
-///		Wrapper funciton for ARKode to compute implicit RHS.
+///		Wrapper function for ARKode to compute implicit RHS.
 ///	</summary>
 static int ARKodeImplicitRHS(
 	realtype time, 
@@ -216,7 +222,7 @@ static int ARKodeImplicitRHS(
 );
 
 ///	<summary>
-///		Wrapper funciton for ARKode to compute the full RHS.
+///		Wrapper function for ARKode to compute the full RHS.
 ///	</summary>
 static int ARKodeFullRHS(
 	realtype time, 
@@ -232,6 +238,22 @@ static int ARKodePostProcessStep(
 	realtype time, 
 	N_Vector Y, 
 	void * user_data
+);
+
+///	<summary>
+///		Function to perform columnwise preconditioner solve
+///	</summary>
+static int ARKodePreconditionerSolve(
+	realtype time, 
+	N_Vector Y, 
+	N_Vector FY, 
+	N_Vector R,
+	N_Vector Z,
+	realtype gamma,
+	realtype delta,
+	int lr,
+	void *user_data,
+	N_Vector TMP
 );
 
 ///////////////////////////////////////////////////////////////////////////////
