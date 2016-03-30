@@ -43,7 +43,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
         TimestepScheme(model),
 	m_iNVectors(ARKodeVars.nvectors),
 	m_iARKodeButcherTable(ARKodeVars.ARKodeButcherTable),
-	m_iSetButcherTable(ARKodeVars.SetButcherTable),
+	m_strSetButcherTable(ARKodeVars.SetButcherTable),
 	m_dRelTol(ARKodeVars.rtol),
 	m_dAbsTol(ARKodeVars.atol),
 	m_fFullyExplicit(ARKodeVars.FullyExplicit),
@@ -63,7 +63,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	if (ARKodeMem == NULL) _EXCEPTIONT("ERROR: ARKodeCreate returned NULL");
 
 	// Check input paramters
-	if (m_iARKodeButcherTable >= 0 && m_iSetButcherTable >= 0)
+	if (m_iARKodeButcherTable >= 0 && m_strSetButcherTable != "")
 	  _EXCEPTIONT("ERROR: ARKodeButcherTable and SetButcherTable are both >= 0.");
 }
 					  
@@ -174,7 +174,7 @@ void TimestepSchemeARKode::Initialize() {
   } 
 
   // Set a user supplied Butcher table
-  if (m_iSetButcherTable >= 0) {  
+  if (m_strSetButcherTable != "") {  
     SetButcherTable();
   }  
   
@@ -304,8 +304,8 @@ void TimestepSchemeARKode::Step(
   Time timeDeltaT = m_model.GetDeltaT();
   Time timeNextT  = time;
 
-  // timeDeltaT is possibly too large on last step because value that 
-  // GetDeltaT returns is not adjusted if necessary on the last step,
+  // timeDeltaT is possibly too large on the last step because the value that 
+  // GetDeltaT returns is not adjusted if necessary for the last step,
   // stop time in arkode will adjust time step to match end time
   timeNextT += timeDeltaT; 
 
@@ -315,6 +315,12 @@ void TimestepSchemeARKode::Step(
   int stepmode = ARK_ONE_STEP;
   if (m_fDynamicStepSize) {
     stepmode = ARK_NORMAL;
+
+    Time timeEndT = m_model.GetEndTime();
+    double dEndT  = timeEndT.GetSeconds();
+
+    if (dNextT > dEndT) dNextT = dEndT;
+
     ierr = ARKodeSetStopTime(ARKodeMem, dNextT);
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetStopTime, ierr = %i",ierr);
   } else {
@@ -429,7 +435,7 @@ static int ARKodePostProcessStep(
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
-  // Get last time step size
+  // Get last time step size <<< NEED TO ADJUST STEP SIZE WITH ADAPTIVE STEPPING
   Time timeT     = pModel->GetCurrentTime();  // model still has old time
   double dOldT   = timeT.GetSeconds();
   double dDeltaT = time - dOldT;
@@ -705,36 +711,24 @@ static int ARKodePreconditionerSolve(
 
 void TimestepSchemeARKode::SetButcherTable()
 {
-  // error flag  
-  int ierr = 0;
+  int ierr = 0; // error flag  
+  int iStages;  // number of RK stages
+  int iQorder;  // global order of accuracy for the method
+  int iPorder;  // global order of accuracy for the embedding
 
-  // number of RK stages
-  int iStages;
+  double * pci  = NULL; // implicit stage times
+  double * pce  = NULL; // explicit stage times
+  double * pAi  = NULL; // A matrix for the implicit method
+  double * pAe  = NULL; // A matrix for the explicit method
+  double * pbi  = NULL; // implicit b coefficient array
+  double * pbe  = NULL; // explicit b coefficient array
+  double * pb2i = NULL; // implicit b embedding array
+  double * pb2e = NULL; // explicit b embedding array
 
-  // global order of accuracy for the method
-  int iQorder;
-
-  // global order of accuracy for the embedding
-  int iPorder;
-
-  // stage times
-  double * pc = NULL;
-
-  // A matrix for the implicit method
-  double * pAi = NULL;
-
-  // A matrix for the explicit method
-  double * pAe = NULL;
-
-  // b coefficient array
-  double * pb = NULL;
-
-  // b embedding array
-  double * pbembed = NULL;
 
   if (m_fFullyExplicit) {
 
-    if (m_iSetButcherTable == 0) {
+    if (m_strSetButcherTable == "forward_euler") {
 
       // Forward Euler 2 stages 1st order
       Announce("Timestepping with Forward Euler");
@@ -743,34 +737,32 @@ void TimestepSchemeARKode::SetButcherTable()
       iQorder = 1;
       iPorder = 0;
       
-      pAe = new double [iStages * iStages];
-      pc  = new double [iStages];
-      pb  = new double [iStages];
-      pbembed = new double [iStages];
+      pAe  = new double [iStages * iStages];
+      pce  = new double [iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
       
       pAe[0]  = 0.0;  pAe[1]  = 0.0; 
       pAe[2]  = 1.0;  pAe[3]  = 0.0; 
       
-      pc[0] = 0.0;
-      pc[1] = 1.0;
+      pce[0] = 0.0;
+      pce[1] = 1.0;
       
-      pb[0] = 1.0;
-      pb[1] = 0.0;
+      pbe[0] = 1.0;
+      pbe[1] = 0.0;
       
-      pbembed[0] = 0.0;
-      pbembed[1] = 0.0;
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
       
-      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed);
-      
+      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pce, pAe, pbe, pb2e);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
       
-      delete[] pc;
+      delete[] pce;
       delete[] pAe;
-      delete[] pb;
-      delete[] pbembed; 
-
+      delete[] pbe;
+      delete[] pb2e; 
       
-    } else if (m_iSetButcherTable == 1) {
+    } else if (m_strSetButcherTable == "kgu63") {
       
       // Kinnmark Gray Ullrich ERK 6 stages 3rd order
       Announce("Timestepping with KGU(6,3)");
@@ -779,10 +771,10 @@ void TimestepSchemeARKode::SetButcherTable()
       iQorder = 3;
       iPorder = 0;
       
-      pAe = new double [iStages * iStages];
-      pc  = new double [iStages];
-      pb  = new double [iStages];
-      pbembed = new double [iStages];
+      pAe  = new double [iStages * iStages];
+      pce  = new double [iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
       
       pAe[0]  = 0.0;  pAe[1]  = 0.0; pAe[2]  = 0.0;       pAe[3]  = 0.0;       pAe[4]  = 0.0;  pAe[5]  = 0.0;
       pAe[6]  = 0.2;  pAe[7]  = 0.0; pAe[8]  = 0.0;       pAe[9]  = 0.0;       pAe[10] = 0.0;  pAe[11] = 0.0;
@@ -791,37 +783,36 @@ void TimestepSchemeARKode::SetButcherTable()
       pAe[24] = 0.0;  pAe[25] = 0.0; pAe[26] = 0.0;       pAe[27] = 2.0 / 3.0; pAe[28] = 0.0;  pAe[29] = 0.0;
       pAe[30] = 0.25; pAe[31] = 0.0; pAe[32] = 0.0;       pAe[33] = 0.0;       pAe[34] = 0.75; pAe[35] = 0.0;
       
-      pc[0] = 0.0;
-      pc[1] = 0.2;
-      pc[2] = 0.2;
-      pc[3] = 1.0 / 3.0;
-      pc[4] = 2.0 / 3.0;
-      pc[5] = 1.0;
+      pce[0] = 0.0;
+      pce[1] = 0.2;
+      pce[2] = 0.2;
+      pce[3] = 1.0 / 3.0;
+      pce[4] = 2.0 / 3.0;
+      pce[5] = 1.0;
       
-      pb[0] = 0.25;
-      pb[1] = 0.0;
-      pb[2] = 0.0;
-      pb[3] = 0.0;
-      pb[4] = 0.75;
-      pb[5] = 0.0;
+      pbe[0] = 0.25;
+      pbe[1] = 0.0;
+      pbe[2] = 0.0;
+      pbe[3] = 0.0;
+      pbe[4] = 0.75;
+      pbe[5] = 0.0;
       
-      pbembed[0] = 0.0;
-      pbembed[1] = 0.0;
-      pbembed[2] = 0.0;
-      pbembed[3] = 0.0;
-      pbembed[4] = 0.0;
-      pbembed[5] = 0.0;
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
+      pb2e[2] = 0.0;
+      pb2e[3] = 0.0;
+      pb2e[4] = 0.0;
+      pb2e[5] = 0.0;
        
-      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed);
-      
+      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pce, pAe, pbe, pb2e);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
       
-      delete[] pc;
+      delete[] pce;
       delete[] pAe;
-      delete[] pb;
-      delete[] pbembed; 
+      delete[] pbe;
+      delete[] pb2e; 
 
-    } else if (m_iSetButcherTable == 2) {
+    } else if (m_strSetButcherTable == "ssprk54") {
 
       // Strong Stability Preserving ERK 5 stages 4th order
       Announce("Timestepping with SSPRK(5,4)");
@@ -830,10 +821,10 @@ void TimestepSchemeARKode::SetButcherTable()
       iQorder = 4;
       iPorder = 0;
       
-      pAe = new double [iStages * iStages];
-      pc  = new double [iStages];
-      pb  = new double [iStages];
-      pbembed = new double [iStages];
+      pAe  = new double [iStages * iStages];
+      pce  = new double [iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
       
       double alpha1 = 0.555629506348765;
       double alpha2 = 0.379898148511597;
@@ -849,44 +840,45 @@ void TimestepSchemeARKode::SetButcherTable()
       pAe[15] = alpha2 * pAe[10];  pAe[16] = alpha2 * pAe[11];  pAe[17] = 0.251891774271694; pAe[18] = 0.0;               pAe[19] = 0.0;
       pAe[20] = alpha3 * pAe[15];  pAe[21] = alpha3 * pAe[16];  pAe[22] = alpha3 * pAe[17];  pAe[23] = 0.544974750228521; pAe[24] = 0.0; 
       
-      pc[0] = 0.0;
-      pc[1] = pAe[5];
-      pc[2] = pAe[10] + pAe[11];
-      pc[3] = pAe[15] + pAe[16] + pAe[17];
-      pc[4] = pAe[20] + pAe[21] + pAe[22] + pAe[23];
+      pce[0] = 0.0;
+      pce[1] = pAe[5];
+      pce[2] = pAe[10] + pAe[11];
+      pce[3] = pAe[15] + pAe[16] + pAe[17];
+      pce[4] = pAe[20] + pAe[21] + pAe[22] + pAe[23];
       
-      pb[0] = beta1 * pAe[10] + beta2 * pAe[15] + beta3 * pAe[20];
-      pb[1] = beta1 * pAe[11] + beta2 * pAe[16] + beta3 * pAe[21];
-      pb[2] = beta2 * pAe[17] + beta3 * pAe[22];
-      pb[3] = beta3 * pAe[23] + 0.063692468666290;
-      pb[4] = 0.226007483236906;
+      pbe[0] = beta1 * pAe[10] + beta2 * pAe[15] + beta3 * pAe[20];
+      pbe[1] = beta1 * pAe[11] + beta2 * pAe[16] + beta3 * pAe[21];
+      pbe[2] = beta2 * pAe[17] + beta3 * pAe[22];
+      pbe[3] = beta3 * pAe[23] + 0.063692468666290;
+      pbe[4] = 0.226007483236906;
       
-      pbembed[0] = 0.0;
-      pbembed[1] = 0.0;
-      pbembed[2] = 0.0;
-      pbembed[3] = 0.0;
-      pbembed[4] = 0.0;
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
+      pb2e[2] = 0.0;
+      pb2e[3] = 0.0;
+      pb2e[4] = 0.0;
       
-      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAe, pb, pbembed);
-      
+      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pce, pAe, pbe, pb2e);      
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
       
-      delete[] pc;
+      delete[] pce;
       delete[] pAe;
-      delete[] pb;
-      delete[] pbembed;
+      delete[] pbe;
+      delete[] pb2e;
 
     } else {     
-      _EXCEPTIONT("ERROR: Invalid explicit Butcher table vaule");
+      _EXCEPTIONT("ERROR: Invalid explicit Butcher table name");
     }
     
   } else if (m_fFullyImplicit) {
+
     _EXCEPTIONT("ERROR: SetButcherTable() not implemented for fully implicit");
     // ierr = ARKodeSetIRKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pb, pbembed)
-    // if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+    // if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTable, ierr = %i",ierr);
+
   } else {
 
-    if (m_iSetButcherTable == 0) {      
+    if (m_strSetButcherTable == "ars232") {      
 
       // ARS232
       Announce("Timestepping with ARS232");
@@ -895,18 +887,18 @@ void TimestepSchemeARKode::SetButcherTable()
       iQorder = 2;
       iPorder = 0;
       
-      pc  = new double [iStages];
-      pAi = new double [iStages * iStages];
-      pAe = new double [iStages * iStages];
-      pb  = new double [iStages];
-      pbembed = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
       
       double gamma = 1.0 - 1.0/std::sqrt(2.0);
       double delta = -2.0 * std::sqrt(2.0) / 3.0;
       
-      pc[0] = 0.0;
-      pc[1] = gamma;
-      pc[2] = 1.0;
+      pce[0] = 0.0;
+      pce[1] = gamma;
+      pce[2] = 1.0;
       
       pAi[0] = 0.0; pAi[1] = 0.0;         pAi[2] = 0.0;
       pAi[3] = 0.0; pAi[4] = gamma;       pAi[5] = 0.0;
@@ -916,26 +908,77 @@ void TimestepSchemeARKode::SetButcherTable()
       pAe[3] = gamma; pAe[4] = 0.0;         pAe[5] = 0.0;
       pAe[6] = delta; pAe[7] = 1.0 - delta; pAe[8] = 0.0;
       
-      pb[0] = 0.0;
-      pb[1] = 1.0 - gamma;
-      pb[2] = gamma;
+      pbe[0] = 0.0;
+      pbe[1] = 1.0 - gamma;
+      pbe[2] = gamma;
       
-      pbembed[0] = 0.0;
-      pbembed[1] = 0.0;
-      pbembed[2] = 0.0;
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
+      pb2e[2] = 0.0;
       
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pAe, pb, pbembed);  
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, pce, pce, pAi, pAe, pbe, pbe, pb2e, pb2e);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
       
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
-      
-      delete[] pc;
+      delete[] pce;
       delete[] pAi;
       delete[] pAe;
-      delete[] pb;
-      delete[] pbembed;
+      delete[] pbe;
+      delete[] pb2e;
 
-    } else {      
-      _EXCEPTIONT("ERROR: Invalid IMEX Butcher table vaule");
+    } else if (m_strSetButcherTable == "ark232") {      
+
+      // ARK232
+      Announce("Timestepping with ARK232");
+      
+      iStages = 3;
+      iQorder = 2;
+      iPorder = 0;
+      
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
+      
+      double gamma = 1.0 - 1.0/std::sqrt(2.0);
+      double alpha = (3.0 + 2.0 * std::sqrt(2.0))/6.0;
+      double delta = 0.5 * std::sqrt(2.0);
+
+      double twogamma = 2.0 - std::sqrt(2.0);
+      
+      pce[0] = 0.0;
+      pce[1] = twogamma;
+      pce[2] = 1.0;
+      
+      pAi[0] = 0.0;   pAi[1] = 0.0;   pAi[2] = 0.0;
+      pAi[3] = gamma; pAi[4] = gamma; pAi[5] = 0.0;
+      pAi[6] = delta; pAi[7] = delta; pAi[8] = gamma;
+      
+      pAe[0] = 0.0;         pAe[1] = 0.0;   pAe[2] = 0.0;
+      pAe[3] = twogamma;    pAe[4] = 0.0;   pAe[5] = 0.0;
+      pAe[6] = 1.0 - alpha; pAe[7] = alpha; pAe[8] = 0.0;
+      
+      pbe[0] = delta;
+      pbe[1] = delta;
+      pbe[2] = gamma;
+      
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
+      pb2e[2] = 0.0;
+      
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, pce, pce, pAi, pAe, pbe, pbe, pb2e, pb2e);     
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
+      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbe;
+      delete[] pb2e;
+
+    } else {
+      _EXCEPTIONT("ERROR: Invalid IMEX Butcher table name");
     }
     
   } 
