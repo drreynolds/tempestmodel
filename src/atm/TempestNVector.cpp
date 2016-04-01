@@ -35,15 +35,27 @@
 
 bool TempestNVectorRegistry[MAX_TEMPEST_NVECTORS];   // global bool arrays initialize to false by default
 
+int MaxRegistryLength = 0;
 
 ////////////////////// Exported Functions /////////////////////////
 
-// Function to get number of vectors in registry
-int GetLengthTempestNVectorRegistry() {
+// Function to set the maximum number of vectors in the registry
+int SetMaxTempestNVectorRegistryLength(int nvec) {
+
+  MaxRegistryLength = nvec;
+
+  if (MaxRegistryLength > MAX_TEMPEST_NVECTORS)
+    return -1;
+
+  return 0;
+}
+
+// Function to get the number of vectors in the registry
+int GetTempestNVectorRegistryLength() {
 
   int RegistryLength;
 
-  for (int i=0; i<MAX_TEMPEST_NVECTORS; i++) {
+  for (int i=0; i<MaxRegistryLength; i++) {
     if (!TempestNVectorRegistry[i]) {
       RegistryLength = i;
       break;
@@ -56,7 +68,7 @@ int GetLengthTempestNVectorRegistry() {
 // Marks first available vector from registry as used (if any are available)
 int ReserveNextTempestNVectorRegistryIdx() {
   
-  for (int i=0; i<MAX_TEMPEST_NVECTORS; i++) {
+  for (int i=0; i<MaxRegistryLength; i++) {
     if (!TempestNVectorRegistry[i]) {
       TempestNVectorRegistry[i] = true;
       return i;
@@ -122,7 +134,7 @@ N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
 
   // Set mVectorIndex to first available vector from registry (if any are available)
   bool successful=false;
-  for (int i=0; i<MAX_TEMPEST_NVECTORS; i++) {
+  for (int i=0; i<MaxRegistryLength; i++) {
     if (!TempestNVectorRegistry[i]) {
       content->mVectorIndex = i;
       TempestNVectorRegistry[i] = true;

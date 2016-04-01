@@ -62,7 +62,7 @@ extern "C" {
 
 ///// Part I -- global variables for NVector registry /////
 
-#define MAX_TEMPEST_NVECTORS 100
+#define MAX_TEMPEST_NVECTORS 200
 
 
 ///// Part II -- NVector data structure /////
@@ -79,7 +79,8 @@ typedef struct _N_VectorContent_Tempest *N_VectorContent_Tempest;
 
 ///// Part III -- Functions and macros exported by TempestNVector /////
 
-int GetLengthTempestNVectorRegistry();
+int SetMaxTempestNVectorRegistryLength(int nvec);
+int GetTempestNVectorRegistryLength();
 int ReserveNextTempestNVectorRegistryIdx();
 
 // N_VNew_Tempest

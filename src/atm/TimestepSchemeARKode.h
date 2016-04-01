@@ -79,14 +79,14 @@ private:
 
 public:
 	///	<summary>
-	///		Get the number of component data instances.
+	///		Get the number of component data instances (default is 50).
 	///	</summary>
 	virtual int GetComponentDataInstances() const {
 		return m_iNVectors;
 	}
 
 	///	<summary>
-	///		Get the number of tracer data instances.
+	///		Get the number of tracer data instances (default is 50).
 	///	</summary>
 	virtual int GetTracerDataInstances() const {
 		return m_iNVectors;
@@ -123,7 +123,7 @@ private:
 	N_Vector m_Y;
 
 	///	<summary>
-	///		Number of NVectors.
+	///		Number of NVectors (default is 50).
 	///	</summary>
 	int m_iNVectors;
 

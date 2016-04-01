@@ -41,7 +41,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	ARKodeCommandLineVariables & ARKodeVars
 ) :
         TimestepScheme(model),
-	m_iNVectors(ARKodeVars.nvectors),
+	m_iNVectors(ARKodeVars.nvectors+2), // Add two extra temp vectors for applying hyperdiffusion
 	m_iARKodeButcherTable(ARKodeVars.ARKodeButcherTable),
 	m_strSetButcherTable(ARKodeVars.SetButcherTable),
 	m_dRelTol(ARKodeVars.rtol),
@@ -57,6 +57,9 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_fWriteDiagnostics(ARKodeVars.WriteDiagnostics),
 	m_fUsePreconditioning(ARKodeVars.UsePreconditioning)
 {
+        // error flag
+        int ierr = 0;
+
         // Allocate ARKode memory
         ARKodeMem = ARKodeCreate();
 
@@ -64,7 +67,12 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 
 	// Check input paramters
 	if (m_iARKodeButcherTable >= 0 && m_strSetButcherTable != "")
-	  _EXCEPTIONT("ERROR: ARKodeButcherTable and SetButcherTable are both >= 0.");
+	  _EXCEPTIONT("ERROR: ARKodeButcherTable and SetButcherTable are both set.");
+
+	// Set number of NVectors to use (default is 50)
+	ierr = SetMaxTempestNVectorRegistryLength(m_iNVectors);
+	if (ierr < 0) 
+	  _EXCEPTIONT("ERROR: arkode_nvectors+2 > MAX_TEMPEST_NVECTORS");
 }
 					  
 ///////////////////////////////////////////////////////////////////////////////
@@ -250,7 +258,7 @@ void TimestepSchemeARKode::Initialize() {
 	      << " Proc "
 	      << iRank
 	      << " N_Vector Registry Length After Init: "
-	      << GetLengthTempestNVectorRegistry()
+	      << GetTempestNVectorRegistryLength()
 	      << std::endl;
   }
 #endif
@@ -341,7 +349,7 @@ void TimestepSchemeARKode::Step(
   int iRank;
   MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
     
-  if (iRank == 0) {
+  if (iRank == 0 && !m_fFullyExplicit) {
     long int nsteps, expsteps, accsteps, step_attempts, nfe_evals, nfi_evals, nlinsetups, 
       netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
     realtype hinused, hlast, hcur, tcur;
@@ -389,7 +397,7 @@ void TimestepSchemeARKode::Step(
 		<< " Proc "
 		<< iRank
 		<< "N_Vector Registry Length After First Step: "
-		<< GetLengthTempestNVectorRegistry()
+		<< GetTempestNVectorRegistryLength()
 		<< std::endl;
     }
   }
