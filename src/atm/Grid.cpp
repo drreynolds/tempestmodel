@@ -1715,7 +1715,7 @@ double Grid::DotProductData(
 	// Global energy
 	double DotProductGlobal = DotProductLocal;
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Reduce to obtain global energy integral
 	MPI_Allreduce(
                 &DotProductLocal,
@@ -1745,7 +1745,7 @@ double Grid::MinimumData(
 	// Global energy
 	double MinimumGlobal = MinimumLocal;
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Reduce to obtain global energy integral
 	MPI_Allreduce(
                 &MinimumLocal,
@@ -1780,7 +1780,7 @@ double Grid::WRMSNormData(
 	NormGlobal[0] = NormLocal[0];
 	NormGlobal[1] = NormLocal[1];
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Reduce to obtain global energy integral
 	MPI_Allreduce(
                 NormLocal,
@@ -1811,7 +1811,7 @@ double Grid::MaximumNormData(
 	// Global energy
 	double MaxGlobal = MaxLocal;
 
-#ifdef USE_MPI
+#ifdef TEMPEST_MPIOMP
 	// Reduce to obtain global energy integral
 	MPI_Allreduce(
                 &MaxLocal,
