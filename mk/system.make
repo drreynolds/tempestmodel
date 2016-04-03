@@ -19,6 +19,12 @@ else ifeq ($(UNAME),Linux)
   else ifeq ($(HOSTNAME),faraday)
     SYSTEM= FARADAY
     SYSTEM_MAKEFILE= faraday.make
+  else ifeq ($(HOSTNAME),davros)
+    SYSTEM= DAVROS
+    SYSTEM_MAKEFILE= davros.make
+  else ifeq ($(HOSTNAME),stella)
+    SYSTEM= STELLA
+    SYSTEM_MAKEFILE= stella.make
   else # FIXME: Add a test condition
     SYSTEM= CAB
     SYSTEM_MAKEFILE= cab.make
