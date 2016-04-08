@@ -43,7 +43,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
         TimestepScheme(model),
 	m_iNVectors(ARKodeVars.nvectors+2), // Add two extra temp vectors for applying hyperdiffusion
 	m_iARKodeButcherTable(ARKodeVars.ARKodeButcherTable),
-	m_strSetButcherTable(ARKodeVars.SetButcherTable),
+	m_strButcherTable(ARKodeVars.ButcherTable),
 	m_dRelTol(ARKodeVars.rtol),
 	m_dAbsTol(ARKodeVars.atol),
 	m_fFullyExplicit(ARKodeVars.FullyExplicit),
@@ -62,12 +62,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 
         // Allocate ARKode memory
         ARKodeMem = ARKodeCreate();
-
 	if (ARKodeMem == NULL) _EXCEPTIONT("ERROR: ARKodeCreate returned NULL");
-
-	// Check input paramters
-	if (m_iARKodeButcherTable >= 0 && m_strSetButcherTable != "")
-	  _EXCEPTIONT("ERROR: ARKodeButcherTable and SetButcherTable are both set.");
 
 	// Set number of NVectors to use (default is 50)
 	ierr = SetMaxTempestNVectorRegistryLength(m_iNVectors);
@@ -146,43 +141,8 @@ void TimestepSchemeARKode::Initialize() {
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
   }
 
-  // Select ARKode Butcher table
-  if (m_iARKodeButcherTable >= 0) {
-
-    if (m_fFullyExplicit) {
-
-      ierr = ARKodeSetERKTableNum(ARKodeMem, m_iARKodeButcherTable);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
-
-    } else if (m_fFullyImplicit) {
-
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, m_iARKodeButcherTable);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
-
-    } else {
-
-      if (m_iARKodeButcherTable == 2 || m_iARKodeButcherTable == 16) {
-
-	ierr = ARKodeSetARKTableNum(ARKodeMem, 16, 2);
-
-      } else if (m_iARKodeButcherTable == 4 || m_iARKodeButcherTable == 21) {
-
-	ierr = ARKodeSetARKTableNum(ARKodeMem, 21, 4);
-
-      } else if (m_iARKodeButcherTable == 9 || m_iARKodeButcherTable == 23) {
-
-	ierr = ARKodeSetARKTableNum(ARKodeMem, 23, 9);
-
-      } else {
-	ierr = ARK_ILL_INPUT;
-      }
-
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
-    }
-  } 
-
-  // Set a user supplied Butcher table
-  if (m_strSetButcherTable != "") {  
+  // Set Butcher table
+  if (m_strButcherTable != "") {  
     SetButcherTable();
   }  
   
@@ -720,6 +680,7 @@ static int ARKodePreconditionerSolve(
 void TimestepSchemeARKode::SetButcherTable()
 {
   int ierr = 0; // error flag  
+
   int iStages;  // number of RK stages
   int iQorder;  // global order of accuracy for the method
   int iPorder;  // global order of accuracy for the embedding
@@ -733,10 +694,73 @@ void TimestepSchemeARKode::SetButcherTable()
   double * pb2i = NULL; // implicit b embedding array
   double * pb2e = NULL; // explicit b embedding array
 
-
   if (m_fFullyExplicit) {
 
-    if (m_strSetButcherTable == "forward_euler") {
+    // ============================================================================
+    // Fully Explicit Methods
+    // ============================================================================
+    
+    if (m_strButcherTable == "heun_euler_2_1_2") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, HEUN_EULER_2_1_2);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "bogacki_shampine_4_2_3") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, BOGACKI_SHAMPINE_4_2_3);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "ark324l2sa_erk_4_2_3") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, ARK324L2SA_ERK_4_2_3);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "zonneveld_5_3_4") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, ZONNEVELD_5_3_4);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "ark436l2sa_erk_6_3_4") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, ARK436L2SA_ERK_6_3_4);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "sayfy_aburub_6_3_4") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, SAYFY_ABURUB_6_3_4);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "cash_karp_6_4_5") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, CASH_KARP_6_4_5);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "fehlberg_6_4_5") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, FEHLBERG_6_4_5);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "dormand_prince_7_4_5") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, DORMAND_PRINCE_7_4_5);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "ark548l2sa_erk_8_4_5") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, ARK548L2SA_ERK_8_4_5);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "verner_8_5_6") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, VERNER_8_5_6);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "fehlberg_13_7_8") {
+
+      ierr = ARKodeSetERKTableNum(ARKodeMem, FEHLBERG_13_7_8);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "forward_euler") {
 
       // Forward Euler 2 stages 1st order
       Announce("Timestepping with Forward Euler");
@@ -762,7 +786,8 @@ void TimestepSchemeARKode::SetButcherTable()
       pb2e[0] = 0.0;
       pb2e[1] = 0.0;
       
-      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pce, pAe, pbe, pb2e);
+      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, 
+			       pce, pAe, pbe, pb2e);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
       
       delete[] pce;
@@ -770,7 +795,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e; 
       
-    } else if (m_strSetButcherTable == "kgu63") {
+    } else if (m_strButcherTable == "kgu63") {
       
       // Kinnmark Gray Ullrich ERK 6 stages 3rd order
       Announce("Timestepping with KGU(6,3)");
@@ -812,7 +837,8 @@ void TimestepSchemeARKode::SetButcherTable()
       pb2e[4] = 0.0;
       pb2e[5] = 0.0;
        
-      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pce, pAe, pbe, pb2e);
+      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, 
+			       pce, pAe, pbe, pb2e);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
       
       delete[] pce;
@@ -820,7 +846,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e; 
 
-    } else if (m_strSetButcherTable == "ssprk54") {
+    } else if (m_strButcherTable == "ssprk54") {
 
       // Strong Stability Preserving ERK 5 stages 4th order
       Announce("Timestepping with SSPRK(5,4)");
@@ -866,7 +892,8 @@ void TimestepSchemeARKode::SetButcherTable()
       pb2e[3] = 0.0;
       pb2e[4] = 0.0;
       
-      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, pce, pAe, pbe, pb2e);      
+      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, 
+			       pce, pAe, pbe, pb2e);      
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
       
       delete[] pce;
@@ -877,41 +904,148 @@ void TimestepSchemeARKode::SetButcherTable()
     } else {     
       _EXCEPTIONT("ERROR: Invalid explicit Butcher table name");
     }
+
     
   } else if (m_fFullyImplicit) {
 
-    _EXCEPTIONT("ERROR: SetButcherTable() not implemented for fully implicit");
-    // ierr = ARKodeSetIRKTable(ARKodeMem, iStages, iQorder, iPorder, pc, pAi, pb, pbembed)
+    // ==========================================================================
+    // Fully Implicit Methods
+    // ==========================================================================
+    
+    if (m_strButcherTable == "sdirk_2_1_2") {
+      
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, SDIRK_2_1_2);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+      
+    } else if (m_strButcherTable == "billington_3_3_2") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, BILLINGTON_3_3_2);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+      
+    } else if (m_strButcherTable == "trbdf2_3_3_2") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, TRBDF2_3_3_2);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "kvaerno_4_2_3") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, KVAERNO_4_2_3);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "ark324l2sa_dirk_4_2_3") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, ARK324L2SA_DIRK_4_2_3);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "cash_5_2_4") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, CASH_5_2_4);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "cash_5_3_4") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, CASH_5_3_4);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "sdirk_5_3_4") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, SDIRK_5_3_4);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "kvaerno_5_3_4") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, KVAERNO_5_3_4);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "ark436l2sa_dirk_6_3_4") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, ARK436L2SA_DIRK_6_3_4);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "kvaerno_7_4_5") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, KVAERNO_7_4_5);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "ark548l2sa_dirk_8_4_5") {
+
+      ierr = ARKodeSetIRKTableNum(ARKodeMem, ARK548L2SA_DIRK_8_4_5);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
+
+    } else {     
+      _EXCEPTIONT("ERROR: Invalid implicit Butcher table name");
+    }
+
+    // ierr = ARKodeSetIRKTable(ARKodeMem, iStages, iQorder, iPorder, pci, pAi, pbi, pb2i)
     // if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTable, ierr = %i",ierr);
 
   } else {
 
-    if (m_strSetButcherTable == "ars232") {      
+    // ==========================================================================
+    // IMEX Methods
+    // ==========================================================================
 
+    if (m_strButcherTable == "ark324l2sa_erk_4_2_3" ||
+	m_strButcherTable == "ark324l2sa_dirk_4_2_3" ) {
+      
+      ierr = ARKodeSetARKTableNum(ARKodeMem, 
+				  ARK324L2SA_DIRK_4_2_3, ARK324L2SA_ERK_4_2_3);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "ark436l2sa_erk_6_3_4" ||
+	       m_strButcherTable == "ark436l2sa_dirk_6_3_4" ) {
+
+      ierr = ARKodeSetARKTableNum(ARKodeMem, 
+				  ARK436L2SA_DIRK_6_3_4, ARK436L2SA_ERK_6_3_4);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "ark548l2sa_erk_8_4_5" ||
+	       m_strButcherTable == "ark548l2sa_dirk_8_4_5" ) {
+
+      ierr = ARKodeSetARKTableNum(ARKodeMem, 
+				  ARK548L2SA_DIRK_8_4_5, ARK548L2SA_ERK_8_4_5);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "ars232") {      
+
+      // ------------------------------------------------------------------------
       // ARS232
+      // ------------------------------------------------------------------------
       Announce("Timestepping with ARS232");
       
       iStages = 3;
       iQorder = 2;
       iPorder = 0;
       
+      pci  = new double [iStages];
       pce  = new double [iStages];
       pAi  = new double [iStages * iStages];
       pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
       pbe  = new double [iStages];
       pb2e = new double [iStages];
       
       double gamma = 1.0 - 1.0/std::sqrt(2.0);
       double delta = -2.0 * std::sqrt(2.0) / 3.0;
       
-      pce[0] = 0.0;
-      pce[1] = gamma;
-      pce[2] = 1.0;
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = gamma;
+      pci[2] = 1.0;
       
       pAi[0] = 0.0; pAi[1] = 0.0;         pAi[2] = 0.0;
       pAi[3] = 0.0; pAi[4] = gamma;       pAi[5] = 0.0;
       pAi[6] = 0.0; pAi[7] = 1.0 - gamma; pAi[8] = gamma;
       
+      pbi[0] = 0.0;
+      pbi[1] = 1.0 - gamma;
+      pbi[2] = gamma;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = gamma;
+      pce[2] = 1.0;
+
       pAe[0] = 0.0;   pAe[1] = 0.0;         pAe[2] = 0.0;
       pAe[3] = gamma; pAe[4] = 0.0;         pAe[5] = 0.0;
       pAe[6] = delta; pAe[7] = 1.0 - delta; pAe[8] = 0.0;
@@ -920,48 +1054,208 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[1] = 1.0 - gamma;
       pbe[2] = gamma;
       
+      // Embedding
       pb2e[0] = 0.0;
       pb2e[1] = 0.0;
       pb2e[2] = 0.0;
       
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, pce, pce, pAi, pAe, pbe, pbe, pb2e, pb2e);
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, pb2e, pb2e);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
       
+      delete[] pci;
       delete[] pce;
       delete[] pAi;
       delete[] pAe;
+      delete[] pbi;
       delete[] pbe;
       delete[] pb2e;
 
-    } else if (m_strSetButcherTable == "ark232") {      
+    } else if (m_strButcherTable == "ars233") {      
 
+      // ------------------------------------------------------------------------
+      // ARS233
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with ARS233");
+      
+      iStages = 3;
+      iQorder = 3;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
+      
+      double gamma = 0.5 + std::sqrt(3.0) / 6.0;
+      
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = gamma;
+      pci[2] = 1.0;
+      
+      pAi[0] = 0.0; pAi[1] = 0.0;               pAi[2] = 0.0;
+      pAi[3] = 0.0; pAi[4] = gamma;             pAi[5] = 0.0;
+      pAi[6] = 0.0; pAi[7] = 1.0 - 2.0 * gamma; pAi[8] = gamma;
+
+      pbi[0] = 0.0;
+      pbi[1] = gamma;
+      pbi[2] = 1.0 - gamma;     
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = gamma;
+      pce[2] = 1.0;
+
+      pAe[0] = 0.0;         pAe[1] = 0.0;               pAe[2] = 0.0;
+      pAe[3] = gamma;       pAe[4] = 0.0;               pAe[5] = 0.0;
+      pAe[6] = gamma - 1.0; pAe[7] = 2.0*(1.0 - gamma); pAe[8] = 0.0;
+      
+      pbe[0] = 0.0;
+      pbe[1] = 0.5;
+      pbe[2] = 0.5;
+      
+      // Embedding
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
+      pb2e[2] = 0.0;
+      
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, pb2e, pb2e);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
+
+      delete[] pci;     
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+      delete[] pb2e;
+
+    } else if (m_strButcherTable == "ars443") {      
+
+      // ------------------------------------------------------------------------
+      // ARS443
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with ARS443");
+      
+      iStages = 5;
+      iQorder = 3;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
+            
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = 0.5;
+      pci[2] = 2.0/3.0;
+      pci[3] = 0.5;
+      pci[4] = 1.0;
+      
+      pAi[0]  = 0.0;  pAi[1]  = 0.0;      pAi[2]  = 0.0;   pAi[3]  = 0.0;  pAi[4]  = 0.0;
+      pAi[5]  = 0.0;  pAi[6]  = 0.5;      pAi[7]  = 0.0;   pAi[8]  = 0.0;  pAi[9]  = 0.0;
+      pAi[10] = 0.0;  pAi[11] = 1.0/6.0;  pAi[12] = 0.5;   pAi[13] = 0.0;  pAi[14] = 0.0;
+      pAi[15] = 0.0;  pAi[16] = -0.5;     pAi[17] = 0.5;   pAi[18] = 0.5;  pAi[19] = 0.0;
+      pAi[20] = 0.0;  pAi[21] = 1.5;      pAi[22] = -1.5;  pAi[23] = 0.5;  pAi[24] = 0.5;
+      
+      pbi[0] = 0.0;
+      pbi[1] = 1.5;
+      pbi[2] = -1.5;
+      pbi[3] = 0.5;
+      pbi[4] = 0.5;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 0.5;
+      pce[2] = 2.0/3.0;
+      pce[3] = 0.5;
+      pce[4] = 1.0;
+
+      pAe[0]  = 0.0;        pAe[1]  = 0.0;       pAe[2]  = 0.0;   pAe[3]  = 0.0;       pAe[4]  = 0.0;
+      pAe[5]  = 0.5;        pAe[6]  = 0.0;       pAe[7]  = 0.0;   pAe[8]  = 0.0;       pAe[9]  = 0.0;
+      pAe[10] = 11.0/18.0;  pAe[11] = 1.0/18.0;  pAe[12] = 0.0;   pAe[13] = 0.0;       pAe[14] = 0.0;
+      pAe[15] = 5.0/6.0;    pAe[16] = -5.0/6.0;  pAe[17] = 0.5;   pAe[18] = 0.0;       pAe[19] = 0.0;
+      pAe[20] = 0.25;       pAe[21] = 7.0/4.0;   pAe[22] = 0.75;  pAe[23] = -7.0/4.0;  pAe[24] = 0.0;
+      
+      pbe[0] = 0.25;
+      pbe[1] = 7.0/4.0;
+      pbe[2] = 0.75;
+      pbe[3] = -7.0/4.0;
+      pbe[4] = 0.0;
+      
+      // Embedding
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
+      pb2e[2] = 0.0;
+      pb2e[3] = 0.0;
+      pb2e[4] = 0.0;
+      
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, pb2e, pb2e);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
+
+      delete[] pci;     
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+      delete[] pb2e;
+
+    } else if (m_strButcherTable == "ark232") {      
+
+      // ------------------------------------------------------------------------
       // ARK232
+      // ------------------------------------------------------------------------
       Announce("Timestepping with ARK232");
       
       iStages = 3;
       iQorder = 2;
       iPorder = 0;
-      
+
+      pci  = new double [iStages];     
       pce  = new double [iStages];
       pAi  = new double [iStages * iStages];
       pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
       pbe  = new double [iStages];
       pb2e = new double [iStages];
       
       double gamma = 1.0 - 1.0/std::sqrt(2.0);
-      double alpha = (3.0 + 2.0 * std::sqrt(2.0))/6.0;
-      double delta = 0.5 * std::sqrt(2.0);
+      double alpha = 0.5 + std::sqrt(2.0)/3.0;
+      double delta = std::sqrt(2.0)/4.0;
 
       double twogamma = 2.0 - std::sqrt(2.0);
       
-      pce[0] = 0.0;
-      pce[1] = twogamma;
-      pce[2] = 1.0;
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = twogamma;
+      pci[2] = 1.0;
       
       pAi[0] = 0.0;   pAi[1] = 0.0;   pAi[2] = 0.0;
       pAi[3] = gamma; pAi[4] = gamma; pAi[5] = 0.0;
       pAi[6] = delta; pAi[7] = delta; pAi[8] = gamma;
+
+      pbi[0] = delta;
+      pbi[1] = delta;
+      pbi[2] = gamma;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = twogamma;
+      pce[2] = 1.0;
       
       pAe[0] = 0.0;         pAe[1] = 0.0;   pAe[2] = 0.0;
       pAe[3] = twogamma;    pAe[4] = 0.0;   pAe[5] = 0.0;
@@ -971,19 +1265,284 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[1] = delta;
       pbe[2] = gamma;
       
+      // Embedding
       pb2e[0] = 0.0;
       pb2e[1] = 0.0;
       pb2e[2] = 0.0;
       
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, pce, pce, pAi, pAe, pbe, pbe, pb2e, pb2e);     
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, pb2e, pb2e);     
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
-      
+
+      delete[] pci;     
       delete[] pce;
       delete[] pAi;
       delete[] pAe;
+      delete[] pbi;
       delete[] pbe;
       delete[] pb2e;
+
+    } else if (m_strButcherTable == "ssp2(2,2,2)") {
+
+      // ------------------------------------------------------------------------
+      // ssp2(2,2,2)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP2(2,2,2)");
+      
+      iStages = 2;
+      iQorder = 2;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
+      
+      double gamma = 1.0 - 1.0 / std::sqrt(2.0);
+      
+      // Implicit Table
+      pci[0] = gamma;
+      pci[1] = 1.0 - gamma;
+      
+      pAi[0] = gamma;           pAi[1] = 0.0;
+      pAi[2] = 1 - 2.0 * gamma; pAi[3] = gamma;
+
+      pbi[0] = 0.5;
+      pbi[1] = 0.5;
+
+      // Explicit Table
+      pce[0] = 0.0;
+      pce[1] = 1.0;
+      
+      pAe[0] = 0.0; pAe[1] = 0.0;
+      pAe[3] = 1.0; pAe[4] = 0.0;
+      
+      pbe[0] = 0.5;
+      pbe[1] = 0.5;
+   
+      // Embedding
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
+      
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, pb2e, pb2e);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
+
+      delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+      delete[] pb2e;  
+
+    } else if (m_strButcherTable == "ssp2(3,3,2)") {
+
+      // ------------------------------------------------------------------------
+      // ssp2(3,3,2)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP2(3,3,2)");
+      
+      iStages = 3;
+      iQorder = 2;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
+            
+      // Implicit Table
+      pci[0] = 0.25;
+      pci[1] = 0.25;
+      pci[2] = 1.0;
+      
+      pAi[0] = 0.25;       pAi[1] = 0.0;        pAi[2] = 0.0;
+      pAi[3] = 0.0;        pAi[4] = 0.25;       pAi[5] = 0.0;
+      pAi[6] = 1.0 / 3.0;  pAi[7] = 1.0 / 3.0;  pAi[8] = 1.0 / 3.0;
+
+      pbi[0] = 1.0 / 3.0;
+      pbi[1] = 1.0 / 3.0;
+      pbi[2] = 1.0 / 3.0;
+      
+      // Explicit Table
+      pce[0] = 0.0;
+      pce[1] = 0.5;
+      pce[2] = 1.0;
+
+      pAe[0] = 0.0;  pAe[1] = 0.0;  pAe[2] = 0.0;
+      pAe[3] = 0.5;  pAe[4] = 0.0;  pAe[5] = 0.0;
+      pAe[6] = 0.5;  pAe[7] = 0.5;  pAe[8] = 0.0;
+      
+      pbe[0] = 1.0 / 3.0;
+      pbe[1] = 1.0 / 3.0;
+      pbe[2] = 1.0 / 3.0;
+      
+      // Embedding
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
+      pb2e[2] = 0.0;
+      
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, pb2e, pb2e);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
+
+      delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+      delete[] pb2e;  
+
+    } else if (m_strButcherTable == "ssp3(3,3,2)") {
+
+      // ------------------------------------------------------------------------
+      // ssp3(3,3,2)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP3(3,3,2)");
+      
+      iStages = 3;
+      iQorder = 3;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
+
+      double gamma = 1.0 - 1.0 / std::sqrt(2.0); 
+            
+      // Implicit table
+      pci[0] = gamma;
+      pci[1] = 1.0 - gamma;
+      pci[2] = 0.5;
+      
+      pAi[0] = gamma;              pAi[1] = 0.0;    pAi[2] = 0.0;
+      pAi[3] = 1.0 - 2.0 * gamma;  pAi[4] = gamma;  pAi[5] = 0.0;
+      pAi[6] = 0.5 - gamma;        pAi[7] = 0.0;    pAi[8] = gamma;
+
+      pbi[0] = 1.0 / 6.0;
+      pbi[1] = 1.0 / 6.0;
+      pbi[2] = 2.0 / 3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 1.0;
+      pce[2] = 0.5;
+      
+      pAe[0] = 0.0;   pAe[1] = 0.0;   pAe[2] = 0.0;
+      pAe[3] = 1.0;   pAe[4] = 0.0;   pAe[5] = 0.0;
+      pAe[6] = 0.25;  pAe[7] = 0.25;  pAe[8] = 0.0;    
+
+      pbe[0] = 1.0 / 6.0;
+      pbe[1] = 1.0 / 6.0;
+      pbe[2] = 2.0 / 3.0;
+      
+      // Embedding
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
+      pb2e[2] = 0.0;
+      
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, pb2e, pb2e);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
+
+      delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+      delete[] pb2e;  
+
+    } else if (m_strButcherTable == "ssp3(4,3,3)") {
+
+      // ------------------------------------------------------------------------
+      // ssp3(4,3,3)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP3(4,3,3)");
+      
+      iStages = 4;
+      iQorder = 3;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+      pb2e = new double [iStages];
+
+      double alpha = 0.2416942608; 
+      double beta  = 0.0604235652;
+      double eta   = 0.1291528696;
+      double delta = 0.5 - beta - eta - alpha;    
+
+      // Implicit table
+      pci[0] = alpha;
+      pci[1] = 0.0;
+      pci[2] = 1.0;
+      pci[3] = 0.5;
+      
+      pAi[0]  = alpha;   pAi[1]  = 0.0;        pAi[2]  = 0.0;    pAi[3]  = 0.0; 
+      pAi[4]  = -alpha;  pAi[5]  = alpha;      pAi[6]  = 0.0;    pAi[7]  = 0.0;
+      pAi[8]  = 0.0;     pAi[9]  = 1 - alpha;  pAi[10] = alpha;  pAi[11] = 0.0; 
+      pAi[12] = beta;    pAi[13] = eta;        pAi[14] = delta;  pAi[15] = alpha; 
+
+      pbi[0] = 0.0;
+      pbi[1] = 1.0 / 6.0;
+      pbi[2] = 1.0 / 6.0;
+      pbi[3] = 2.0 / 3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 0.0;
+      pce[2] = 1.0;
+      pce[3] = 0.5;
+      
+      pAe[0]  = 0.0;  pAe[1]  = 0.0;   pAe[2]  = 0.0;   pAe[3]  = 0.0; 
+      pAe[4]  = 0.0;  pAe[5]  = 0.0;   pAe[6]  = 0.0;   pAe[7]  = 0.0;
+      pAe[8]  = 0.0;  pAe[9]  = 1.0;   pAe[10] = 0.0;   pAe[11] = 0.0; 
+      pAe[12] = 0.0;  pAe[13] = 0.25;  pAe[14] = 0.25;  pAe[15] = 0.0; 
+
+      pbe[0] = 0.0;     
+      pbe[1] = 1.0 / 6.0;
+      pbe[2] = 1.0 / 6.0;
+      pbe[3] = 2.0 / 3.0;
+      
+      // Embedding
+      pb2e[0] = 0.0;
+      pb2e[1] = 0.0;
+      pb2e[2] = 0.0;
+      pb2e[3] = 0.0;
+      
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, pb2e, pb2e);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
+
+      delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+      delete[] pb2e;  
 
     } else {
       _EXCEPTIONT("ERROR: Invalid IMEX Butcher table name");

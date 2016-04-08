@@ -99,10 +99,9 @@ struct _TempestCommandLineVariables {
 	int iARKode_AAFPAccelVec;
 	int iARKode_NonlinIters;
 	int iARKode_LinIters;
-	int iARKode_ARKodeButcherTable;
-    std::string strARKode_SetButcherTable;
+    std::string strARKode_ButcherTable;
 	bool fARKode_Diagnostics;
-        bool fARKode_UsePreconditioning;
+    bool fARKode_UsePreconditioning;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -143,8 +142,7 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.iARKode_AAFPAccelVec, "arkode_aafpaccelvec", 0); \
 	CommandLineInt(_tempestvars.iARKode_NonlinIters, "arkode_nonliniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0); \
-	CommandLineInt(_tempestvars.iARKode_ARKodeButcherTable, "arkode_arkodebutchertable", -1); \
-	CommandLineString(_tempestvars.strARKode_SetButcherTable, "arkode_setbutchertable", ""); \
+	CommandLineString(_tempestvars.strARKode_ButcherTable, "arkode_butchertable", ""); \
 	CommandLineBool(_tempestvars.fARKode_Diagnostics, "arkode_diagnostics"); \
 	CommandLineBool(_tempestvars.fARKode_UsePreconditioning, "arkode_usepreconditioning");
 
@@ -257,7 +255,7 @@ void _TempestSetupMethodOfLines(
 	} else if (vars.strTimestepScheme == "arkode") {
  	        ARKodeCommandLineVariables ARKodeVars;
 
-		STLStringHelper::ToLower(vars.strARKode_SetButcherTable);
+		STLStringHelper::ToLower(vars.strARKode_ButcherTable);
 		
 		ARKodeVars.nvectors        = vars.iARKode_nvectors;
 		ARKodeVars.rtol            = vars.dARKode_rtol;
@@ -269,8 +267,7 @@ void _TempestSetupMethodOfLines(
 		ARKodeVars.NonlinIters     = vars.iARKode_NonlinIters;
 		ARKodeVars.LinIters        = vars.iARKode_LinIters;
 
-		ARKodeVars.ARKodeButcherTable = vars.iARKode_ARKodeButcherTable;
-		ARKodeVars.SetButcherTable    = vars.strARKode_SetButcherTable;
+		ARKodeVars.ButcherTable       = vars.strARKode_ButcherTable;
 		ARKodeVars.WriteDiagnostics   = vars.fARKode_Diagnostics;
 		ARKodeVars.UsePreconditioning = vars.fARKode_UsePreconditioning,
 
