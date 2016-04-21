@@ -46,7 +46,7 @@ struct ARKodeCommandLineVariables {
   int    LinIters;
   bool   UsePreconditioning;
   int    ARKodeButcherTable;
-  std::string SetButcherTable;
+  std::string ButcherTable;
   bool   WriteDiagnostics;
 };
 
@@ -135,7 +135,7 @@ private:
 	///	<summary>
 	///		User supplied Butcher table name.
 	///	</summary>
-	std::string m_strSetButcherTable;
+	std::string m_strButcherTable;
 
 	///	<summary>
 	///		ARKode absolute tolerance.
