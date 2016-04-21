@@ -1830,19 +1830,7 @@ void VerticalDynamicsFEM::SolveImplicit(
 			int iA = box.GetAInteriorBegin() + a * m_nHorizontalOrder + i;
 			int iB = box.GetBInteriorBegin() + b * m_nHorizontalOrder + j;
 
-			// fill m_dSoln with RHS data
-			//    first fill m_dColumnState with RHS data 
-			SetupReferenceColumn(
-				pPatch, iA, iB,
-				dataRefNode,
-				dataRHSNode,
-				dataRefREdge,
-				dataRHSREdge);
-  			//    then copy into m_dSoln
-			for (int ivec=0; ivec<m_nColumnStateSize; ivec++)
-			  m_dSoln[ivec] = m_dColumnState[ivec];
-			
-			// fill m_dColumnState with actual initial data
+			// fill m_dColumnState with initial state data
 			SetupReferenceColumn(
 				pPatch, iA, iB,
 				dataRefNode,
@@ -1850,11 +1838,30 @@ void VerticalDynamicsFEM::SolveImplicit(
 				dataRefREdge,
 				dataInitialREdge);
 
-			// Prepare the column
+			// Prepare the column (computes metric terms, fills internal 
+			// storage with data from m_dColumnState)
 			PrepareColumn(m_dColumnState);
 
-			// Build the Jacobian
+			// Build the F vector (don't actually need F, but we do need
+			// temporary data stored internally in class)
+			BuildF(m_dColumnState, m_dSoln);
+
+			// Build the Jacobian (uses internal data structures filled by BuildF)
 			BuildJacobianF(m_dColumnState, &(m_matJacobianF[0][0]));
+
+			// fill m_dSoln with scaled RHS data
+			//    first fill m_dColumnState with RHS data instead of state data
+			SetupReferenceColumn(
+				pPatch, iA, iB,
+				dataRefNode,
+				dataRHSNode,
+				dataRefREdge,
+				dataRHSREdge);
+
+  			//    then copy scaled RHS into m_dSoln
+			for (int ivec=0; ivec<m_nColumnStateSize; ivec++)
+			  m_dSoln[ivec] = m_dColumnState[ivec]/dDeltaT;
+			
 
 			// Use diagonal solver
 			int iInfo = LAPACK::DGBSV(
@@ -1881,11 +1888,6 @@ void VerticalDynamicsFEM::SolveImplicit(
 				}
 				_EXCEPTIONT("Inversion failure");
 			}
-
-			///// DRR: I don't think that this is necessary.
-			// for (int k = 0; k < m_dSoln.GetRows(); k++) {
-			// 	m_dSoln[k] = m_dColumnState[k] - m_dSoln[k];
-			// }
 
 			// Copy solution to thermodynamic closure
 			if (pGrid->GetVarLocation(PIx) == DataLocation_REdge) {
@@ -1926,17 +1928,17 @@ void VerticalDynamicsFEM::SolveImplicit(
 				}
 			}
 
-			// Update tracers in column
-			///// DRR: is this necessary?  If so, it will need modification 
-			/////      to copy instead of update
-			UpdateColumnTracers(
-				dDeltaT,
-				dataInitialNode,
-				dataRHSNode,
-				dataInitialREdge,
-				dataRHSREdge,
-				dataInitialTracer,
-				dataRHSTracer);
+			// "Update" tracers in column: initialize to zero, then apply update
+			if (dataInitialTracer.GetSize(0) > 0) {
+			  dataRHSTracer.Constant(0.0);
+			  UpdateColumnTracers(dDeltaT,
+					      dataInitialNode,
+					      dataRHSNode,
+					      dataInitialREdge,
+					      dataRHSREdge,
+					      dataInitialTracer,
+					      dataRHSTracer);
+			}
 		}
 		}
 
