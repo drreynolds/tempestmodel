@@ -637,7 +637,7 @@ static int ARKodePreconditionerSolve(
   AnnounceStartBlock("Preconditioner Solve");
 #endif
 
-  // model time (not used in RHS)
+  // model time (not used in preconditioning)
   Time timeT;
 
   // index of various N_Vector arguments in registry
@@ -661,12 +661,12 @@ static int ARKodePreconditionerSolve(
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
   pGrid->PostProcessSubstage(iR, DataType_State);
   pGrid->PostProcessSubstage(iR, DataType_Tracers);
-    
-  // Call column-wise linear solver (iR holds RHS on input, solution on output)
-  pVerticalDynamicsFEM->SolveImplicit(iY, iR, timeT, gamma);
 
-  // Copy solution into output N_Vector
+  // Copy right-hand side into solution N_Vector
   N_VScale_Tempest(1.0, R, Z);
+
+  // Call column-wise linear solver (iZ holds RHS on input, solution on output)
+  pVerticalDynamicsFEM->SolveImplicit(iY, iZ, timeT, gamma);
 
 #ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");
