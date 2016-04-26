@@ -67,6 +67,7 @@ struct _TempestCommandLineVariables {
 	Time timeEndTime;
 	int nOutputResX;
 	int nOutputResY;
+	int nOutputResZ;
 	bool fOutputVorticity;
 	bool fOutputDivergence;
 	bool fOutputTemperature;
@@ -115,6 +116,7 @@ struct _TempestCommandLineVariables {
 	CommandLineDeltaTime(_tempestvars.timeOutputRestartDeltaT, "output_restart_dt", ""); \
 	CommandLineInt(_tempestvars.nOutputResX, "output_x", 360); \
 	CommandLineInt(_tempestvars.nOutputResY, "output_y", 180); \
+	CommandLineInt(_tempestvars.nOutputResZ, "output_z", 0); \
 	CommandLineBool(_tempestvars.fOutputVorticity, "output_vort"); \
 	CommandLineBool(_tempestvars.fOutputDivergence, "output_div"); \
 	CommandLineBool(_tempestvars.fOutputTemperature, "output_temp"); \
@@ -372,6 +374,7 @@ void _TempestSetupOutputManagers(
 				vars.nOutputsPerFile,
 				vars.nOutputResX,
 				vars.nOutputResY,
+				vars.nOutputResZ,
 				false,
 				true);
 
@@ -528,7 +531,8 @@ void _TempestSetupCartesianModel(
 	Model & model,
 	double dGDim[],
 	double dRefLat,
-        int iLatBC[],
+	int iLatBC[],
+	bool fCartesianXZ,
 	_TempestCommandLineVariables & vars
 ) {
 	// Set the time step size and end time
@@ -593,9 +597,10 @@ void _TempestSetupCartesianModel(
 			dGDim,
 			dRefLat,
 			iLatBC,
+			fCartesianXZ,
 			eVerticalDiscretization,
 			eVerticalStaggering);
-                
+
 		pGrid->InitializeDataLocal();
 
 		// Set the vertical stretching function
@@ -640,8 +645,8 @@ void _TempestSetupCartesianModel(
 #define TempestSetupCubedSphereModel(model) \
 	_TempestSetupCubedSphereModel(model, _tempestvars);
 
-#define TempestSetupCartesianModel(model, dimensions, latitude, lateralBC) \
-	_TempestSetupCartesianModel(model, dimensions, latitude, lateralBC, _tempestvars);
+#define TempestSetupCartesianModel(model, dimensions, latitude, lateralBC, CartesianXZ) \
+	_TempestSetupCartesianModel(model, dimensions, latitude, lateralBC, CartesianXZ, _tempestvars);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -650,9 +655,21 @@ void TempestInitialize(int * argc, char*** argv) {
 #ifdef TEMPEST_PETSC
 	// Initialize PetSc
 	PetscInitialize(argc, argv, NULL, NULL);
-#else
+#endif
+#ifdef TEMPEST_MPIOMP
 	// Initialize MPI
 	MPI_Init(argc, argv);
+#endif
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void TempestAbort() {
+
+#ifdef TEMPEST_MPIOMP
+	// Abort
+	MPI_Abort(MPI_COMM_WORLD, 1);
 #endif
 
 }
@@ -664,7 +681,8 @@ void TempestDeinitialize() {
 #ifdef TEMPEST_PETSC
 	// Finalize PetSc
 	PetscFinalize();
-#else
+#endif
+#ifdef TEMPEST_MPIOMP
 	// Finalize MPI
 	MPI_Finalize();
 #endif

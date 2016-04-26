@@ -203,6 +203,13 @@ public:
 		int iDataIndex
 	);
 
+	///	<summary>
+	///		Compute total vertical momentum over this GridPatch.
+	///	</summary>
+	double ComputeTotalVerticalMomentum(
+		int iDataIndex
+	);
+
 public:
 	///	<summary>
 	///		Prepare for the exchange of halo data between processors.
@@ -398,15 +405,15 @@ public:
 	///		Linearly interpolate data horizontally to the specified points.
 	///	</summary>
 	virtual void InterpolateData(
+		DataType eDataType,
+		const DataArray1D<double> & dREta,
 		const DataArray1D<double> & dAlpha,
 		const DataArray1D<double> & dBeta,
-		const DataArray1D<int> & iPanel,
-		DataType eDataType,
-		DataLocation eDataLocation,
-		bool fInterpAllVariables,
+		const DataArray1D<int> & iPatch,
 		DataArray3D<double> & dInterpData,
+		DataLocation eOnlyVariablesAt = DataLocation_None,
 		bool fIncludeReferenceState = true,
-		bool fConvertToPrimitive = false
+		bool fConvertToPrimitive = true
 	);
 
 public:
@@ -1023,6 +1030,52 @@ public:
 	}
 
 	///	<summary>
+	///		Get the tracer data reference state.
+	///	</summary>
+	DataArray4D<double> & GetReferenceTracers() {
+		if (!m_fContainsData) {
+			_EXCEPTIONT("Stub patch does not store data.");
+		}
+		return m_dataRefTracers;
+	}
+
+	///	<summary>
+	///		Get the tracer data reference state.
+	///	</summary>
+	const DataArray4D<double> & GetReferenceTracers() const {
+		if (!m_fContainsData) {
+			_EXCEPTIONT("Stub patch does not store data.");
+		}
+		return m_dataRefTracers;
+	}
+
+	///	<summary>
+	///		Get the tracer data matrix with the specified index.
+	///	</summary>
+	DataArray4D<double> & GetDataTracersReference(int ix) {
+		if (!m_fContainsData) {
+			_EXCEPTIONT("Stub patch does not store data.");
+		}
+		if ((ix < 0) || (ix > m_datavecTracers.size())) {
+			_EXCEPTIONT("Invalid index in TracersData vector.");
+		}
+		return m_datavecTracers[ix];
+	}
+
+	///	<summary>
+	///		Get the tracer data matrix with the specified index.
+	///	</summary>
+	const DataArray4D<double> & GetDataTracersReference(int ix) const {
+		if (!m_fContainsData) {
+			_EXCEPTIONT("Stub patch does not store data.");
+		}
+		if ((ix < 0) || (ix > m_datavecTracers.size())) {
+			_EXCEPTIONT("Invalid index in TracersData vector.");
+		}
+		return m_datavecTracers[ix];
+	}
+
+	///	<summary>
 	///		Get the pressure data.
 	///	</summary>
 	DataArray3D<double> & GetDataPressure() {
@@ -1382,6 +1435,11 @@ public:
 	///		Grid data for tracer variables (State).
 	///	</summary>
 	DataArray4DVector m_datavecTracers;
+
+	///	<summary>
+	///		Grid data for the reference state on model levels (State).
+	///	</summary>
+	DataArray4D<double> m_dataRefTracers;
 
 public:
 	///	<summary>
