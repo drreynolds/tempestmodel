@@ -1283,7 +1283,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e;
 
-    } else if (m_strButcherTable == "ssp2(2,2,2)") {
+    } else if (m_strButcherTable == "ssp2_222)") {
 
       // ------------------------------------------------------------------------
       // ssp2(2,2,2)
@@ -1341,7 +1341,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e;  
 
-    } else if (m_strButcherTable == "ssp2(3,3,2)") {
+    } else if (m_strButcherTable == "ssp2_332)") {
 
       // ------------------------------------------------------------------------
       // ssp2(3,3,2)
@@ -1404,7 +1404,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e;  
 
-    } else if (m_strButcherTable == "ssp3(3,3,2)") {
+    } else if (m_strButcherTable == "ssp3_332") {
 
       // ------------------------------------------------------------------------
       // ssp3(3,3,2)
@@ -1469,7 +1469,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e;  
 
-    } else if (m_strButcherTable == "ssp3(4,3,3)") {
+    } else if (m_strButcherTable == "ssp3_433") {
 
       // ------------------------------------------------------------------------
       // ssp3(4,3,3)
