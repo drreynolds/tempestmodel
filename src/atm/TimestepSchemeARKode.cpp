@@ -399,7 +399,7 @@ static int ARKodePostProcessStep(
   pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
   
-  // Exchange
+  // Perform DSS (average values at shared nodes)
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
@@ -464,7 +464,7 @@ static int ARKodeExplicitRHS(
   pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
 
-  // Exchange
+  // Perform DSS (average values at shared nodes)
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
@@ -474,6 +474,7 @@ static int ARKodeExplicitRHS(
 
   // Compute explicit RHS
   pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
+  pVerticalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
 
 #ifdef DEBUG_OUTPUT
   // output ||fe||_max for sanity check
@@ -524,7 +525,7 @@ static int ARKodeImplicitRHS(
   pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
 
-  // Exchange
+  // Perform DSS (average values at shared nodes)
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
@@ -599,7 +600,7 @@ static int ARKodeFullRHS(
   pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
   
-  // Exchange
+  // Perform DSS (average values at shared nodes)
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
     
