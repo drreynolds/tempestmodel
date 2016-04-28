@@ -1283,7 +1283,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e;
 
-    } else if (m_strButcherTable == "ssp2_222)") {
+    } else if (m_strButcherTable == "ssp2_222") {
 
       // ------------------------------------------------------------------------
       // ssp2(2,2,2)
@@ -1319,7 +1319,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pce[1] = 1.0;
       
       pAe[0] = 0.0; pAe[1] = 0.0;
-      pAe[3] = 1.0; pAe[4] = 0.0;
+      pAe[2] = 1.0; pAe[3] = 0.0;
       
       pbe[0] = 0.5;
       pbe[1] = 0.5;
@@ -1341,7 +1341,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e;  
 
-    } else if (m_strButcherTable == "ssp2_332)") {
+    } else if (m_strButcherTable == "ssp2_332") {
 
       // ------------------------------------------------------------------------
       // ssp2(3,3,2)
