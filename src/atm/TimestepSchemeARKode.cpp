@@ -656,12 +656,6 @@ static int ARKodePreconditionerSolve(
   VerticalDynamicsFEM * pVerticalDynamicsFEM 
     = dynamic_cast<VerticalDynamicsFEM*>(pModel->GetVerticalDynamics());
 
-  // Exchange state and RHS vector data
-  pGrid->PostProcessSubstage(iY, DataType_State);
-  pGrid->PostProcessSubstage(iY, DataType_Tracers);
-  pGrid->PostProcessSubstage(iR, DataType_State);
-  pGrid->PostProcessSubstage(iR, DataType_Tracers);
-
   // Copy right-hand side into solution N_Vector
   N_VScale_Tempest(1.0, R, Z);
 
