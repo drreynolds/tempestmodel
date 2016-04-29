@@ -548,7 +548,7 @@ double Grid::ComputeTotalPotentialEnstrophy(
 	double dGlobalPotentialEnstrophy = 0.0;
 
 #ifdef TEMPEST_MPIOMP
-	// Reduce to obtain global energy integral
+	// Reduce to obtain global potential enstrophy integral
 	MPI_Reduce(
 		&dLocalPotentialEnstrophy,
 		&dGlobalPotentialEnstrophy,
@@ -559,8 +559,40 @@ double Grid::ComputeTotalPotentialEnstrophy(
 		MPI_COMM_WORLD);
 #endif
 
-	// Return global energy integral
+	// Return global potential enstrophy integral
 	return dGlobalPotentialEnstrophy;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+double Grid::ComputeTotalVerticalMomentum(
+	int iDataIndex
+) {
+	// Compute local vertical momentum
+	double dLocalVerticalMomentum = 0.0;
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++) {
+		dLocalVerticalMomentum +=
+			m_vecActiveGridPatches[n]->
+				ComputeTotalVerticalMomentum(iDataIndex);
+	}
+
+	// Global vertical momentum
+	double dGlobalVerticalMomentum = 0.0;
+
+#ifdef TEMPEST_MPIOMP
+	// Reduce to obtain global vertical momentum integral
+	MPI_Reduce(
+		&dLocalVerticalMomentum,
+		&dGlobalVerticalMomentum,
+		1,
+		MPI_DOUBLE,
+		MPI_SUM,
+		0,
+		MPI_COMM_WORLD);
+#endif
+
+	// Return vertical momentum integral
+	return dGlobalVerticalMomentum;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -815,13 +847,13 @@ void Grid::InterpolateREdgeToNode(
 ///////////////////////////////////////////////////////////////////////////////
 
 void Grid::ReduceInterpolate(
+	DataType eDataType,
+	const DataArray1D<double> & dREta,
 	const DataArray1D<double> & dAlpha,
 	const DataArray1D<double> & dBeta,
 	const DataArray1D<int> & iPatch,
-	DataType eDataType,
-	DataLocation eDataLocation,
-	bool fInterpAllVariables,
 	DataArray3D<double> & dInterpData,
+	DataLocation eOnlyVariablesAt,
 	bool fIncludeReferenceState,
 	bool fConvertToPrimitive
 ) const {
@@ -875,21 +907,7 @@ void Grid::ReduceInterpolate(
 		_EXCEPTIONT("InterpData dimension mismatch (0)");
 	}
 
-	if ((eDataLocation == DataLocation_None) &&
-		(dInterpData.GetColumns() != 1)
-	) {
-		_EXCEPTIONT("InterpData dimension mismatch (1)");
-	}
-
-	if ((eDataLocation == DataLocation_Node) &&
-		(dInterpData.GetColumns() != GetRElements())
-	) {
-		_EXCEPTIONT("InterpData dimension mismatch (1)");
-	}
-
-	if ((eDataLocation == DataLocation_REdge) &&
-		(dInterpData.GetColumns() != GetRElements() + 1)
-	) {
+	if (dInterpData.GetColumns() != dREta.GetRows()) {
 		_EXCEPTIONT("InterpData dimension mismatch (1)");
 	}
 
@@ -900,14 +918,16 @@ void Grid::ReduceInterpolate(
 	// Zero the interpolated data
 	dInterpData.Zero();
 
-	// Interpolate state data
+	// Interpolate data
 	for (int n = 0; n < m_vecActiveGridPatches.size(); n++) {
 		m_vecActiveGridPatches[n]->InterpolateData(
-			dAlpha, dBeta, iPatch,
 			eDataType,
-			eDataLocation,
-			fInterpAllVariables,
+			dREta,
+			dAlpha,
+			dBeta,
+			iPatch,
 			dInterpData,
+			eOnlyVariablesAt,
 			fIncludeReferenceState,
 			fConvertToPrimitive);
 	}

@@ -272,6 +272,16 @@ void GridPatch::InitializeDataLocal(
 		m_grid.GetRElements()+1,
 		m_box.GetATotalWidth(),
 		m_box.GetBTotalWidth());
+	
+#if defined(TRACER_REFERENCE_STATE)
+	m_dataRefTracers.SetDataType(DataType_Tracers);
+	m_dataRefTracers.SetDataLocation(DataLocation_Node);
+	m_dataRefTracers.SetSize(
+		eqn.GetTracers(),
+		m_grid.GetRElements(),
+		m_box.GetATotalWidth(),
+		m_box.GetBTotalWidth());
+#endif
 
 	// Rayleigh friction strength
 	m_dataRayleighStrengthNode.SetDataType(DataType_None);
@@ -324,6 +334,11 @@ void GridPatch::InitializeDataLocal(
 	m_dcGeometric.PushDataChunk(&m_dataZInterfaces);
 	m_dcGeometric.PushDataChunk(&m_dataRefStateNode);
 	m_dcGeometric.PushDataChunk(&m_dataRefStateREdge);
+
+#if defined(TRACER_REFERENCE_STATE)
+	m_dcGeometric.PushDataChunk(&m_dataRefTracers);
+#endif
+
 	m_dcGeometric.PushDataChunk(&m_dataRayleighStrengthNode);
 	m_dcGeometric.PushDataChunk(&m_dataRayleighStrengthREdge);
 
@@ -383,7 +398,7 @@ void GridPatch::InitializeDataLocal(
 				m_box.GetATotalWidth(),
 				m_box.GetBTotalWidth());
 		}
-	
+
 		// Store active state data
 		m_dcActiveState.PushDataChunk(&m_datavecTracers[0]);
 
@@ -450,6 +465,7 @@ void GridPatch::InitializeDataLocal(
 		m_dcAuxiliary.Allocate();
 	}
 
+#pragma message "Remove these two lines?"
 	// Mark Patch index
 	m_iGeometricPatchIx[0] = m_ixPatch;
 	m_iActiveStatePatchIx[0] = m_ixPatch;
@@ -1000,11 +1016,92 @@ double GridPatch::ComputeTotalPotentialEnstrophy(
 	} else {
 
 #pragma message "Calculate total potential enstrophy here"
-		// Unimplemented
+
+		// Set to zero
 		dLocalPotentialEnstrophy = 0.0;
+
+		// Loop over all elements
+		int k;
+		int i;
+		int j;
+
+		for (k = 0; k < m_grid.GetRElements(); k++) {
+		for (i = m_box.GetAInteriorBegin(); i < m_box.GetAInteriorEnd(); i++) {
+		for (j = m_box.GetBInteriorBegin(); j < m_box.GetBInteriorEnd(); j++) {
+
+			// Zonal momentum
+			dLocalPotentialEnstrophy +=
+				m_dataElementArea[k][i][j]
+				* dataNode[RIx][k][i][j]
+				* dataNode[UIx][k][i][j];
+		}
+		}
+		}
+
 	}
 
 	return dLocalPotentialEnstrophy;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+double GridPatch::ComputeTotalVerticalMomentum(
+	int iDataIndex
+) {
+	// Physical constants
+	const PhysicalConstants & phys = m_grid.GetModel().GetPhysicalConstants();
+
+	// Accumulated local energy
+	double dLocalVerticalMomentum = 0.0;
+
+	// Indices of EquationSet variables
+	const int UIx = 0;
+	const int VIx = 1;
+	const int PIx = 2;
+	const int WIx = 3;
+	const int RIx = 4;
+
+	// Determine type of energy to compute from EquationSet
+	EquationSet::Type eEquationSetType =
+		m_grid.GetModel().GetEquationSet().GetType();
+
+	// Grid data
+	if ((iDataIndex < 0) || (iDataIndex >= m_datavecStateNode.size())) {
+		_EXCEPTION1("iDataIndex out of range: %i", iDataIndex);
+	}
+	const DataArray4D<double> & dataNode = m_datavecStateNode[iDataIndex];
+
+	// Shallow Water ZonalMomentum
+	if (eEquationSetType == EquationSet::ShallowWaterEquations) {
+		_EXCEPTIONT("ComputeTotalVerticalMomentum() Not implemented "
+			"for ShallowWaterEquations");
+
+	} else {
+
+		// Set to zero
+		dLocalVerticalMomentum = 0.0;
+
+		// Loop over all elements
+		int k;
+		int i;
+		int j;
+
+		for (k = 0; k < m_grid.GetRElements(); k++) {
+		for (i = m_box.GetAInteriorBegin(); i < m_box.GetAInteriorEnd(); i++) {
+		for (j = m_box.GetBInteriorBegin(); j < m_box.GetBInteriorEnd(); j++) {
+
+			// Vertical momentum
+			dLocalVerticalMomentum +=
+				m_dataElementArea[k][i][j]
+				* dataNode[RIx][k][i][j]
+				* dataNode[WIx][k][i][j];
+		}
+		}
+		}
+
+	}
+
+	return dLocalVerticalMomentum;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2044,13 +2141,13 @@ void GridPatch::AddReferenceState(
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridPatch::InterpolateData(
+	DataType eDataType,
+	const DataArray1D<double> & dREta,
 	const DataArray1D<double> & dAlpha,
 	const DataArray1D<double> & dBeta,
-	const DataArray1D<int> & iPanel,
-	DataType eDataType,
-	DataLocation eDataLocation,
-	bool fInterpAllVariables,
+	const DataArray1D<int> & iPatch,
 	DataArray3D<double> & dInterpData,
+	DataLocation eOnlyVariablesAt,
 	bool fIncludeReferenceState,
 	bool fConvertToPrimitive
 ) {

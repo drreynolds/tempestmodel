@@ -50,6 +50,13 @@ public:
 	);
 
 	///	<summary>
+	///		Initialize an identity operator.
+	///	</summary>
+	void InitializeIdentity(
+		int nRElements
+	);
+
+	///	<summary>
 	///		Compose this operator with another LinearColumnOperator.  The
 	///		resulting operator will be (this) o (op)
 	///	</summary>
@@ -75,7 +82,7 @@ public:
 	double Apply(
 		const double * dColumnIn,
 		int iRout,
-		int nStride = 1
+		int nStride
 	) const;
 
 	///	<summary>
@@ -87,7 +94,7 @@ public:
 		const double * dColumnRefIn,
 		double dColumnRefOut,
 		int iRout,
-		int nStride = 1
+		int nStride
 	) const;
 
 public:
@@ -113,7 +120,7 @@ public:
 	///	<summary>
 	///		Apply the operator to a column with the reference state.
 	///	</summary>
-	void Apply(
+	void ApplyWithRef(
 		const double * dColumnIn,
 		const double * dColumnRefIn,
 		double * dColumnOut,
@@ -124,7 +131,7 @@ public:
 	///		Apply the operator to a column with the reference state.  Stride
 	///		indicates the sparsity of the column array.
 	///	</summary>
-	void Apply(
+	void ApplyWithRef(
 		const double * dColumnIn,
 		const double * dColumnRefIn,
 		double * dColumnOut,

@@ -62,7 +62,7 @@ extern "C" {
 
 ///// Part I -- global variables for NVector registry /////
 
-#define MAX_TEMPEST_NVECTORS 200
+#define MAX_TEMPEST_NVECTORS 350
 
 
 ///// Part II -- NVector data structure /////

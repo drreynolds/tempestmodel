@@ -46,6 +46,23 @@ void LinearColumnOperator::Initialize(
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void LinearColumnOperator::InitializeIdentity(
+	int nRElements
+) {
+	m_fInitialized = true;
+	m_dCoeff.Allocate(nRElements, nRElements);
+	m_iBegin.Allocate(nRElements);
+	m_iEnd  .Allocate(nRElements);
+
+	for (int i = 0; i < nRElements; i++) {
+		m_dCoeff[i][i] = 1.0;
+		m_iBegin[i] = i;
+		m_iEnd[i] = i+1;
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 void LinearColumnOperator::ComposeWith(
 	const LinearColumnOperator & op
 ) {
@@ -190,7 +207,6 @@ double LinearColumnOperator::Apply(
 	return dOut;
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 
 void LinearColumnOperator::Apply(
@@ -241,7 +257,7 @@ void LinearColumnOperator::Apply(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void LinearColumnOperator::Apply(
+void LinearColumnOperator::ApplyWithRef(
 	const double * dColumnIn,
 	const double * dColumnRefIn,
 	double * dColumnOut,
@@ -265,7 +281,7 @@ void LinearColumnOperator::Apply(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void LinearColumnOperator::Apply(
+void LinearColumnOperator::ApplyWithRef(
 	const double * dColumnIn,
 	const double * dColumnRefIn,
 	double * dColumnOut,

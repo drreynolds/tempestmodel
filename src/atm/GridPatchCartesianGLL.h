@@ -93,7 +93,8 @@ public:
 	///	</summary>
 	virtual void ApplyBoundaryConditions(
 		int iDataUpdate,
-		DataType eDataType = DataType_State
+		DataType eDataType,
+		int iAlphaBCPatch
 	);
 
 public:
@@ -134,17 +135,17 @@ public:
 	///		Linearly interpolate data to the specified point.
 	///	</summary>
 	virtual void InterpolateData(
+		DataType eDataType,
+		const DataArray1D<double> & dREta,
 		const DataArray1D<double> & dAlpha,
 		const DataArray1D<double> & dBeta,
 		const DataArray1D<int> & iPatch,
-		DataType eDataType,
-		DataLocation eDataLocation,
-		bool fInterpAllVariables,
 		DataArray3D<double> & dInterpData,
+		DataLocation eOnlyVariablesAt = DataLocation_None,
 		bool fIncludeReferenceState = true,
 		bool fConvertToPrimitive = true
 	);
-
+/*
 public:
 
 	///	<summary>
@@ -165,12 +166,13 @@ public:
 	///	<summary>
 	///		Maximum height of a topography feature
 	///	</summary>
-    double m_dTopoHeight;
+	double m_dTopoHeight;
 
 	///	<summary>
 	///		Scale height for exponential decay of topography
 	///	</summary>
 	double m_dSL;
+*/
 };
 
 ///////////////////////////////////////////////////////////////////////////////

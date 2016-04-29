@@ -11,6 +11,7 @@
 *--
 *.tgz
 *.mod
+include/*
 test/BaroclinicWaveJWTest
 test/BaroclinicWaveUMJSTest
 test/BarotropicInstabilityTest
@@ -71,3 +72,5 @@ test/dcmip2016/MesoscaleStormTest
 test/nonhydro_xz/Baroclinic3DCartesianRidgeTest
 test/hpc/DataContainerTest
 test/hpc/TaskTest
+
+test/dcmip2016/SupercellTest

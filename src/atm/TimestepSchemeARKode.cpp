@@ -399,7 +399,7 @@ static int ARKodePostProcessStep(
   pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
   
-  // Exchange
+  // Perform DSS (average values at shared nodes)
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
@@ -464,7 +464,7 @@ static int ARKodeExplicitRHS(
   pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
 
-  // Exchange
+  // Perform DSS (average values at shared nodes)
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
@@ -474,6 +474,7 @@ static int ARKodeExplicitRHS(
 
   // Compute explicit RHS
   pHorizontalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
+  pVerticalDynamicsFEM->StepExplicit(iY, iYdot, timeT, 1.0);
 
 #ifdef DEBUG_OUTPUT
   // output ||fe||_max for sanity check
@@ -524,7 +525,7 @@ static int ARKodeImplicitRHS(
   pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
 
-  // Exchange
+  // Perform DSS (average values at shared nodes)
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
 
@@ -599,7 +600,7 @@ static int ARKodeFullRHS(
   pHorizontalDynamicsFEM->FilterNegativeTracers(iY);
   pVerticalDynamicsFEM->FilterNegativeTracers(iY);
   
-  // Exchange
+  // Perform DSS (average values at shared nodes)
   pGrid->PostProcessSubstage(iY, DataType_State);
   pGrid->PostProcessSubstage(iY, DataType_Tracers);
     
@@ -1277,7 +1278,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e;
 
-    } else if (m_strButcherTable == "ssp2(2,2,2)") {
+    } else if (m_strButcherTable == "ssp2_222") {
 
       // ------------------------------------------------------------------------
       // ssp2(2,2,2)
@@ -1313,7 +1314,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pce[1] = 1.0;
       
       pAe[0] = 0.0; pAe[1] = 0.0;
-      pAe[3] = 1.0; pAe[4] = 0.0;
+      pAe[2] = 1.0; pAe[3] = 0.0;
       
       pbe[0] = 0.5;
       pbe[1] = 0.5;
@@ -1335,7 +1336,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e;  
 
-    } else if (m_strButcherTable == "ssp2(3,3,2)") {
+    } else if (m_strButcherTable == "ssp2_332") {
 
       // ------------------------------------------------------------------------
       // ssp2(3,3,2)
@@ -1398,7 +1399,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e;  
 
-    } else if (m_strButcherTable == "ssp3(3,3,2)") {
+    } else if (m_strButcherTable == "ssp3_332") {
 
       // ------------------------------------------------------------------------
       // ssp3(3,3,2)
@@ -1463,7 +1464,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbe;
       delete[] pb2e;  
 
-    } else if (m_strButcherTable == "ssp3(4,3,3)") {
+    } else if (m_strButcherTable == "ssp3_433") {
 
       // ------------------------------------------------------------------------
       // ssp3(4,3,3)

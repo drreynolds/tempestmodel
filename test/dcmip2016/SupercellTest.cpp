@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///
-///	\file	MesoscaleStormTest.cpp
+///	\file	SupercellTest.cpp
 ///	\author  Paul Ullrich
 ///	\version June 23, 2013
 ///
@@ -21,10 +21,10 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 extern "C" {
-	void mesoscale_storm_init(
+	void supercell_init(
 	);
 
-	void mesoscale_storm_test(
+	void supercell_test(
 		double * dLon,
 		double * dLat,
 		double * dP,
@@ -36,7 +36,8 @@ extern "C" {
 		double * dThetaV,
 		double * dPs,
 		double * dRho,
-		double * dQ
+		double * dQ,
+		int * iPert
 	);
 } 
 
@@ -45,7 +46,7 @@ extern "C" {
 ///	<summary>
 ///		DCMIP 2016: Tropical Cyclone Test
 ///	</summary>
-class MesoscaleStormTest : public TestCase {
+class SupercellTest : public TestCase {
 
 protected:
 	///	<summary>
@@ -62,14 +63,14 @@ public:
 	///	<summary>
 	///		Constructor.
 	///	</summary>
-	MesoscaleStormTest(
+	SupercellTest(
 		double dZtop,
 		double dEarthScaling
 	) :
 		m_dZtop(dZtop),
 		m_dEarthScaling(dEarthScaling)
 	{
-		mesoscale_storm_init();
+		supercell_init();
 	}
 
 public:
@@ -126,17 +127,41 @@ public:
 		double * dState
 	) const {
 
-		// Store the state
-		// State 0 = Zonal velocity (m/s)
-		// State 1 = Meridional velocity (m/s)
-		// State 2 = Theta (K)
-		// State 3 = Vertical velocity (m/s)
-		// State 4 = Density (kg/m^3)
-		dState[0] = 0.0;
-		dState[1] = 0.0;
-		dState[2] = 0.0;
+		int iZcoords = 1;
+		
+		double dX = m_dEarthScaling;
+		double dP;
+		double dU;
+		double dV;
+		double dT;
+		double dThetaV;
+		double dPhis;
+		double dPs;
+		double dRho;
+		double dQ;
+		int iPert = 0;
+
+		// Calculate the reference state
+		supercell_test(
+			&dLon,
+			&dLat,
+			&dP,
+			&dZ,
+			&iZcoords,
+			&dU,
+			&dV,
+			&dT,
+			&dThetaV,
+			&dPs,
+			&dRho,
+			&dQ,
+			&iPert);
+
+		dState[0] = dU;
+		dState[1] = dV;
+		dState[2] = dThetaV;
 		dState[3] = 0.0;
-		dState[4] = 0.0;
+		dState[4] = dRho;
 	}
 	
 	///	<summary>
@@ -153,7 +178,7 @@ public:
 	) const {
 
 		int iZcoords = 1;
-		
+
 		double dX = m_dEarthScaling;
 		double dP;
 		double dU;
@@ -164,10 +189,10 @@ public:
 		double dPs;
 		double dRho;
 		double dQ;
+		int iPert = 1;
 
 		// Calculate the reference state
-		//EvaluateReferenceState(phys, dZ, dLon, dLat, dState);
-		mesoscale_storm_test(
+		supercell_test(
 			&dLon,
 			&dLat,
 			&dP,
@@ -179,7 +204,8 @@ public:
 			&dThetaV,
 			&dPs,
 			&dRho,
-			&dQ);
+			&dQ,
+			&iPert);
 
 		dState[0] = dU;
 		dState[1] = dV;
@@ -209,7 +235,7 @@ try {
 	double dEarthScaling;
 
 	// Parse the command line
-	BeginTempestCommandLine("MesoscaleStormTest");
+	BeginTempestCommandLine("SupercellTest");
 		SetDefaultResolution(20);
 		SetDefaultLevels(10);
 		SetDefaultOutputDeltaT("60s");
@@ -243,7 +269,7 @@ try {
 	// Set the test case for the model
 	AnnounceStartBlock("Initializing test case");
 	model.SetTestCase(
-		new MesoscaleStormTest(
+		new SupercellTest(
 			dZtop,
 			dEarthScaling));
 	AnnounceEndBlock("Done");
@@ -265,6 +291,7 @@ try {
 
 } catch(Exception & e) {
 	std::cout << e.ToString() << std::endl;
+	TempestAbort();
 }
 
 	// Deinitialize Tempest

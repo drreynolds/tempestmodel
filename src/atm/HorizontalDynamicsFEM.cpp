@@ -1138,15 +1138,20 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
  					// Apply update to horizontal velocity on model levels
 					dataUpdateNode[UIx][k][iA][iB] +=
 						dDeltaT * dLocalUpdateUa;
-					dataUpdateNode[VIx][k][iA][iB] +=
-						dDeltaT * dLocalUpdateUb;
+					// Omit beta update for XZ 2D models
+					if (pGrid->GetIsCartesianXZ() == false) {
+						dataUpdateNode[VIx][k][iA][iB] +=
+							dDeltaT * dLocalUpdateUb;
+					}
 
 #ifdef INSTEP_DIVERGENCE_DAMPING
 					// Apply instep divergence
 					dataUpdateNode[UIx][k][iA][iB] +=
 						dDeltaT * m_dInstepNuDiv * dDaDiv;
-					dataUpdateNode[VIx][k][iA][iB] +=
-						dDeltaT * m_dInstepNuDiv * dDbDiv;
+					if (pGrid->GetIsCartesianXZ() == false) {
+						dataUpdateNode[VIx][k][iA][iB] +=
+							dDeltaT * m_dInstepNuDiv * dDbDiv;
+					}
 #endif
 
 					// Update density on model levels
@@ -1526,11 +1531,6 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 		}
 		}
 	}
-
-#ifndef USE_SUNDIALS
-	// Apply positive definite filter to tracers
-	FilterNegativeTracers(iDataUpdate);
-#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1562,6 +1562,30 @@ void HorizontalDynamicsFEM::StepExplicit(
 		_EXCEPTIONT("Invalid EquationSet");
 	}
 
+#ifdef UNIFORM_DIFFUSION
+	// Apply scalar and vector viscosity
+	const double dUniformDiffusionCoeff = UNIFORM_DIFFUSION_COEFF;
+
+	ApplyScalarHyperdiffusion(
+		iDataInitial,
+		iDataUpdate,
+		dDeltaT,
+		dUniformDiffusionCoeff,
+		false,
+		false);
+
+	ApplyVectorHyperdiffusion(
+		iDataInitial,
+		iDataUpdate,
+		-dDeltaT,
+		dUniformDiffusionCoeff,
+		dUniformDiffusionCoeff,
+		false);
+#endif
+
+	// Apply positive definite filter to tracers
+	FilterNegativeTracers(iDataUpdate);
+
 /*
 	// Apply Direct Stiffness Summation (DSS) procedure
 	if (m_eHorizontalDynamicsType == SpectralElement) {
@@ -1578,7 +1602,8 @@ void HorizontalDynamicsFEM::ApplyScalarHyperdiffusion(
 	int iDataUpdate,
 	double dDeltaT,
 	double dNu,
-	bool fScaleNuLocally
+	bool fScaleNuLocally,
+	bool fDiffuseMass
 ) {
 	// Get a copy of the GLL grid
 	GridGLL * pGrid = dynamic_cast<GridGLL*>(m_model.GetGrid());
@@ -1637,7 +1662,7 @@ void HorizontalDynamicsFEM::ApplyScalarHyperdiffusion(
 		int nElementCountB = pPatch->GetElementCountB();
 
 		// Compute new hyperviscosity coefficient
-		double dLocalNu  = dNu;
+		double dLocalNu = dNu;
 
 		if (fScaleNuLocally) {
 			double dReferenceLength = pGrid->GetReferenceLength();
@@ -1655,6 +1680,10 @@ void HorizontalDynamicsFEM::ApplyScalarHyperdiffusion(
 			if (iType == 0) {
 				nComponentStart = 2;
 				nComponentEnd = m_model.GetEquationSet().GetComponents();
+
+				if (!fDiffuseMass) {
+					nComponentEnd--;
+				}
 
 			} else {
 				nComponentStart = 0;
@@ -1924,7 +1953,9 @@ void HorizontalDynamicsFEM::ApplyVectorHyperdiffusion(
 
 				dataUpdate[UIx][k][iA][iB] -= dDeltaT * dUpdateUa;
 
-				dataUpdate[VIx][k][iA][iB] -= dDeltaT * dUpdateUb;
+				if (pGrid->GetIsCartesianXZ() == false) {
+					dataUpdate[VIx][k][iA][iB] -= dDeltaT * dUpdateUb;
+				}
 
 /*
 				if (k == 0) {
@@ -1947,6 +1978,8 @@ void HorizontalDynamicsFEM::ApplyVectorHyperdiffusion(
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#pragma message "jeguerra: Clean up this function"
+
 void HorizontalDynamicsFEM::ApplyRayleighFriction(
 	int iDataUpdate,
 	double dDeltaT
@@ -1956,6 +1989,10 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 
 	// Number of components to hit with friction
 	int nComponents = m_model.GetEquationSet().GetComponents();
+
+	// Subcycle the rayleigh update
+	int NSCR = 10;
+	double SCRF = 1.0 / NSCR;
 
 	// Perform local update
 	for (int n = 0; n < pGrid->GetActivePatchCount(); n++) {
@@ -2001,13 +2038,22 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 
 				double dNuNode = 1.0 / (1.0 + dDeltaT * dNu);
 
-				// Loop over all components
+				// Loop over all components NOT DENSITY
 				for (int c = 0; c < nComponents; c++) {
-					if (pGrid->GetVarLocation(c) == DataLocation_Node) {
-						dataUpdateNode[c][k][i][j] =
-							dNuNode * dataUpdateNode[c][k][i][j]
-							+ (1.0 - dNuNode)
+					if ((m_model.GetEquationSet().GetComponentShortName(c) == "U") ||
+					((m_model.GetEquationSet().GetComponentShortName(c) == "V") && 
+					 (pGrid->GetIsCartesianXZ() == false)) ||
+					(m_model.GetEquationSet().GetComponentShortName(c) == "W") ||
+					(m_model.GetEquationSet().GetComponentShortName(c) == "Theta")) {
+						for (int si = 0; si < NSCR; si++) { 
+						dNuNode = 1.0 / (1.0 + SCRF * dDeltaT * dNu);
+						if (pGrid->GetVarLocation(c) == DataLocation_Node) {
+							dataUpdateNode[c][k][i][j] = 
+								dNuNode * dataUpdateNode[c][k][i][j]
+								+ (1.0 - dNuNode)
 								* dataReferenceNode[c][k][i][j];
+						}
+						}
 					}
 				}
 			}
@@ -2024,13 +2070,22 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 
 				double dNuREdge = 1.0 / (1.0 + dDeltaT * dNu);
 
-				// Loop over all components
+				// Loop over all components NOT DENSITY
 				for (int c = 0; c < nComponents; c++) {
-					if (pGrid->GetVarLocation(c) == DataLocation_REdge) {
-						dataUpdateREdge[c][k][i][j] =
-							dNuREdge * dataUpdateREdge[c][k][i][j]
-							+ (1.0 - dNuREdge)
+					if ((m_model.GetEquationSet().GetComponentShortName(c) == "U") ||
+					((m_model.GetEquationSet().GetComponentShortName(c) == "V") && 
+					 (pGrid->GetIsCartesianXZ() == false)) ||
+					(m_model.GetEquationSet().GetComponentShortName(c) == "W") ||
+					(m_model.GetEquationSet().GetComponentShortName(c) == "Theta")) {
+						for (int si = 0; si < NSCR; si++) {
+						if (pGrid->GetVarLocation(c) == DataLocation_REdge) {
+							dNuREdge = 1.0 / (1.0 + SCRF * dDeltaT * dNu);
+							dataUpdateREdge[c][k][i][j] = 
+								dNuREdge * dataUpdateREdge[c][k][i][j]
+								+ (1.0 - dNuREdge)
 								* dataReferenceREdge[c][k][i][j];
+						}
+						}
 					}
 				}
 			}
@@ -2043,10 +2098,6 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 
 int HorizontalDynamicsFEM::GetSubStepAfterSubCycleCount() {
 	int iSubStepCount = m_nHyperviscosityOrder / 2;
-
-#ifdef UNIFORM_DIFFUSION
-	iSubStepCount++;
-#endif
 
 	return iSubStepCount;
 }
@@ -2065,40 +2116,8 @@ int HorizontalDynamicsFEM::SubStepAfterSubCycle(
 	// Get the GLL grid
 	GridGLL * pGrid = dynamic_cast<GridGLL*>(m_model.GetGrid());
 
-#ifdef UNIFORM_DIFFUSION
-	const int iFirstHypervisSubStep = 1;
-
-	// Apply scalar and vector viscosity
-	if (iSubStep == 0) {
-		const double dUniformDiffusionCoeff = 75.0;
-
-		ApplyScalarHyperdiffusion(
-			iDataInitial,
-			iDataUpdate,
-			dDeltaT,
-			dUniformDiffusionCoeff,
-			false);
-
-		ApplyVectorHyperdiffusion(
-			iDataInitial,
-			iDataUpdate,
-			-dDeltaT,
-			dUniformDiffusionCoeff,
-			dUniformDiffusionCoeff,
-			false);
-
-		// Apply positive definite filter to tracers
-		FilterNegativeTracers(iDataUpdate);
-
-		return iDataUpdate;
-	}
-
-#else
-	const int iFirstHypervisSubStep = 0;
-#endif
-
 	// First calculation of Laplacian
-	if (iSubStep == iFirstHypervisSubStep) {
+	if (iSubStep == 0) {
 
 		// Apply scalar and vector hyperviscosity (first application)
 		pGrid->ZeroData(iDataWorking, DataType_State);
@@ -2112,7 +2131,7 @@ int HorizontalDynamicsFEM::SubStepAfterSubCycle(
 		return iDataWorking;
 
 	// Second calculation of Laplacian
-	} else if (iSubStep == iFirstHypervisSubStep+1) {
+	} else if (iSubStep == 1) {
 
 		// Copy initial data to updated data
 		pGrid->CopyData(iDataInitial, iDataUpdate, DataType_State);
@@ -2164,35 +2183,6 @@ void HorizontalDynamicsFEM::StepAfterSubCycle(
 	// Copy initial data to updated data
 	pGrid->CopyData(iDataInitial, iDataUpdate, DataType_State);
 	pGrid->CopyData(iDataInitial, iDataUpdate, DataType_Tracers);
-
-#ifdef UNIFORM_DIFFUSION
-	// Apply scalar and vector viscosity
-	const double dUniformDiffusionCoeff = 75.0;
-
-	ApplyScalarHyperdiffusion(
-		iDataInitial,
-		iDataUpdate,
-		dDeltaT,
-		dUniformDiffusionCoeff,
-		false);
-
-	ApplyVectorHyperdiffusion(
-		iDataInitial,
-		iDataUpdate,
-		-dDeltaT,
-		dUniformDiffusionCoeff,
-		dUniformDiffusionCoeff,
-		false);
-
-	// Apply positive definite filter to tracers
-	FilterNegativeTracers(iDataUpdate);
-
-	// Apply Direct Stiffness Summation
-	if ((m_dNuScalar == 0.0) && (m_dNuDiv == 0.0) && (m_dNuVort == 0.0)) {
-		pGrid->ApplyDSS(iDataUpdate, DataType_State);
-		pGrid->ApplyDSS(iDataUpdate, DataType_Tracers);
-	}
-#endif
 
 	// No hyperdiffusion
 	if ((m_dNuScalar == 0.0) && (m_dNuDiv == 0.0) && (m_dNuVort == 0.0)) {
