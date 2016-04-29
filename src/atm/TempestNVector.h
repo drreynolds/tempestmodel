@@ -86,6 +86,7 @@ int ReserveNextTempestNVectorRegistryIdx();
 // N_VNew_Tempest
 // This function creates a new TempestNVector by locking a vector from the registry
 N_Vector N_VNew_Tempest(Grid & grid, Model & model);
+N_Vector N_VAttach_Tempest(Grid & grid, Model & model, int VectorIndex);
 void N_VTest_Tempest(N_Vector);
 
 #define NV_CONTENT_TEMPEST(v) ( (N_VectorContent_Tempest)(v->content) )

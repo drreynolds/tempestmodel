@@ -178,6 +178,77 @@ N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
 }
 
 
+// Function to attach an existing Tempest "state" to a new TempestNVector
+N_Vector N_VAttach_Tempest(Grid & grid, Model & model, int VectorIndex) {
+
+  N_Vector v;
+  N_Vector_Ops ops;
+  N_VectorContent_Tempest content;
+
+  // Initialize vector pointers to NULL
+  v = NULL;
+  ops = NULL;
+  content = NULL;
+  
+  // Create vector
+  v = (N_Vector) malloc(sizeof *v);
+  if (v == NULL) return(NULL);
+
+  // Create vector operation structure
+  ops = (N_Vector_Ops) malloc(sizeof(struct _generic_N_Vector_Ops));
+  if (ops == NULL) {free(v); return(NULL); }
+
+  // Attach implemented vector routines to N_Vector_Ops structure
+  ops->nvclone     = N_VClone_Tempest;
+  ops->nvdestroy   = N_VDestroy_Tempest;
+  ops->nvconst     = N_VConst_Tempest;
+  ops->nvabs       = N_VAbs_Tempest;
+  ops->nvscale     = N_VScale_Tempest;
+  ops->nvaddconst  = N_VAddConst_Tempest;
+  ops->nvlinearsum = N_VLinearSum_Tempest;
+  ops->nvprod      = N_VProd_Tempest;
+  ops->nvdiv       = N_VDiv_Tempest;
+  ops->nvinv       = N_VInv_Tempest;
+  ops->nvdotprod   = N_VDotProd_Tempest;
+  ops->nvmin       = N_VMin_Tempest;
+  ops->nvwrmsnorm  = N_VWrmsNorm_Tempest;
+  ops->nvmaxnorm   = N_VMaxNorm_Tempest;
+
+  // Signal that remaining vector routines are not implemented
+  ops->nvspace           = NULL;
+  ops->nvgetarraypointer = NULL;
+  ops->nvsetarraypointer = NULL;
+  ops->nvwrmsnormmask    = NULL;
+  ops->nvcloneempty      = NULL;
+  ops->nvwl2norm         = NULL;
+  ops->nvl1norm          = NULL;
+  ops->nvcompare         = NULL;
+  ops->nvinvtest         = NULL;
+  ops->nvconstrmask      = NULL;
+  ops->nvminquotient     = NULL;
+
+  // Create content
+  content = 
+    (N_VectorContent_Tempest) malloc(sizeof(struct _N_VectorContent_Tempest));
+  if (content == NULL) {free(ops); free(v); return(NULL);}
+
+  // Set mVectorIndex to input vector index
+  content->mVectorIndex = VectorIndex;
+  
+  // store reference to Grid object
+  content->mGrid = &grid;
+
+  // store reference to Model object
+  content->mModel = &model;
+
+  // Attach content and ops to generic N_Vector
+  v->content = content;
+  v->ops     = ops;
+
+  return(v);
+}
+
+
 // Function to run tests to verify a working TempestNVector
 void N_VTest_Tempest(N_Vector x) {
 
