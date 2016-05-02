@@ -661,7 +661,10 @@ static int ARKodePreconditionerSolve(
   N_VScale_Tempest(1.0, R, Z);
 
   // Call column-wise linear solver (iZ holds RHS on input, solution on output)
+  // Announce("||z|| = %.16g (before SolveImplicit)", sqrt(N_VDotProd(Z,Z)));
   pVerticalDynamicsFEM->SolveImplicit(iY, iZ, timeT, gamma);
+  //pVerticalDynamicsFEM->SolveImplicit(iY, iZ, timeT, gamma*1e-12);
+  // Announce("||z|| = %.16g (after SolveImplicit)", sqrt(N_VDotProd(Z,Z)));
 
 #ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");
