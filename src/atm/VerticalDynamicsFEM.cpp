@@ -18,6 +18,8 @@
 #include "VerticalDynamicsFEM.h"
 #include "TimestepScheme.h"
 
+#include "TempestNVector.h"
+
 #include "Announce.h"
 #include "Model.h"
 #include "Grid.h"
@@ -1787,6 +1789,13 @@ void VerticalDynamicsFEM::SolveImplicit(
 
 	// Store timestep size
 	m_dDeltaT = dDeltaT;
+	// Announce("SolveImplicit: dt = %.16g", m_dDeltaT);
+
+        // create NVectors for Initial and RHS states
+        // N_Vector r = N_VAttach_Tempest(*pGrid, m_model, iDataRHS);
+	// Announce("               initial ||r|| = %.16g", sqrt(N_VDotProd(r,r)));
+
+	// double column_change=0.0;
 
 	// Perform local solve
 	for (int n = 0; n < pGrid->GetActivePatchCount(); n++) {
@@ -1820,6 +1829,9 @@ void VerticalDynamicsFEM::SolveImplicit(
 			pPatch->GetDataState(iDataRHS, DataLocation_REdge);
 
 		// Tracer Data
+		DataArray4D<double> & dataReferenceTracer =
+			pPatch->GetReferenceTracers();
+
 		DataArray4D<double> & dataInitialTracer =
 			pPatch->GetDataTracers(iDataInitial);
 
@@ -1843,17 +1855,17 @@ void VerticalDynamicsFEM::SolveImplicit(
 			int iEnd;
 			int jEnd;
 
-			if (a == nAElements-1) {
+			// if (a == nAElements-1) {
 				iEnd = m_nHorizontalOrder;
-			} else {
-				iEnd = m_nHorizontalOrder-1;
-			}
+			// } else {
+			// 	iEnd = m_nHorizontalOrder-1;
+			// }
 
-			if (b == nBElements-1) {
+			// if (b == nBElements-1) {
 				jEnd = m_nHorizontalOrder;
-			} else {
-				jEnd = m_nHorizontalOrder-1;
-			}
+			// } else {
+			// 	jEnd = m_nHorizontalOrder-1;
+			// }
 
 		for (int i = 0; i < iEnd; i++) {
 		for (int j = 0; j < jEnd; j++) {
@@ -1880,7 +1892,10 @@ void VerticalDynamicsFEM::SolveImplicit(
 			// Build the Jacobian (uses internal data structures filled by BuildF)
 			BuildJacobianF(m_dColumnState, &(m_matJacobianF[0][0]));
 
-			// fill m_dSoln with scaled RHS data
+			// modify Jacobian (rescale all entries by m_dDeltaT)
+			m_matJacobianF.Scale(m_dDeltaT);
+
+			// fill m_dSoln with RHS data
 			//    first fill m_dColumnState with RHS data instead of state data
 			SetupReferenceColumn(
 				pPatch, iA, iB,
@@ -1889,16 +1904,14 @@ void VerticalDynamicsFEM::SolveImplicit(
 				dataRefREdge,
 				dataRHSREdge);
 
-  			//    then copy scaled RHS into m_dSoln
+  			//    then copy RHS into m_dSoln
 			for (int ivec=0; ivec<m_nColumnStateSize; ivec++)
-			  m_dSoln[ivec] = m_dColumnState[ivec]/dDeltaT;
-			
+			  m_dSoln[ivec] = m_dColumnState[ivec];
 
 			// Use diagonal solver
 			int iInfo = LAPACK::DGBSV(
 				m_matJacobianF, m_dSoln, m_vecIPiv,
 				m_nJacobianFKL, m_nJacobianFKU);
-
 			if (iInfo != 0) {
 				_EXCEPTION1("Solution failed: %i", iInfo);
 			}
@@ -1919,6 +1932,13 @@ void VerticalDynamicsFEM::SolveImplicit(
 				}
 				_EXCEPTIONT("Inversion failure");
 			}
+
+
+			// // DRR: ADDED FOR DEBUGGING
+			// for (int ivec=0; ivec<m_nColumnStateSize; ivec++) 
+			//   column_change += pow(m_dSoln[ivec]-m_dColumnState[ivec], 2.0);
+
+
 
 			// Copy solution to thermodynamic closure
 			if (pGrid->GetVarLocation(PIx) == DataLocation_REdge) {
@@ -1967,6 +1987,7 @@ void VerticalDynamicsFEM::SolveImplicit(
 					      dataRHSNode,
 					      dataInitialREdge,
 					      dataRHSREdge,
+					      dataReferenceTracer,
 					      dataInitialTracer,
 					      dataRHSTracer);
 			}
@@ -1976,82 +1997,86 @@ void VerticalDynamicsFEM::SolveImplicit(
 		}
 		}
 
-		// Copy over new state on shared nodes (edges of constant alpha)
-		for (int a = 1; a < nAElements; a++) {
-			int iA = box.GetAInteriorBegin() + a * m_nHorizontalOrder - 1;
+		// // Copy over new state on shared nodes (edges of constant alpha)
+		// for (int a = 1; a < nAElements; a++) {
+		// 	int iA = box.GetAInteriorBegin() + a * m_nHorizontalOrder - 1;
 
-			for (int b = 0; b < nBElements; b++) {
+		// 	for (int b = 0; b < nBElements; b++) {
 
-				// Top element contains more information
-				int jEnd;
-				if (b == nBElements-1) {
-					jEnd = m_nHorizontalOrder;
-				} else {
-					jEnd = m_nHorizontalOrder-1;
-				}
+		// 		// Top element contains more information
+		// 		int jEnd;
+		// 		if (b == nBElements-1) {
+		// 			jEnd = m_nHorizontalOrder;
+		// 		} else {
+		// 			jEnd = m_nHorizontalOrder-1;
+		// 		}
 
-				// Loop along edges of constant alpha
-				for (int j = 0; j < jEnd; j++) {
+		// 		// Loop along edges of constant alpha
+		// 		for (int j = 0; j < jEnd; j++) {
 
-					int iB = box.GetBInteriorBegin() + b * m_nHorizontalOrder + j;
+		// 			int iB = box.GetBInteriorBegin() + b * m_nHorizontalOrder + j;
 
-					for (int k = 0; k < pGrid->GetRElements(); k++) {
-						dataRHSNode[PIx][k][iA][iB]
-							= dataRHSNode[PIx][k][iA+1][iB];
-						dataRHSNode[WIx][k][iA][iB]
-							= dataRHSNode[WIx][k][iA+1][iB];
-						dataRHSNode[RIx][k][iA][iB]
-							= dataRHSNode[RIx][k][iA+1][iB];
+		// 			for (int k = 0; k < pGrid->GetRElements(); k++) {
+		// 				dataRHSNode[PIx][k][iA][iB]
+		// 					= dataRHSNode[PIx][k][iA+1][iB];
+		// 				dataRHSNode[WIx][k][iA][iB]
+		// 					= dataRHSNode[WIx][k][iA+1][iB];
+		// 				dataRHSNode[RIx][k][iA][iB]
+		// 					= dataRHSNode[RIx][k][iA+1][iB];
 
-						for (int c = 0; c < nTracerCount; c++) {
-							dataRHSTracer[c][k][iA][iB]
-								= dataRHSTracer[c][k][iA+1][iB];
-						}
-					}
+		// 				for (int c = 0; c < nTracerCount; c++) {
+		// 					dataRHSTracer[c][k][iA][iB]
+		// 						= dataRHSTracer[c][k][iA+1][iB];
+		// 				}
+		// 			}
 
-					for (int k = 0; k <= pGrid->GetRElements(); k++) {
-						dataRHSREdge[PIx][k][iA][iB]
-							= dataRHSREdge[PIx][k][iA+1][iB];
-						dataRHSREdge[WIx][k][iA][iB]
-							= dataRHSREdge[WIx][k][iA+1][iB];
-						dataRHSREdge[RIx][k][iA][iB]
-							= dataRHSREdge[RIx][k][iA+1][iB];
-					}
-				}
-			}
-		}
+		// 			for (int k = 0; k <= pGrid->GetRElements(); k++) {
+		// 				dataRHSREdge[PIx][k][iA][iB]
+		// 					= dataRHSREdge[PIx][k][iA+1][iB];
+		// 				dataRHSREdge[WIx][k][iA][iB]
+		// 					= dataRHSREdge[WIx][k][iA+1][iB];
+		// 				dataRHSREdge[RIx][k][iA][iB]
+		// 					= dataRHSREdge[RIx][k][iA+1][iB];
+		// 			}
+		// 		}
+		// 	}
+		// }
 
-		// Copy over new state on shared nodes (edges of constant beta)
-		for (int b = 1; b < nBElements; b++) {
-		for (int i = box.GetAInteriorBegin(); i < box.GetAInteriorEnd(); i++) {
-			int iB = box.GetBInteriorBegin() + b * m_nHorizontalOrder - 1;
+		// // Copy over new state on shared nodes (edges of constant beta)
+		// for (int b = 1; b < nBElements; b++) {
+		// for (int i = box.GetAInteriorBegin(); i < box.GetAInteriorEnd(); i++) {
+		// 	int iB = box.GetBInteriorBegin() + b * m_nHorizontalOrder - 1;
 
-			for (int k = 0; k < pGrid->GetRElements(); k++) {
-				dataRHSNode[PIx][k][i][iB]
-					= dataRHSNode[PIx][k][i][iB+1];
-				dataRHSNode[WIx][k][i][iB]
-					= dataRHSNode[WIx][k][i][iB+1];
-				dataRHSNode[RIx][k][i][iB]
-					= dataRHSNode[RIx][k][i][iB+1];
+		// 	for (int k = 0; k < pGrid->GetRElements(); k++) {
+		// 		dataRHSNode[PIx][k][i][iB]
+		// 			= dataRHSNode[PIx][k][i][iB+1];
+		// 		dataRHSNode[WIx][k][i][iB]
+		// 			= dataRHSNode[WIx][k][i][iB+1];
+		// 		dataRHSNode[RIx][k][i][iB]
+		// 			= dataRHSNode[RIx][k][i][iB+1];
 
-				for (int c = 0; c < nTracerCount; c++) {
-					dataRHSTracer[c][k][i][iB]
-						= dataRHSTracer[c][k][i][iB+1];
-				}
+		// 		for (int c = 0; c < nTracerCount; c++) {
+		// 			dataRHSTracer[c][k][i][iB]
+		// 				= dataRHSTracer[c][k][i][iB+1];
+		// 		}
 
-			}
+		// 	}
 
-			for (int k = 0; k <= pGrid->GetRElements(); k++) {
-				dataRHSREdge[PIx][k][i][iB]
-					= dataRHSREdge[PIx][k][i][iB+1];
-				dataRHSREdge[WIx][k][i][iB]
-					= dataRHSREdge[WIx][k][i][iB+1];
-				dataRHSREdge[RIx][k][i][iB]
-					= dataRHSREdge[RIx][k][i][iB+1];
-			}
-		}
-		}
+		// 	for (int k = 0; k <= pGrid->GetRElements(); k++) {
+		// 		dataRHSREdge[PIx][k][i][iB]
+		// 			= dataRHSREdge[PIx][k][i][iB+1];
+		// 		dataRHSREdge[WIx][k][i][iB]
+		// 			= dataRHSREdge[WIx][k][i][iB+1];
+		// 		dataRHSREdge[RIx][k][i][iB]
+		// 			= dataRHSREdge[RIx][k][i][iB+1];
+		// 	}
+		// }
+		// }
 	}
+	
+	// Announce("               column solve changes = %.16g", sqrt(column_change));
+	// Announce("               final ||r|| = %.16g", sqrt(N_VDotProd(r,r)));
+
 #endif
 }
 
