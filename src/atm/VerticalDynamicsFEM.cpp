@@ -1776,7 +1776,6 @@ void VerticalDynamicsFEM::SolveImplicit(
 #ifdef ENABLE_JFNK_PRECONDITIONING
         static int count = 0;
 	count++;
-	Announce("SolveImplicit: Call %d", count);
 
 	// Get a copy of the grid
 	Grid * pGrid = m_model.GetGrid();
@@ -1793,15 +1792,6 @@ void VerticalDynamicsFEM::SolveImplicit(
 
 	// Store timestep size
 	m_dDeltaT = dDeltaT;
-	Announce("SolveImplicit: dt = %.16g", m_dDeltaT);
-
-	// create NVectors for Initial and RHS states
-        N_Vector r = N_VAttach_Tempest(*pGrid, m_model, iDataRHS);
-	if (r == NULL) _EXCEPTIONT("ERROR: N_VNew_Tempest returned NULL");
-
-	Announce("               initial ||r|| = %.16g", sqrt(N_VDotProd(r,r)));
-
-	double column_change=0.0;
 
 	// Perform local solve
 	for (int n = 0; n < pGrid->GetActivePatchCount(); n++) {
@@ -1940,12 +1930,6 @@ void VerticalDynamicsFEM::SolveImplicit(
 			}
 
 
-			// DRR: ADDED FOR DEBUGGING
-			for (int ivec=0; ivec<m_nColumnStateSize; ivec++) 
-			  column_change += pow(m_dSoln[ivec]-m_dColumnState[ivec], 2.0);
-
-
-
 			// Copy solution to thermodynamic closure
 			if (pGrid->GetVarLocation(PIx) == DataLocation_REdge) {
 				for (int k = 0; k <= pGrid->GetRElements(); k++) {
@@ -2080,9 +2064,6 @@ void VerticalDynamicsFEM::SolveImplicit(
 		}
 	}
 	
-	Announce("               column solve changes = %.16g", sqrt(column_change));
-	Announce("               final ||r|| = %.16g", sqrt(N_VDotProd(r,r)));
-
 #endif
 }
 #endif
