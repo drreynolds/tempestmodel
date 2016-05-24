@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///
-///	\file    KesslerPhysics.cpp
-///	\author  Antonin Verlet-Banide
-///	\version May 3, 2016
+///	\file    DCMIPPhysics.cpp
+///	\author  Paul Ullrich
+///	\version May 9, 2016
 ///
 ///	<remarks>
 ///		Copyright 2000-2016 Paul Ullrich
@@ -14,8 +14,8 @@
 ///		or implied warranty.
 ///	</remarks>
 
-#ifndef _KESSLERPHYSICS_H_
-#define _KESSLERPHYSICS_H_
+#ifndef _DCMIPPHYSICS_H_
+#define _DCMIPPHYSICS_H_
 
 #include "Defines.h"
 #include "DataArray1D.h"
@@ -31,15 +31,15 @@ class GridPatch;
 class Time;
 
 ///	<summary>
-///		KesslerPhysics type physics forcing.
+///		DCMIPPhysics type physics forcing.
 ///	</summary>
-class KesslerPhysics : public WorkflowProcess {
+class DCMIPPhysics : public WorkflowProcess {
 
 public:
 	///	<summary>
 	///		Constructor.
 	///	</summary>
-	KesslerPhysics(
+	DCMIPPhysics(
 		Model & model,
 		const Time & timeFrequency);
 	
@@ -52,7 +52,7 @@ public:
 	);
 	
 	///	<summary>
-	///		Apply KesslerPhysics physics.
+	///		Apply DCMIPPhysics physics.
 	///	</summary>
 	virtual void Perform(
 		const Time & time
@@ -85,9 +85,40 @@ protected:
 	DataArray1D<double> m_dZc;
 
 	///	<summary>
-	///		Column Exner function.
+	///		Pressure on model levels.
 	///	</summary>
-	DataArray1D<double> m_dPk;
+	DataArray1D<double> m_dPmid;
+
+	///	<summary>
+	///		Pressure on model interfaces.
+	///	</summary>
+	DataArray1D<double> m_dPint;
+
+	///	<summary>
+	///		Pressure difference (layer thickness) over model levels.
+	///	</summary>
+	DataArray1D<double> m_dPdel;
+
+	///	<summary>
+	///		Reciprocal of pressure difference (layer thickness) over
+	///		model levels.
+	///	</summary>
+	DataArray1D<double> m_dRPdel;
+
+	///	<summary>
+	///		Column temperature.
+	///	</summary>
+	DataArray1D<double> m_dT;
+
+	///	<summary>
+	///		Column zonal velocity.
+	///	</summary>
+	DataArray1D<double> m_dU;
+
+	///	<summary>
+	///		Column meridional velocity.
+	///	</summary>
+	DataArray1D<double> m_dV;
 
 	///	<summary>
 	///		Column potential temperature.
@@ -97,12 +128,37 @@ protected:
 	///	<summary>
 	///		Column virtual potential temperature on model levels.
 	///	</summary>
-	DataArray1D<double> m_dThetaVNode;
+	DataArray1D<double> m_dTvNode;
 
 	///	<summary>
 	///		Column virtual potential temperature on model interfaces.
 	///	</summary>
-	DataArray1D<double> m_dThetaVREdge;
+	DataArray1D<double> m_dTvREdge;
+
+	///	<summary>
+	///		Jacobian coefficients for implicit solve in the boundary layer.
+	///	</summary>
+	DataArray2D<double> m_dBLJacobian;
+
+	///	<summary>
+	///		Column eddy fluxes on model levels.
+	///	</summary>
+	DataArray2D<double> m_dEddyStateNode;
+
+	///	<summary>
+	///		Column eddy fluxes on model interfaces.
+	///	</summary>
+	DataArray2D<double> m_dEddyStateREdge;
+
+	///	<summary>
+	///		Column eddy fluxes on model levels.
+	///	</summary>
+	DataArray2D<double> m_dEddyTracerNode;
+
+	///	<summary>
+	///		Column eddy fluxes on model interfaces.
+	///	</summary>
+	DataArray2D<double> m_dEddyTracerREdge;
 
 };
 
