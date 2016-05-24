@@ -931,7 +931,6 @@ public:
 		return m_nVerticalOrder;
 	}
 
-
 	///	<summary>
 	///		Get the DataLocation of the specified equation set variable.
 	///	</summary>
@@ -1069,7 +1068,6 @@ protected:
 	///		Order of accuracy in the vertical.
 	///	</summary>
 	DataStruct<int> m_nVerticalOrder;
-
 
 protected:
 	///	<summary>

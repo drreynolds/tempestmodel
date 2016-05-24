@@ -125,6 +125,13 @@ void KesslerPhysics::Perform(
 		DataArray4D<double> & dataTracer =
 			pPatch->GetDataTracers(0);
 
+		DataArray3D<double> & dataUserData2D =
+			pPatch->GetUserData2D();
+
+		if (dataUserData2D.GetRows() == 0) {
+			_EXCEPTIONT("Insufficient entries in UserData2D");
+		}
+
 		const DataArray3D<double> & dataZLevels = pPatch->GetZLevels();
 
 		// Loop over all horizontal nodes in GridPatch
@@ -170,6 +177,21 @@ void KesslerPhysics::Perform(
 
 				// Water vapor (RhoQv / Rho)
 				m_dQv[k] = dataTracer[0][k][i][j] / dataNode[RIx][k][i][j];
+				if (m_dQv[k] < 0.0) {
+					m_dQv[k] = 0.0;
+				}
+
+				// Cloud water (RhoQc / Rho)
+				m_dQc[k] = dataTracer[1][k][i][j] / dataNode[RIx][k][i][j];
+				if (m_dQc[k] < 0.0) {
+					m_dQc[k] = 0.0;
+				}
+
+				// Rain water (RhoQr / Rho)
+				m_dQr[k] = dataTracer[2][k][i][j] / dataNode[RIx][k][i][j];
+				if (m_dQr[k] < 0.0) {
+					m_dQr[k] = 0.0;
+				}
 
 				// Cloud water (RhoQc / Rho)
 				m_dQc[k] = dataTracer[1][k][i][j] / dataNode[RIx][k][i][j];
@@ -202,6 +224,9 @@ void KesslerPhysics::Perform(
 				&(m_dZc[0]),
 				&(nRElements),
 				&(dRainNc));
+
+			// Store accumualted precipitation
+			dataUserData2D[0][i][j] += dRainNc;
 
 			// Remap virtual potential temperature tendency to interfaces
 			if (pGridGLL->GetVarLocation(TIx) == DataLocation_REdge) {
