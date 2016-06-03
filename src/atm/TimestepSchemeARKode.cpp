@@ -1097,7 +1097,7 @@ void TimestepSchemeARKode::SetButcherTable()
       // Ascher, Ruuth, and Spiteri, Implicit-explicit Runge-Kutta methods for 
       // time-dependent partial differential equations, 1997. (section 2.5)
       // ------------------------------------------------------------------------
-      Announce("Timestepping with ARS232");
+      Announce("Timestepping with ARS222");
       
       iStages = 3;
       iQorder = 2;
@@ -1227,7 +1227,7 @@ void TimestepSchemeARKode::SetButcherTable()
     } else if (m_strButcherTable == "ars443") {      
 
       // ------------------------------------------------------------------------
-      // ARS443 - 4 implicit stages, 4 explicit stages, 3nd order
+      // ARS443 - 4 implicit stages, 4 explicit stages, 3rd order
       //          L-stable
       //
       // Ascher, Ruuth, and Spiteri, Implicit-explicit Runge-Kutta methods for 
@@ -1423,7 +1423,7 @@ void TimestepSchemeARKode::SetButcherTable()
       // Pareschi and Russo, Implicit-explicit Runge-Kutta schemes and 
       // application to hyperbolic systems with relaxation, 2005.      
       // ------------------------------------------------------------------------
-      Announce("Timestepping with SSP2(3,3,2)");
+      Announce("Timestepping with SSP2(3,3,2)a");
       
       iStages = 3;
       iQorder = 2;
@@ -1476,7 +1476,7 @@ void TimestepSchemeARKode::SetButcherTable()
     } else if (m_strButcherTable == "ssp3_332") {
 
       // ------------------------------------------------------------------------
-      // ssp3(3,3,2) - 3 implicit stages, 3 explicit stages, 3rd order
+      // ssp3(3,3,2) - 3 implicit stages, 3 explicit stages, 2nd order
       //
       // Pareschi and Russo, Implicit-explicit Runge-Kutta schemes and 
       // application to hyperbolic systems with relaxation, 2005.
@@ -1484,7 +1484,7 @@ void TimestepSchemeARKode::SetButcherTable()
       Announce("Timestepping with SSP3(3,3,2)");
       
       iStages = 3;
-      iQorder = 3;
+      iQorder = 2;
       iPorder = 0;
       
       pci  = new double [iStages];
@@ -1722,6 +1722,7 @@ void TimestepSchemeARKode::SetButcherTable()
 
       // ------------------------------------------------------------------------
       // ssp2(3,3,2)-LSPUM - 3 implicit stages, 3 explicit stages, 2nd order
+      //                     L-stable
       //
       // Higueras, Happenhofer, Koch, and Kupka, Optimized strong stability 
       // preserving IMEX Runge-Kutta methods, 2014. (equation 17)
@@ -1780,6 +1781,7 @@ void TimestepSchemeARKode::SetButcherTable()
 
       // ------------------------------------------------------------------------
       // ssp2(3,3,2)-LPUM - 3 implicit stages, 3 explicit stages, 2nd order
+      //                    L-stable
       //
       // Higueras, Happenhofer, Koch, and Kupka, Optimized strong stability 
       // preserving IMEX Runge-Kutta methods, 2014. (equation 20)
@@ -1838,6 +1840,7 @@ void TimestepSchemeARKode::SetButcherTable()
 
       // ------------------------------------------------------------------------
       // ssp2(3,3,2)-LPM1 - 3 implicit stages, 3 explicit stages, 2nd order
+      //                    L-stable
       //
       // Higueras, Happenhofer, Koch, and Kupka, Optimized strong stability 
       // preserving IMEX Runge-Kutta methods, 2014. (equation 22)
@@ -1896,6 +1899,7 @@ void TimestepSchemeARKode::SetButcherTable()
 
       // ------------------------------------------------------------------------
       // ssp2(3,3,2)-LPM2 - 3 implicit stages, 3 explicit stages, 2nd order
+      //                    L-stable
       //
       // Higueras, Happenhofer, Koch, and Kupka, Optimized strong stability 
       // preserving IMEX Runge-Kutta methods, 2014. (equation 23)
