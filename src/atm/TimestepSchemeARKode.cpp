@@ -21,9 +21,9 @@
 #ifdef USE_SUNDIALS
 
 //#define DEBUG_OUTPUT
-#define STATISTICS_OUTPUT
+//#define STATISTICS_OUTPUT
 
-// #define DSS_INPUT
+//#define DSS_INPUT
 #define DSS_OUTPUT
 
 #include "TimestepSchemeARKode.h"
@@ -734,68 +734,46 @@ void TimestepSchemeARKode::SetButcherTable()
     // ============================================================================
     
     if (m_strButcherTable == "heun_euler_2_1_2") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, HEUN_EULER_2_1_2);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "bogacki_shampine_4_2_3") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, BOGACKI_SHAMPINE_4_2_3);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "ark324l2sa_erk_4_2_3") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, ARK324L2SA_ERK_4_2_3);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "zonneveld_5_3_4") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, ZONNEVELD_5_3_4);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "ark436l2sa_erk_6_3_4") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, ARK436L2SA_ERK_6_3_4);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "sayfy_aburub_6_3_4") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, SAYFY_ABURUB_6_3_4);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "cash_karp_6_4_5") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, CASH_KARP_6_4_5);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "fehlberg_6_4_5") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, FEHLBERG_6_4_5);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "dormand_prince_7_4_5") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, DORMAND_PRINCE_7_4_5);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "ark548l2sa_erk_8_4_5") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, ARK548L2SA_ERK_8_4_5);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "verner_8_5_6") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, VERNER_8_5_6);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "fehlberg_13_7_8") {
-
       ierr = ARKodeSetERKTableNum(ARKodeMem, FEHLBERG_13_7_8);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "forward_euler") {
 
-      // Forward Euler 2 stages 1st order
+      // ------------------------------------------------------------------------
+      // Forward Euler - 2 stages, 1st order
+      // ------------------------------------------------------------------------
       Announce("Timestepping with Forward Euler");
 
       iStages = 2;
@@ -817,15 +795,16 @@ void TimestepSchemeARKode::SetButcherTable()
             
       ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, 
 			       pce, pAe, pbe, NULL);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
       
       delete[] pce;
       delete[] pAe;
       delete[] pbe;
       
     } else if (m_strButcherTable == "kgu63") {
-      
-      // Kinnmark Gray Ullrich ERK 6 stages 3rd order
+
+      // ------------------------------------------------------------------------
+      // Kinnmark Gray Ullrich - 6 stages 3rd order
+      // ------------------------------------------------------------------------
       Announce("Timestepping with KGU(6,3)");
       
       iStages = 6;
@@ -859,7 +838,6 @@ void TimestepSchemeARKode::SetButcherTable()
              
       ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, 
 			       pce, pAe, pbe, NULL);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
       
       delete[] pce;
       delete[] pAe;
@@ -867,7 +845,9 @@ void TimestepSchemeARKode::SetButcherTable()
 
     } else if (m_strButcherTable == "ssprk54") {
 
-      // Strong Stability Preserving ERK 5 stages 4th order
+      // ------------------------------------------------------------------------
+      // Strong Stability Preserving ERK - 5 stages, 4th order
+      // ------------------------------------------------------------------------
       Announce("Timestepping with SSPRK(5,4)");
       
       iStages = 5;
@@ -906,7 +886,6 @@ void TimestepSchemeARKode::SetButcherTable()
             
       ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, 
 			       pce, pAe, pbe, NULL);      
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetERKTable, ierr = %i",ierr);
       
       delete[] pce;
       delete[] pAe;
@@ -924,64 +903,40 @@ void TimestepSchemeARKode::SetButcherTable()
     // ==========================================================================
     
     if (m_strButcherTable == "sdirk_2_1_2") {
-      
       ierr = ARKodeSetIRKTableNum(ARKodeMem, SDIRK_2_1_2);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
       
     } else if (m_strButcherTable == "billington_3_3_2") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, BILLINGTON_3_3_2);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
       
     } else if (m_strButcherTable == "trbdf2_3_3_2") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, TRBDF2_3_3_2);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "kvaerno_4_2_3") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, KVAERNO_4_2_3);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "ark324l2sa_dirk_4_2_3") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, ARK324L2SA_DIRK_4_2_3);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "cash_5_2_4") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, CASH_5_2_4);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "cash_5_3_4") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, CASH_5_3_4);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "sdirk_5_3_4") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, SDIRK_5_3_4);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "kvaerno_5_3_4") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, KVAERNO_5_3_4);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "ark436l2sa_dirk_6_3_4") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, ARK436L2SA_DIRK_6_3_4);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "kvaerno_7_4_5") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, KVAERNO_7_4_5);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "ark548l2sa_dirk_8_4_5") {
-
       ierr = ARKodeSetIRKTableNum(ARKodeMem, ARK548L2SA_DIRK_8_4_5);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTableNum, ierr = %i",ierr);
 
     } else {     
       _EXCEPTIONT("ERROR: Invalid implicit Butcher table name");
@@ -997,30 +952,88 @@ void TimestepSchemeARKode::SetButcherTable()
     // ==========================================================================
 
     if (m_strButcherTable == "ark324l2sa_erk_4_2_3" ||
-	m_strButcherTable == "ark324l2sa_dirk_4_2_3" ) {
-      
+	m_strButcherTable == "ark324l2sa_dirk_4_2_3" ) {     
       ierr = ARKodeSetARKTableNum(ARKodeMem, 
 				  ARK324L2SA_DIRK_4_2_3, ARK324L2SA_ERK_4_2_3);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "ark436l2sa_erk_6_3_4" ||
 	       m_strButcherTable == "ark436l2sa_dirk_6_3_4" ) {
-
       ierr = ARKodeSetARKTableNum(ARKodeMem, 
 				  ARK436L2SA_DIRK_6_3_4, ARK436L2SA_ERK_6_3_4);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
 
     } else if (m_strButcherTable == "ark548l2sa_erk_8_4_5" ||
 	       m_strButcherTable == "ark548l2sa_dirk_8_4_5" ) {
-
       ierr = ARKodeSetARKTableNum(ARKodeMem, 
 				  ARK548L2SA_DIRK_8_4_5, ARK548L2SA_ERK_8_4_5);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTableNum, ierr = %i",ierr);
+
+    } else if (m_strButcherTable == "ars233") {      
+
+      // ------------------------------------------------------------------------
+      // ARS233 - 2 implicit stages, 3 explicit stages, 2nd order
+      //
+      // Ascher, Ruuth, and Spiteri, Implicit-explicit Runge-Kutta methods for 
+      // time-dependent partial differential equations, 1997. (section 2.4)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with ARS233");
+      
+      iStages = 3;
+      iQorder = 3;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+      
+      double gamma = (3.0 + std::sqrt(3.0)) / 6.0;
+      
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = gamma;
+      pci[2] = 1.0;
+      
+      pAi[0] = 0.0; pAi[1] = 0.0;               pAi[2] = 0.0;
+      pAi[3] = 0.0; pAi[4] = gamma;             pAi[5] = 0.0;
+      pAi[6] = 0.0; pAi[7] = 1.0 - 2.0 * gamma; pAi[8] = gamma;
+
+      pbi[0] = 0.0;
+      pbi[1] = gamma;
+      pbi[2] = 1.0 - gamma;     
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = gamma;
+      pce[2] = 1.0;
+
+      pAe[0] = 0.0;         pAe[1] = 0.0;               pAe[2] = 0.0;
+      pAe[3] = gamma;       pAe[4] = 0.0;               pAe[5] = 0.0;
+      pAe[6] = gamma - 1.0; pAe[7] = 2.0*(1.0 - gamma); pAe[8] = 0.0;
+      
+      pbe[0] = 0.0;
+      pbe[1] = 0.5;
+      pbe[2] = 0.5;
+            
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;     
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
 
     } else if (m_strButcherTable == "ars232") {      
 
       // ------------------------------------------------------------------------
-      // ARS232
+      // ARS232 - 2 implicit stages, 3 explicit stages, 2nd order
+      //          L-stable
+      //
+      // Ascher, Ruuth, and Spiteri, Implicit-explicit Runge-Kutta methods for 
+      // time-dependent partial differential equations, 1997. (section 2.5)
       // ------------------------------------------------------------------------
       Announce("Timestepping with ARS232");
       
@@ -1035,7 +1048,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbi  = new double [iStages];
       pbe  = new double [iStages];
       
-      double gamma = 1.0 - 1.0/std::sqrt(2.0);
+      double gamma = (2.0 - std::sqrt(2.0))/2.0;
       double delta = -2.0 * std::sqrt(2.0) / 3.0;
       
       // Implicit table
@@ -1067,7 +1080,6 @@ void TimestepSchemeARKode::SetButcherTable()
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
       ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
       
       delete[] pci;
       delete[] pce;
@@ -1076,14 +1088,80 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbi;
       delete[] pbe;
 
-    } else if (m_strButcherTable == "ars233") {      
+    } else if (m_strButcherTable == "ars222") {      
 
       // ------------------------------------------------------------------------
-      // ARS233
+      // ARS222 - 2 implicit stages, 2 explicit stages, 2nd order
+      //          L-stable
+      //
+      // Ascher, Ruuth, and Spiteri, Implicit-explicit Runge-Kutta methods for 
+      // time-dependent partial differential equations, 1997. (section 2.5)
       // ------------------------------------------------------------------------
-      Announce("Timestepping with ARS233");
+      Announce("Timestepping with ARS232");
       
       iStages = 3;
+      iQorder = 2;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+      
+      double gamma = (2.0 - std::sqrt(2.0))/2.0;
+      double delta = 1.0 - 1.0/(2.0*gamma);
+      
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = gamma;
+      pci[2] = 1.0;
+      
+      pAi[0] = 0.0; pAi[1] = 0.0;         pAi[2] = 0.0;
+      pAi[3] = 0.0; pAi[4] = gamma;       pAi[5] = 0.0;
+      pAi[6] = 0.0; pAi[7] = 1.0 - gamma; pAi[8] = gamma;
+      
+      pbi[0] = 0.0;
+      pbi[1] = 1.0 - gamma;
+      pbi[2] = gamma;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = gamma;
+      pce[2] = 1.0;
+
+      pAe[0] = 0.0;   pAe[1] = 0.0;         pAe[2] = 0.0;
+      pAe[3] = gamma; pAe[4] = 0.0;         pAe[5] = 0.0;
+      pAe[6] = delta; pAe[7] = 1.0 - delta; pAe[8] = 0.0;
+      
+      pbe[0] = delta;
+      pbe[1] = 1.0 - delta;
+      pbe[2] = 0.0;
+            
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+      
+      delete[] pci;
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ars343") {      
+
+      // ------------------------------------------------------------------------
+      // ARS343 - 3 implicit stages, 4 explicit stages, 3rd order
+      //          L-stable
+      //
+      // Ascher, Ruuth, and Spiteri, Implicit-explicit Runge-Kutta methods for 
+      // time-dependent partial differential equations, 1997. (section 2.7)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with ARS343");
+      
+      iStages = 4;
       iQorder = 3;
       iPorder = 0;
       
@@ -1094,38 +1172,50 @@ void TimestepSchemeARKode::SetButcherTable()
       pbi  = new double [iStages];
       pbe  = new double [iStages];
       
-      double gamma = 0.5 + std::sqrt(3.0) / 6.0;
+      double gamma = 0.4358665215;
+      double b1    = 1.208496649;
+      double b2    = -0.644363171;
+      double a31   = 0.3212788860;
+      double a32   = 0.3966543747;
+      double a41   = -0.105858296;
+      double a42   = 0.5529291479;
+      double a43   = 0.5529291479;
       
       // Implicit table
       pci[0] = 0.0;
       pci[1] = gamma;
-      pci[2] = 1.0;
+      pci[2] = (1.0+gamma)/2.0;
+      pci[3] = 1.0;
       
-      pAi[0] = 0.0; pAi[1] = 0.0;               pAi[2] = 0.0;
-      pAi[3] = 0.0; pAi[4] = gamma;             pAi[5] = 0.0;
-      pAi[6] = 0.0; pAi[7] = 1.0 - 2.0 * gamma; pAi[8] = gamma;
+      pAi[0]  = 0.0;  pAi[1]  = 0.0;            pAi[2]  = 0.0;    pAi[3]  = 0.0; 
+      pAi[4]  = 0.0;  pAi[5]  = gamma;          pAi[6]  = 0.0;    pAi[7]  = 0.0;
+      pAi[8]  = 0.0;  pAi[9]  = (1-gamma)/2.0;  pAi[10] = gamma;  pAi[11] = 0.0; 
+      pAi[12] = 0.0;  pAi[13] = b1;             pAi[14] = b2;     pAi[15] = gamma; 
 
       pbi[0] = 0.0;
-      pbi[1] = gamma;
-      pbi[2] = 1.0 - gamma;     
+      pbi[1] = b1;
+      pbi[2] = b2;
+      pbi[3] = gamma;
 
       // Explicit table
       pce[0] = 0.0;
       pce[1] = gamma;
-      pce[2] = 1.0;
-
-      pAe[0] = 0.0;         pAe[1] = 0.0;               pAe[2] = 0.0;
-      pAe[3] = gamma;       pAe[4] = 0.0;               pAe[5] = 0.0;
-      pAe[6] = gamma - 1.0; pAe[7] = 2.0*(1.0 - gamma); pAe[8] = 0.0;
+      pce[2] = (1.0+gamma)/2.0;
+      pce[3] = 1.0;
       
-      pbe[0] = 0.0;
-      pbe[1] = 0.5;
-      pbe[2] = 0.5;
+      pAe[0]  = 0.0;    pAe[1]  = 0.0;  pAe[2]  = 0.0;  pAe[3]  = 0.0; 
+      pAe[4]  = gamma;  pAe[5]  = 0.0;  pAe[6]  = 0.0;  pAe[7]  = 0.0;
+      pAe[8]  = a31;    pAe[9]  = a32;  pAe[10] = 0.0;  pAe[11] = 0.0; 
+      pAe[12] = a41;    pAe[13] = a42;  pAe[14] = a43;  pAe[15] = 0.0; 
+
+      pbe[0] = 0.0;     
+      pbe[1] = b1;
+      pbe[2] = b2;
+      pbe[3] = gamma;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
       ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
 
       delete[] pci;     
       delete[] pce;
@@ -1137,7 +1227,11 @@ void TimestepSchemeARKode::SetButcherTable()
     } else if (m_strButcherTable == "ars443") {      
 
       // ------------------------------------------------------------------------
-      // ARS443
+      // ARS443 - 4 implicit stages, 4 explicit stages, 3nd order
+      //          L-stable
+      //
+      // Ascher, Ruuth, and Spiteri, Implicit-explicit Runge-Kutta methods for 
+      // time-dependent partial differential equations, 1997. (section 2.8)
       // ------------------------------------------------------------------------
       Announce("Timestepping with ARS443");
       
@@ -1193,7 +1287,6 @@ void TimestepSchemeARKode::SetButcherTable()
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
       ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
 
       delete[] pci;     
       delete[] pce;
@@ -1205,7 +1298,12 @@ void TimestepSchemeARKode::SetButcherTable()
     } else if (m_strButcherTable == "ark232") {      
 
       // ------------------------------------------------------------------------
-      // ARK232
+      // ARK232 - 2 implicit stages, 3 explicit stages, 2nd order
+      //          L-stable
+      //
+      // Giralso, Kelly, and Constantinescu, Implicit-Explicit formulations of a 
+      // three dimensional nonhydrostatic unificed model of the atmosphere 
+      // (NUMA), 2013. (equation 3.10)
       // ------------------------------------------------------------------------
       Announce("Timestepping with ARK232");
       
@@ -1255,7 +1353,6 @@ void TimestepSchemeARKode::SetButcherTable()
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
       ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);     
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
 
       delete[] pci;     
       delete[] pce;
@@ -1267,7 +1364,10 @@ void TimestepSchemeARKode::SetButcherTable()
     } else if (m_strButcherTable == "ssp2_222") {
 
       // ------------------------------------------------------------------------
-      // ssp2(2,2,2)
+      // ssp2(2,2,2) - 2 implicit stages, 2 explicit stages, 2nd order
+      // 
+      // Pareschi and Russo, Implicit-explicit Runge-Kutta schemes and 
+      // application to hyperbolic systems with relaxation, 2005.      
       // ------------------------------------------------------------------------
       Announce("Timestepping with SSP2(2,2,2)");
       
@@ -1307,7 +1407,6 @@ void TimestepSchemeARKode::SetButcherTable()
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
       ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
 
       delete[] pci;      
       delete[] pce;
@@ -1316,10 +1415,13 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbi;
       delete[] pbe;
 
-    } else if (m_strButcherTable == "ssp2_332") {
+    } else if (m_strButcherTable == "ssp2_332a") {
 
       // ------------------------------------------------------------------------
-      // ssp2(3,3,2)
+      // ssp2(3,3,2)a - 3 implicit stages, 3 explicit stages, 2nd order
+      //
+      // Pareschi and Russo, Implicit-explicit Runge-Kutta schemes and 
+      // application to hyperbolic systems with relaxation, 2005.      
       // ------------------------------------------------------------------------
       Announce("Timestepping with SSP2(3,3,2)");
       
@@ -1363,7 +1465,6 @@ void TimestepSchemeARKode::SetButcherTable()
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
       ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
 
       delete[] pci;      
       delete[] pce;
@@ -1375,7 +1476,10 @@ void TimestepSchemeARKode::SetButcherTable()
     } else if (m_strButcherTable == "ssp3_332") {
 
       // ------------------------------------------------------------------------
-      // ssp3(3,3,2)
+      // ssp3(3,3,2) - 3 implicit stages, 3 explicit stages, 3rd order
+      //
+      // Pareschi and Russo, Implicit-explicit Runge-Kutta schemes and 
+      // application to hyperbolic systems with relaxation, 2005.
       // ------------------------------------------------------------------------
       Announce("Timestepping with SSP3(3,3,2)");
       
@@ -1421,7 +1525,6 @@ void TimestepSchemeARKode::SetButcherTable()
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
       ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
 
       delete[] pci;      
       delete[] pce;
@@ -1433,7 +1536,10 @@ void TimestepSchemeARKode::SetButcherTable()
     } else if (m_strButcherTable == "ssp3_433") {
 
       // ------------------------------------------------------------------------
-      // ssp3(4,3,3)
+      // ssp3(4,3,3) - 4 implicit stages, 3 explicit stages, 3rd order
+      //
+      // Pareschi and Russo, Implicit-explicit Runge-Kutta schemes and 
+      // application to hyperbolic systems with relaxation, 2005.      
       // ------------------------------------------------------------------------
       Announce("Timestepping with SSP3(4,3,3)");
       
@@ -1488,7 +1594,354 @@ void TimestepSchemeARKode::SetButcherTable()
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
       ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetARKTables, ierr = %i",ierr);
+
+      delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ssp2_332b") {
+
+      // ------------------------------------------------------------------------
+      // ssp2(3,3,2)b - 3 implicit stages, 3 explicit stages, 2nd order
+      //                modification of ssp2(3,3,2)a
+      //
+      // Higueras, Strong stability for additive Runge-Kutta methods, 2006.
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP2(3,3,2)b");
+      
+      iStages = 3;
+      iQorder = 2;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+
+      // Implicit table
+      pci[0] = 0.2;
+      pci[1] = 0.3;
+      pci[2] = 1.0;
+      
+      pAi[0] = 0.2;      pAi[1] = 0.0;      pAi[2] = 0.0;   
+      pAi[3] = 0.1;      pAi[4] = 0.2;      pAi[5] = 0.0;  
+      pAi[6] = 1.0/3.0;  pAi[7] = 1.0/3.0;  pAi[8] = 1.0/3.0; 
+
+      pbi[0] = 1.0 / 3.0;
+      pbi[1] = 1.0 / 3.0;
+      pbi[2] = 1.0 / 3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 0.5;
+      pce[2] = 1.0;
+      
+      pAe[0] = 0.0;  pAe[1] = 0.0;  pAe[2] = 0.0;   
+      pAe[3] = 0.5;  pAe[4] = 0.0;  pAe[5] = 0.0;  
+      pAe[6] = 0.5;  pAe[7] = 0.5;  pAe[8] = 0.0; 
+
+      pbe[0] = 1.0 / 3.0;
+      pbe[1] = 1.0 / 3.0;
+      pbe[2] = 1.0 / 3.0;
+            
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ssp3_333") {
+
+      // ------------------------------------------------------------------------
+      // ssp3(3,3,3) - 3 implicit stages, 3 explicit stages, 3rd order
+      //
+      // Higueras, Characterizing strong stability preserving additive 
+      // Runge-Kutta methos, 2009.
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP3(3,3,3)");
+      
+      iStages = 3;
+      iQorder = 3;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = 1.0;
+      pci[2] = 0.5;
+      
+      pAi[0] = 0.0;        pAi[1] = 0.0;       pAi[2] = 0.0;   
+      pAi[3] = 14.0/15.0;  pAi[4] = 1.0/15.0;  pAi[5] = 0.0;  
+      pAi[6] = 7.0/30.0;   pAi[7] = 0.2;       pAi[8] = 1.0/15.0; 
+
+      pbi[0] = 1.0 / 6.0;
+      pbi[1] = 1.0 / 6.0;
+      pbi[2] = 2.0 / 3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 1.0;
+      pce[2] = 0.5;
+      
+      pAe[0] = 0.0;   pAe[1] = 0.0;   pAe[2] = 0.0;   
+      pAe[3] = 1.0;   pAe[4] = 0.0;   pAe[5] = 0.0;  
+      pAe[6] = 0.25;  pAe[7] = 0.25;  pAe[8] = 0.0; 
+
+      pbe[0] = 1.0 / 6.0;
+      pbe[1] = 1.0 / 6.0;
+      pbe[2] = 2.0 / 3.0;
+            
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ssp2_332_lspum") {
+
+      // ------------------------------------------------------------------------
+      // ssp2(3,3,2)-LSPUM - 3 implicit stages, 3 explicit stages, 2nd order
+      //
+      // Higueras, Happenhofer, Koch, and Kupka, Optimized strong stability 
+      // preserving IMEX Runge-Kutta methods, 2014. (equation 17)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP2(3,3,2)-LSPUM");
+      
+      iStages = 3;
+      iQorder = 2;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+
+      // Implicit table
+      pci[0] = 2.0/11.0;
+      pci[1] = 289.0/462.0;
+      pci[2] = 751.0/924.0;
+      
+      pAi[0] = 2.0/11.0;       pAi[1] = 0.0;         pAi[2] = 0.0;   
+      pAi[3] = 205.0/462.0;    pAi[4] = 2.0/11.0;    pAi[5] = 0.0;  
+      pAi[6] = 2033.0/4620.0;  pAi[7] = 21.0/110.0;  pAi[8] = 2.0/11.0; 
+
+      pbi[0] = 24.0/55.0;
+      pbi[1] = 0.2;
+      pbi[2] = 4.0/11.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 5.0/6.0;
+      pce[2] = 11.0/12.0;
+      
+      pAe[0] = 0.0;        pAe[1] = 0.0;        pAe[2] = 0.0;   
+      pAe[3] = 5.0/6.0;    pAe[4] = 0.0;        pAe[5] = 0.0;  
+      pAe[6] = 11.0/24.0;  pAe[7] = 11.0/24.0;  pAe[8] = 0.0; 
+
+      pbe[0] = 24.0/55.0;
+      pbe[1] = 0.2;
+      pbe[2] = 4.0/11.0;
+            
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ssp2_332_lpum") {
+
+      // ------------------------------------------------------------------------
+      // ssp2(3,3,2)-LPUM - 3 implicit stages, 3 explicit stages, 2nd order
+      //
+      // Higueras, Happenhofer, Koch, and Kupka, Optimized strong stability 
+      // preserving IMEX Runge-Kutta methods, 2014. (equation 20)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP2(3,3,2)-LPUM");
+      
+      iStages = 3;
+      iQorder = 2;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+
+      // Implicit table
+      pci[0] = 2.0/11.0;
+      pci[1] = 69.0/154.0;
+      pci[2] = 67.0/77.0;
+      
+      pAi[0] = 2.0/11.0;     pAi[1] = 0.0;         pAi[2] = 0.0;   
+      pAi[3] = 41.0/154.0;   pAi[4] = 2.0/11.0;    pAi[5] = 0.0;  
+      pAi[6] = 289.0/847.0;  pAi[7] = 42.0/121.0;  pAi[8] = 2.0/11.0; 
+
+      pbi[0] = 1.0/3.0;
+      pbi[1] = 1.0/3.0;
+      pbi[2] = 1.0/3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 0.5;
+      pce[2] = 1.0;
+      
+      pAe[0] = 0.0;  pAe[1] = 0.0;  pAe[2] = 0.0;   
+      pAe[3] = 0.5;  pAe[4] = 0.0;  pAe[5] = 0.0;  
+      pAe[6] = 0.5;  pAe[7] = 0.5;  pAe[8] = 0.0; 
+
+      pbe[0] = 1.0/3.0;
+      pbe[1] = 1.0/3.0;
+      pbe[2] = 1.0/3.0;
+            
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ssp2_332_lpm1") {
+
+      // ------------------------------------------------------------------------
+      // ssp2(3,3,2)-LPM1 - 3 implicit stages, 3 explicit stages, 2nd order
+      //
+      // Higueras, Happenhofer, Koch, and Kupka, Optimized strong stability 
+      // preserving IMEX Runge-Kutta methods, 2014. (equation 22)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP2(3,3,2)-LPM1");
+      
+      iStages = 3;
+      iQorder = 2;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+
+      // Implicit table
+      pci[0] = 2.0/11.0;
+      pci[1] = 4523.0/9317.0;
+      pci[2] = 15517.0/18634.0;
+      
+      pAi[0] = 2.0/11.0;           pAi[1] = 0.0;       pAi[2] = 0.0;   
+      pAi[3] = 2829.0/9317.0;      pAi[4] = 2.0/11.0;  pAi[5] = 0.0;  
+      pAi[6] = 148529.0/428582.0;  pAi[7] = 7.0/23.0;  pAi[8] = 2.0/11.0; 
+
+      pbi[0] = 1.0/3.0;
+      pbi[1] = 1.0/3.0;
+      pbi[2] = 1.0/3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 0.5;
+      pce[2] = 1.0;
+      
+      pAe[0] = 0.0;  pAe[1] = 0.0;  pAe[2] = 0.0;   
+      pAe[3] = 0.5;  pAe[4] = 0.0;  pAe[5] = 0.0;  
+      pAe[6] = 0.5;  pAe[7] = 0.5;  pAe[8] = 0.0; 
+
+      pbe[0] = 1.0/3.0;
+      pbe[1] = 1.0/3.0;
+      pbe[2] = 1.0/3.0;
+            
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ssp2_332_lpm2") {
+
+      // ------------------------------------------------------------------------
+      // ssp2(3,3,2)-LPM2 - 3 implicit stages, 3 explicit stages, 2nd order
+      //
+      // Higueras, Happenhofer, Koch, and Kupka, Optimized strong stability 
+      // preserving IMEX Runge-Kutta methods, 2014. (equation 23)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP2(3,3,2)-LPM2");
+      
+      iStages = 3;
+      iQorder = 2;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+
+      // Implicit table
+      pci[0] = 2.0/11.0;
+      pci[1] = 5003.0/13310.0;
+      pci[2] = 6271.0/6655.0;
+      
+      pAi[0] = 2.0/11.0;          pAi[1] = 0.0;        pAi[2] = 0.0;   
+      pAi[3] = 2583.0/13310.0;    pAi[4] = 2.0/11.0;   pAi[5] = 0.0;  
+      pAi[6] = 39731.0/139755.0;  pAi[7] = 10.0/21.0;  pAi[8] = 2.0/11.0; 
+
+      pbi[0] = 1.0/3.0;
+      pbi[1] = 1.0/3.0;
+      pbi[2] = 1.0/3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 0.5;
+      pce[2] = 1.0;
+      
+      pAe[0] = 0.0;  pAe[1] = 0.0;  pAe[2] = 0.0;   
+      pAe[3] = 0.5;  pAe[4] = 0.0;  pAe[5] = 0.0;  
+      pAe[6] = 0.5;  pAe[7] = 0.5;  pAe[8] = 0.0; 
+
+      pbe[0] = 1.0/3.0;
+      pbe[1] = 1.0/3.0;
+      pbe[2] = 1.0/3.0;
+            
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
       delete[] pce;
@@ -1499,9 +1952,11 @@ void TimestepSchemeARKode::SetButcherTable()
 
     } else {
       _EXCEPTIONT("ERROR: Invalid IMEX Butcher table name");
-    }
-    
-  } 
+    }   
+  }
+
+  if (ierr < 0) _EXCEPTION1("ERROR: SetButcherTable, ierr = %i",ierr);
+ 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
