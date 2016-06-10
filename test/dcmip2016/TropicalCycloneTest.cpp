@@ -16,9 +16,11 @@
 
 #include "Tempest.h"
 #include "KesslerPhysics.h"
+#include "DCMIPPhysics.h"
+
 ///////////////////////////////////////////////////////////////////////////////
 
- extern "C" {
+extern "C" {
 	void tropical_cyclone_test(
 		double * dLon,
 		double * dLat,
@@ -119,20 +121,12 @@ public:
 	) const {
 
 		// Store the state
-		// State 0 = Zonal velocity (m/s)
-		// State 1 = Meridional velocity (m/s)
-		// State 2 = Theta (K)
-		// State 3 = Vertical velocity (m/s)
-		// State 4 = Density (kg/m^3)
 		dState[0] = 0.0;
 		dState[1] = 0.0;
 		dState[2] = 0.0;
 		dState[3] = 0.0;
 		dState[4] = 0.0;
 	}
-	
-	
-	
 
 	///	<summary>
 	///		Evaluate the state vector at the given point.
@@ -173,7 +167,7 @@ public:
 			&dPs,
 			&dRho,
 			&dQ);
-		
+
 		dState[0] = dU;
 		dState[1] = dV;
 		dState[2] = dThetaV;
@@ -181,8 +175,8 @@ public:
 		dState[4] = dRho;
 
 		dTracer[0] = dRho * dQ;
-		dTracer[1] = 0.0;
-		dTracer[2] = 0.0;
+		//dTracer[1] = 0.0;
+		//dTracer[2] = 0.0;
 	}
 };
 
@@ -204,15 +198,15 @@ try {
 	// Parse the command line
 	BeginTempestCommandLine("TropicalCycloneTest");
 		SetDefaultResolution(20);
-		SetDefaultLevels(10);
-		SetDefaultOutputDeltaT("1500000u");
-		SetDefaultDeltaT("1500000u");
-		SetDefaultEndTime("1500000u");
+		SetDefaultLevels(30);
+		SetDefaultOutputDeltaT("1h");
+		SetDefaultDeltaT("200s");
+		SetDefaultEndTime("10d");
 		SetDefaultHorizontalOrder(4);
 		SetDefaultVerticalOrder(1);
 
-		CommandLineDouble(dZtop, "ztop", 10000.0);
-		CommandLineDouble(dEarthScaling, "X", 125.0);
+		CommandLineDouble(dZtop, "ztop", 30000.0);
+		CommandLineDouble(dEarthScaling, "X", 1.0);
 
 		ParseCommandLine(argc, argv);
 	EndTempestCommandLine(argv)
@@ -220,13 +214,17 @@ try {
 	// Setup the Model
 	AnnounceBanner("MODEL SETUP");
 
-    EquationSet eqn(EquationSet::PrimitiveNonhydrostaticEquations);
+	EquationSet eqn(EquationSet::PrimitiveNonhydrostaticEquations);
  
-    eqn.InsertTracer("RhoQv", "RhoQv");
-    eqn.InsertTracer("RhoQc", "RhoQc");
-    eqn.InsertTracer("RhoQr", "RhoQr");
+	eqn.InsertTracer("RhoQv", "RhoQv");
+	eqn.InsertTracer("RhoQc", "RhoQc");
+	eqn.InsertTracer("RhoQr", "RhoQr");
 
-	Model model(eqn);
+	UserDataMeta metaUserData;
+
+	metaUserData.InsertDataItem2D("PRECT");
+
+	Model model(eqn, metaUserData);
 
 	TempestSetupCubedSphereModel(model);
 
@@ -237,13 +235,13 @@ try {
 			dZtop,
 			dEarthScaling));
 	AnnounceEndBlock("Done");
-/*
-	// Add Kessler physics
+
+	// Add DCMIP physics
 	model.AttachWorkflowProcess(
-		new KesslerPhysics(
+		new DCMIPPhysics(
 			model,
 			model.GetDeltaT()));
-*/
+
 	// Begin execution
 	AnnounceBanner("SIMULATION");
 	model.Go();

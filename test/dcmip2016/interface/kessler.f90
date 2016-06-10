@@ -60,8 +60,7 @@
 !
 !=======================================================================
 
-SUBROUTINE KESSLER(theta, qv, qc, qr, rho, pk, dt, z, nz, rainnc) &
-  BIND(c, name = "kessler")
+SUBROUTINE KESSLER(theta, qv, qc, qr, rho, pk, dt, z, nz, rainnc)
 
   IMPLICIT NONE
 
@@ -73,7 +72,9 @@ SUBROUTINE KESSLER(theta, qv, qc, qr, rho, pk, dt, z, nz, rainnc) &
             theta   ,     & ! Potential temperature (K)
             qv      ,     & ! Water vapor mixing ratio (gm/gm)
             qc      ,     & ! Cloud water mixing ratio (gm/gm)
-            qr      ,     & ! Rain  water mixing ratio (gm/gm)
+            qr              ! Rain  water mixing ratio (gm/gm)
+
+  REAL(8), DIMENSION(nz), INTENT(IN) :: &
             rho             ! Dry air density (not mean state as in KW) (kg/m^3)
 
   REAL(8), INTENT(INOUT) :: &
@@ -117,7 +118,7 @@ SUBROUTINE KESSLER(theta, qv, qc, qr, rho, pk, dt, z, nz, rainnc) &
   end do
 
   ! Maximum time step size in accordance with CFL condition
-  dt_max = 1.d0
+  dt_max = dt
   do k=1,nz-1
     if (velqr(k) .ne. 0.d0) then
       dt_max = min(dt_max, 0.8d0*(z(k+1)-z(k))/velqr(k))

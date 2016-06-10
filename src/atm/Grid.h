@@ -49,6 +49,13 @@ typedef int NcFile;
 ///////////////////////////////////////////////////////////////////////////////
 
 ///	<summary>
+///		Data index used to denote the reference state.
+///	</summary>
+#define DATA_INDEX_REFERENCE (-1)
+
+///////////////////////////////////////////////////////////////////////////////
+
+///	<summary>
 ///		Atmospheric model grid data.  Container for GridPatch objects.
 ///	</summary>
 class Grid {
@@ -924,7 +931,6 @@ public:
 		return m_nVerticalOrder;
 	}
 
-
 	///	<summary>
 	///		Get the DataLocation of the specified equation set variable.
 	///	</summary>
@@ -1062,7 +1068,6 @@ protected:
 	///		Order of accuracy in the vertical.
 	///	</summary>
 	DataStruct<int> m_nVerticalOrder;
-
 
 protected:
 	///	<summary>

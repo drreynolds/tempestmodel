@@ -1076,6 +1076,20 @@ public:
 	}
 
 	///	<summary>
+	///		Get the 2D user data.
+	///	</summary>
+	DataArray3D<double> & GetUserData2D() {
+		return m_dataUserData2D;
+	}
+
+	///	<summary>
+	///		Get the 2D user data.
+	///	</summary>
+	const DataArray3D<double> & GetUserData2D() const {
+		return m_dataUserData2D;
+	}
+
+	///	<summary>
 	///		Get the pressure data.
 	///	</summary>
 	DataArray3D<double> & GetDataPressure() {
@@ -1466,6 +1480,12 @@ public:
 	///		Computed temperature (Auxiliary).
 	///	</summary>
 	DataArray3D<double> m_dataTemperature;
+
+public:
+	///	<summary>
+	///		2D user data (Auxiliary).
+	///	</summary>
+	DataArray3D<double> m_dataUserData2D;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
