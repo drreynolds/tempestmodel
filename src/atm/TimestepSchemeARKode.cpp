@@ -419,10 +419,10 @@ static int ARKodePostProcessStep(
   double dDeltaT = time - dOldT;
    
   // Apply hyperdiffusion (initial, update, temp)
-  pGrid->CopyData(iY, 1, DataType_State);
-  pGrid->CopyData(iY, 1, DataType_Tracers);
+  pGrid->CopyData(iY, 2, DataType_State);
+  pGrid->CopyData(iY, 2, DataType_Tracers);
   
-  pHorizontalDynamicsFEM->StepAfterSubCycle(iY, 1, 2, timeT, dDeltaT);
+  pHorizontalDynamicsFEM->StepAfterSubCycle(2, 1, iY, timeT, dDeltaT);
   
   pGrid->CopyData(1, iY, DataType_State);
   pGrid->CopyData(1, iY, DataType_Tracers);
