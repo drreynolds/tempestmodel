@@ -19,6 +19,7 @@
 #include "PhysicalConstants.h"
 #include "Model.h"
 #include "Grid.h"
+#include "FunctionTimer.h"
 
 #include "Announce.h"
 #include "GridGLL.h"
@@ -117,6 +118,32 @@ void HorizontalDynamicsFEM::Initialize() {
 		nRElements,
 		m_nHorizontalOrder,
 		m_nHorizontalOrder);
+
+	// Contravariant metric terms
+	m_dLocalCoriolisF.Allocate(
+		m_nHorizontalOrder,
+		m_nHorizontalOrder);
+
+	m_dLocalJacobian2D.Allocate(
+		m_nHorizontalOrder,
+		m_nHorizontalOrder);
+
+	m_dLocalJacobian.Allocate(
+		nRElements,
+		m_nHorizontalOrder,
+		m_nHorizontalOrder);
+
+	m_dLocalDerivR.Allocate(
+		nRElements,
+		m_nHorizontalOrder,
+		m_nHorizontalOrder,
+		3);
+
+	m_dLocalContraMetric.Allocate(
+		nRElements,
+		m_nHorizontalOrder,
+		m_nHorizontalOrder,
+		6);
 
 	// Initialize buffers for derivatives of Jacobian
 	m_dJGradientA.Allocate(
@@ -502,6 +529,9 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 	const Time & time,
 	double dDeltaT
 ) {
+	// Start the function timer
+	FunctionTimer timer("HorizontalStepNonhydrostaticPrimitive");
+
 	// Get a copy of the GLL grid
 	GridGLL * pGrid = dynamic_cast<GridGLL*>(m_model.GetGrid());
 
@@ -643,6 +673,17 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 		for (int a = 0; a < nElementCountA; a++) {
 		for (int b = 0; b < nElementCountB; b++) {
 
+			// Store 2D Jacobian
+			for (int i = 0; i < m_nHorizontalOrder; i++) {
+			for (int j = 0; j < m_nHorizontalOrder; j++) {
+				int iA = a * m_nHorizontalOrder + i + box.GetHaloElements();
+				int iB = b * m_nHorizontalOrder + j + box.GetHaloElements();
+
+				m_dLocalCoriolisF[i][j] = dCoriolisF[iA][iB];
+				m_dLocalJacobian2D[i][j] = dJacobian2D[iA][iB];
+			}
+			}
+
 			// Compute auxiliary data in element
 			for (int k = 0; k < nRElements; k++) {
 			for (int i = 0; i < m_nHorizontalOrder; i++) {
@@ -655,28 +696,48 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 				double dCovUa = dataInitialNode[UIx][k][iA][iB];
 				double dCovUb = dataInitialNode[VIx][k][iA][iB];
 
+				// Store metric quantities
+				m_dLocalJacobian[k][i][j] = dJacobian[k][iA][iB];
+
+				m_dLocalDerivR[k][i][j][0] = dDerivRNode[k][iA][iB][0];
+				m_dLocalDerivR[k][i][j][1] = dDerivRNode[k][iA][iB][1];
+				m_dLocalDerivR[k][i][j][2] = dDerivRNode[k][iA][iB][2];
+
+				m_dLocalContraMetric[k][i][j][0] =
+					dContraMetricA[k][iA][iB][0];
+				m_dLocalContraMetric[k][i][j][1] =
+					dContraMetricA[k][iA][iB][1];
+				m_dLocalContraMetric[k][i][j][2] =
+					dContraMetricA[k][iA][iB][2];
+				m_dLocalContraMetric[k][i][j][3] =
+					dContraMetricB[k][iA][iB][1];
+				m_dLocalContraMetric[k][i][j][4] =
+					dContraMetricB[k][iA][iB][2];
+				m_dLocalContraMetric[k][i][j][5] =
+					dContraMetricXi[k][iA][iB][2];
+
 				// Calculate covariant xi velocity and store
 				double dCovUx =
 					  dataInitialNode[WIx][k][iA][iB]
-					* dDerivRNode[k][iA][iB][2];
+					* m_dLocalDerivR[k][i][j][2];
 
 				m_dAuxDataNode[CovUxIx][k][i][j] = dCovUx;
 
 				// Contravariant velocities
 				m_dAuxDataNode[ConUaIx][k][i][j] =
-					  dContraMetricA[k][iA][iB][0] * dCovUa
-					+ dContraMetricA[k][iA][iB][1] * dCovUb
-					+ dContraMetricA[k][iA][iB][2] * dCovUx;
+					  m_dLocalContraMetric[k][i][j][0] * dCovUa
+					+ m_dLocalContraMetric[k][i][j][1] * dCovUb
+					+ m_dLocalContraMetric[k][i][j][2] * dCovUx;
 
 				m_dAuxDataNode[ConUbIx][k][i][j] =
-					  dContraMetricB[k][iA][iB][0] * dCovUa
-					+ dContraMetricB[k][iA][iB][1] * dCovUb
-					+ dContraMetricB[k][iA][iB][2] * dCovUx;
+					  m_dLocalContraMetric[k][i][j][1] * dCovUa
+					+ m_dLocalContraMetric[k][i][j][3] * dCovUb
+					+ m_dLocalContraMetric[k][i][j][4] * dCovUx;
 
 				m_dAuxDataNode[ConUxIx][k][i][j] =
-					  dContraMetricXi[k][iA][iB][0] * dCovUa
-					+ dContraMetricXi[k][iA][iB][1] * dCovUb
-					+ dContraMetricXi[k][iA][iB][2] * dCovUx;
+					  m_dLocalContraMetric[k][i][j][2] * dCovUa
+					+ m_dLocalContraMetric[k][i][j][4] * dCovUb
+					+ m_dLocalContraMetric[k][i][j][5] * dCovUx;
 
 				// Specific kinetic energy
 				m_dAuxDataNode[KIx][k][i][j] = 0.5 * (
@@ -703,6 +764,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						  dataInitialNode[RIx][k][iA][iB]
 						* dataInitialNode[PIx][k][iA][iB]);
 #endif
+
 			}
 			}
 			}
@@ -783,18 +845,11 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 
 				m_dAuxDataNode[UCrossZetaXIx][k][i][j] =
 					- dConUa * dCovDaUx - dConUb * dCovDbUx;
-
-/*
-				if ((n == 5) && (k == 3) && (iA == 5) && (iB == 5)) {
-					printf("%1.5e : %1.5e %1.5e %1.5e %1.5e \n", dCovUCrossZetaX, dConUa, dJZetaB, dConUb, dJZetaA);
-					printf("%1.5e %1.5e %1.5e\n", dataInitialNode[UIx][k][iA][iB] / phys.GetEarthRadius(), dCovDxUa / phys.GetEarthRadius(), dCovDaUx);
-					//printf("%1.5e %1.5e\n", dCovUCrossZetaX, dDxKE);
-				}
-*/
 			}
 			}
 			}
 
+#pragma message "Move to VerticalDynamicsFEM"
 			// Interpolate U cross Zeta to interfaces
 			if (pGrid->GetVarLocation(WIx) == DataLocation_REdge) {
 				for (int k = 0; k <= nRElements; k++) {
@@ -810,25 +865,6 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 				}
 				}
 				}
-/*
-				// DEBUG
-				if (box.GetPanel() == 5) {
-					int k = 3;
-					for (int i = 0; i < m_nHorizontalOrder; i++) {
-					for (int j = 0; j < m_nHorizontalOrder; j++) {
-
-						int iA = a * m_nHorizontalOrder + i + box.GetHaloElements();
-						int iB = b * m_nHorizontalOrder + j + box.GetHaloElements();
-
-						if ((iA == 5) && (iB == 5)) {
-							printf("H: %1.5e\n",
-								m_dAuxDataREdge[UCrossZetaXIx][k][i][j]
-								/ dDerivRREdge[k][iA][iB][2]);
-						}
-					}
-					}
-				}
-*/
 			}
 
 			// Update quantities on nodes
@@ -848,11 +884,11 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 
 					// Base fluxes (area times velocity)
 					double dAlphaBaseFlux =
-						dJacobian[k][iA][iB]
+						m_dLocalJacobian[k][i][j]
 						* m_dAuxDataNode[ConUaIx][k][i][j];
 
 					double dBetaBaseFlux =
-						dJacobian[k][iA][iB]
+						m_dLocalJacobian[k][i][j]
 						* m_dAuxDataNode[ConUbIx][k][i][j];
 
 					// Density flux
@@ -895,49 +931,54 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						m_dBetaTracerFlux[c][i][j] =
 							dBetaBaseFlux
 							* dataInitialTracer[c][k][iA][iB];
+					}
 
-#if defined(UNIFORM_DIFFUSION)
-						// Derivatives of tracer mixing ratio
-						double dCovDaQ = 0.0;
-						double dCovDbQ = 0.0;
+					////////////////////////////////////////////////////////
+					// Apply uniform diffusion to tracers
+					if (pGrid->HasUniformDiffusion()) {
 
-						for (int s = 0; s < m_nHorizontalOrder; s++) {
-							dCovDaQ +=
-								dataInitialTracer[c][k][iElementA+s][iB]
-								/ dataInitialNode[RIx][k][iElementA+s][iB]
-								* dDxBasis1D[s][i];
+						for (int c = 0; c < nTracerCount; c++) {
 
-							dCovDbQ +=
-								dataInitialTracer[c][k][iA][iElementB+s]
-								/ dataInitialNode[RIx][k][iA][iElementB+s]
-								* dDxBasis1D[s][j];
+							// Derivatives of tracer mixing ratio
+							double dCovDaQ = 0.0;
+							double dCovDbQ = 0.0;
+
+							for (int s = 0; s < m_nHorizontalOrder; s++) {
+								dCovDaQ +=
+									dataInitialTracer[c][k][iElementA+s][iB]
+									/ dataInitialNode[RIx][k][iElementA+s][iB]
+									* dDxBasis1D[s][i];
+
+								dCovDbQ +=
+									dataInitialTracer[c][k][iA][iElementB+s]
+									/ dataInitialNode[RIx][k][iA][iElementB+s]
+									* dDxBasis1D[s][j];
+							}
+
+							dCovDaQ *= dInvElementDeltaA;
+							dCovDbQ *= dInvElementDeltaB;
+
+							// Gradient of tracer mixing ratio
+							double dConDaQ =
+								  m_dLocalContraMetric[k][i][j][0] * dCovDaQ
+								+ m_dLocalContraMetric[k][i][j][1] * dCovDbQ;
+
+							double dConDbQ =
+								  m_dLocalContraMetric[k][i][j][1] * dCovDaQ
+								+ m_dLocalContraMetric[k][i][j][3] * dCovDbQ;
+
+							m_dAlphaTracerFlux[c][i][j] -=
+								pGrid->GetScalarUniformDiffusionCoeff()
+								* m_dLocalJacobian[k][i][j]
+								* dataInitialNode[RIx][k][iA][iB]
+								* dConDaQ;
+
+							m_dBetaTracerFlux[c][i][j] -=
+								pGrid->GetScalarUniformDiffusionCoeff()
+								* m_dLocalJacobian[k][i][j]
+								* dataInitialNode[RIx][k][iA][iB]
+								* dConDbQ;
 						}
-
-						dCovDaQ *= dInvElementDeltaA;
-						dCovDbQ *= dInvElementDeltaB;
-
-						// Gradient of tracer mixing ratio
-						double dConDaQ =
-							  dContraMetricA[k][iA][iB][0] * dCovDaQ
-							+ dContraMetricA[k][iA][iB][1] * dCovDbQ;
-
-						double dConDbQ =
-							  dContraMetricB[k][iA][iB][0] * dCovDaQ
-							+ dContraMetricB[k][iA][iB][1] * dCovDbQ;
-
-						m_dAlphaTracerFlux[c][i][j] -=
-							UNIFORM_SCALAR_DIFFUSION_COEFF
-							* dJacobian[k][iA][iB]
-							* dataInitialNode[RIx][k][iA][iB]
-							* dConDaQ;
-
-						m_dBetaTracerFlux[c][i][j] -=
-							UNIFORM_SCALAR_DIFFUSION_COEFF
-							* dJacobian[k][iA][iB]
-							* dataInitialNode[RIx][k][iA][iB]
-							* dConDbQ;
-#endif
-
 					}
 
 #ifdef INSTEP_DIVERGENCE_DAMPING
@@ -948,13 +989,13 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					for (int s = 0; s < m_nHorizontalOrder; s++) {
 						// Alpha derivative of J U^a
 						dDaJUa +=
-							dJacobian[k][iElementA+s][iB]
+							m_dLocalJacobian[k][s][j]
 							* m_dAuxDataNode[ConUaIx][k][s][j]
 							* dDxBasis1D[s][i]; 
 
 						// Beta derivative of J U^b
 						dDbJUb +=
-							dJacobian[k][iA][iElementB+s]
+							m_dLocalJacobian[k][i][s]
 							* m_dAuxDataNode[ConUbIx][k][i][s]
 							* dDxBasis1D[s][j];
 					}
@@ -963,7 +1004,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					dDbJUb *= dInvElementDeltaB;
 
 					m_dDivergence[k][i][j] =
-						(dDaJUa + dDbJUb) / dJacobian[k][iA][iB];
+						(dDaJUa + dDbJUb) / m_dLocalJacobian[k][i][j];
 #endif
 				}
 				}
@@ -979,7 +1020,8 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					int iElementB = b * m_nHorizontalOrder + box.GetHaloElements();
 
 					// Inverse Jacobian
-					const double dInvJacobian = 1.0 / dJacobian[k][iA][iB];
+					const double dInvJacobian =
+						1.0 / m_dLocalJacobian[k][i][j];
 
 					// Aliases for alpha and beta velocities
 					const double dConUa = m_dAuxDataNode[ConUaIx][k][i][j];
@@ -1141,10 +1183,14 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 
 					// Coriolis terms
 					dLocalUpdateUa +=
-						dCoriolisF[iA][iB] * dJacobian2D[iA][iB] * dConUb;
+						m_dLocalCoriolisF[i][j]
+						* m_dLocalJacobian2D[i][j]
+						* dConUb;
 
 					dLocalUpdateUb -=
-						dCoriolisF[iA][iB] * dJacobian2D[iA][iB] * dConUa;
+						m_dLocalCoriolisF[i][j]
+						* m_dLocalJacobian2D[i][j]
+						* dConUa;
 
 					// Pressure gradient force
 #if defined(FORMULATION_PRESSURE) || defined(FORMULATION_RHOTHETA_P)
@@ -1169,8 +1215,8 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 #endif
 
 					// Gravity
-					double dDaPhi = phys.GetG() * dDerivRNode[k][iA][iB][0];
-					double dDbPhi = phys.GetG() * dDerivRNode[k][iA][iB][1];
+					double dDaPhi = phys.GetG() * m_dLocalDerivR[k][i][j][0];
+					double dDbPhi = phys.GetG() * m_dLocalDerivR[k][i][j][1];
 
 					// Horizontal updates due to gradient terms
 					double dDaUpdate =
@@ -1234,14 +1280,16 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						// Calculate vertical velocity update
 						double dLocalUpdateUr =
 							m_dAuxDataNode[UCrossZetaXIx][k][i][j]
-							/ dDerivRNode[k][iA][iB][2];
+							/ m_dLocalDerivR[k][i][j][2];
 
 						if (k == 0) {
 							dLocalUpdateUr =
-								- ( dContraMetricXi[0][iA][iB][0] * dLocalUpdateUa
-								  + dContraMetricXi[0][iA][iB][1] * dLocalUpdateUb)
-								/ dContraMetricXi[0][iA][iB][2]
-								/ dDerivRNode[0][iA][iB][2];
+								- ( m_dLocalContraMetric[0][iA][iB][2]
+										* dLocalUpdateUa
+								  + m_dLocalContraMetric[0][iA][iB][4]
+								  		* dLocalUpdateUb)
+								/ m_dLocalContraMetric[0][iA][iB][5]
+								/ m_dLocalDerivR[0][i][j][2];
 
 						} else if (k == nRElements-1) {
 							dLocalUpdateUr = 0.0;
@@ -1250,46 +1298,6 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						// Update vertical velocity
 						dataUpdateNode[WIx][k][iA][iB] +=
 							dDeltaT * dLocalUpdateUr;
-/*
-						// Check boundary condition
-						if (k == 0) {
-							double dConUxInitial =
-								dContraMetricXi[0][iA][iB][0]
-									* dataInitialNode[UIx][k][iA][iB]
-								+ dContraMetricXi[0][iA][iB][1]
-									* dataInitialNode[VIx][k][iA][iB]
-								+ dContraMetricXi[0][iA][iB][2]
-									* dDerivRNode[0][iA][iB][2]
-									* dataInitialNode[WIx][k][iA][iB];
-
-							if (fabs(dConUxInitial) > 1.0e-10) {
-								printf("%1.15e\n", dConUxInitial);
-								printf("%1.15e %1.15e %1.15e\n",
-									dataUpdateNode[UIx][k][iA][iB],
-									dataUpdateNode[VIx][k][iA][iB],
-									dataUpdateNode[WIx][k][iA][iB]);
-								_EXCEPTIONT("Boundary condition failure (initial)");
-							}
-
-							double dConUxUpdate =
-								  dContraMetricXi[0][iA][iB][0]
-									* dataUpdateNode[UIx][k][iA][iB]
-								+ dContraMetricXi[0][iA][iB][1]
-									* dataUpdateNode[VIx][k][iA][iB]
-								+ dContraMetricXi[0][iA][iB][2]
-									* dDerivRNode[0][iA][iB][2]
-									* dataUpdateNode[WIx][k][iA][iB];
-
-							if (fabs(dConUxUpdate) > 1.0e-10) {
-								printf("%1.15e\n", dConUxUpdate);
-								printf("%1.15e %1.15e %1.15e\n",
-									dataUpdateNode[UIx][k][iA][iB],
-									dataUpdateNode[VIx][k][iA][iB],
-									dataUpdateNode[WIx][k][iA][iB]);
-								_EXCEPTIONT("Boundary condition failure (update)");
-							}
-						}
-*/
 					}
 
 #ifdef FORMULATION_THETA
@@ -1331,23 +1339,23 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 
 						for (int s = 0; s < m_nHorizontalOrder; s++) {
 							dDaJUa +=
-								dJacobian[k][iElementA+s][iB]
+								m_dLocalJacobian[k][s][j]
 								* m_dAuxDataNode[ConUaIx][k][s][j]
 								* dDxBasis1D[s][i];
 
 							dDbJUb +=
-								dJacobian[k][iA][iElementB+s]
+								m_dLocalJacobian[k][i][s]
 								* m_dAuxDataNode[ConUbIx][k][i][s]
 								* dDxBasis1D[s][j];
 
 							dDaJThetaUa +=
-								dJacobian[k][iElementA+s][iB]
+								m_dLocalJacobian[k][s][j]
 								* dataInitialNode[PIx][k][iElementA+s][iB]
 								* m_dAuxDataNode[ConUaIx][k][s][j]
 								* dDxBasis1D[s][i];
 
 							dDbJThetaUb +=
-								dJacobian[k][iA][iElementB+s]
+								m_dLocalJacobian[k][i][s]
 								* dataInitialNode[PIx][k][iA][iElementB+s]
 								* m_dAuxDataNode[ConUbIx][k][i][s]
 								* dDxBasis1D[s][j];
@@ -1595,6 +1603,9 @@ void HorizontalDynamicsFEM::StepExplicit(
 			"HorizontalDynamics Step must have iDataInitial != iDataUpdate");
 	}
 
+	// Get a copy of the GLL grid
+	GridGLL * pGrid = dynamic_cast<GridGLL*>(m_model.GetGrid());
+
 	// Equation set
 	const EquationSet & eqn = m_model.GetEquationSet();
 
@@ -1611,47 +1622,47 @@ void HorizontalDynamicsFEM::StepExplicit(
 		_EXCEPTIONT("Invalid EquationSet");
 	}
 
-#ifdef UNIFORM_DIFFUSION
-	// Uniform diffusion of U and V with UNIFORM_VECTOR_DIFFUSION_COEFF
-	ApplyVectorHyperdiffusion(
-		iDataInitial,
-		iDataUpdate,
-		dDeltaT,
-		- UNIFORM_VECTOR_DIFFUSION_COEFF,
-		- UNIFORM_VECTOR_DIFFUSION_COEFF,
-		false);
-
-	ApplyVectorHyperdiffusion(
-		DATA_INDEX_REFERENCE,
-		iDataUpdate,
-		dDeltaT,
-		UNIFORM_VECTOR_DIFFUSION_COEFF,
-		UNIFORM_VECTOR_DIFFUSION_COEFF,
-		false);
-
-	if (eqn.GetType() == EquationSet::PrimitiveNonhydrostaticEquations) {
-
-		// Uniform diffusion of Theta with UNIFORM_SCALAR_DIFFUSION_COEFF
-		ApplyScalarHyperdiffusion(
+	// Uniform diffusion of U and V with vector diffusion coeff
+	if (pGrid->HasUniformDiffusion()) {
+		ApplyVectorHyperdiffusion(
 			iDataInitial,
 			iDataUpdate,
 			dDeltaT,
-			UNIFORM_SCALAR_DIFFUSION_COEFF,
-			false,
-			2,
-			true);
+			- pGrid->GetVectorUniformDiffusionCoeff(),
+			- pGrid->GetVectorUniformDiffusionCoeff(),
+			false);
 
-		// Uniform diffusion of W with UNIFORM_VECTOR_DIFFUSION_COEFF
-		ApplyScalarHyperdiffusion(
-			iDataInitial,
+		ApplyVectorHyperdiffusion(
+			DATA_INDEX_REFERENCE,
 			iDataUpdate,
 			dDeltaT,
-			UNIFORM_VECTOR_DIFFUSION_COEFF,
-			false,
-			3,
-			true);
+			pGrid->GetVectorUniformDiffusionCoeff(),
+			pGrid->GetVectorUniformDiffusionCoeff(),
+			false);
+
+		if (eqn.GetType() == EquationSet::PrimitiveNonhydrostaticEquations) {
+
+			// Uniform diffusion of Theta with scalar diffusion coeff
+			ApplyScalarHyperdiffusion(
+				iDataInitial,
+				iDataUpdate,
+				dDeltaT,
+				pGrid->GetScalarUniformDiffusionCoeff(),
+				false,
+				2,
+				true);
+
+			// Uniform diffusion of W with vector diffusion coeff
+			ApplyScalarHyperdiffusion(
+				iDataInitial,
+				iDataUpdate,
+				dDeltaT,
+				pGrid->GetVectorUniformDiffusionCoeff(),
+				false,
+				3,
+				true);
+		}
 	}
-#endif
 
 	// Apply positive definite filter to tracers
 	FilterNegativeTracers(iDataUpdate);
@@ -2102,7 +2113,7 @@ void HorizontalDynamicsFEM::ApplyVectorHyperdiffusion(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#pragma message "jeguerra: Clean up this function"
+//#pragma message "jeguerra: Clean up this function"
 
 void HorizontalDynamicsFEM::ApplyRayleighFriction(
 	int iDataUpdate,
@@ -2114,9 +2125,35 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 	// Number of components to hit with friction
 	int nComponents = m_model.GetEquationSet().GetComponents();
 
+	// Equation set being solved
+	int nEqSet = m_model.GetEquationSet().GetType();
+
+	bool fCartXZ = pGrid->GetIsCartesianXZ();
+
+	int nEffectiveC[nComponents];
+	// 3D primitive nonhydro models with no density treatment
+	if ((nEqSet == 2) && !fCartXZ) {
+		nEffectiveC[0] = 0; nEffectiveC[1] = 1; 
+		nEffectiveC[3] = 2; nEffectiveC[3] = 3;
+		nComponents = nComponents - 1;
+	}
+	// 2D Cartesian XZ primitive nonhydro models with no density treatment
+	else if ((nEqSet == 2) && fCartXZ) {
+		nEffectiveC[0] = 0;
+		nEffectiveC[1] = 2; 
+		nEffectiveC[2] = 3;
+		nComponents = nComponents - 2;
+	}
+	// Other model types (advection, shallow water, mass coord)
+	else {
+		for (int nc = 0; nc < nComponents; nc++) {
+			nEffectiveC[nc] = nc;
+		}
+	}
+ 
 	// Subcycle the rayleigh update
-	int NSCR = 10;
-	double SCRF = 1.0 / NSCR;
+	int nRayleighCycles = 10;
+	double dRayleighFactor = 1.0 / nRayleighCycles;
 
 	// Perform local update
 	for (int n = 0; n < pGrid->GetActivePatchCount(); n++) {
@@ -2162,21 +2199,16 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 
 				double dNuNode = 1.0 / (1.0 + dDeltaT * dNu);
 
-				// Loop over all components NOT DENSITY
+				// Loop over all effective components
 				for (int c = 0; c < nComponents; c++) {
-					if ((m_model.GetEquationSet().GetComponentShortName(c) == "U") ||
-					((m_model.GetEquationSet().GetComponentShortName(c) == "V") && 
-					 (pGrid->GetIsCartesianXZ() == false)) ||
-					(m_model.GetEquationSet().GetComponentShortName(c) == "W") ||
-					(m_model.GetEquationSet().GetComponentShortName(c) == "Theta")) {
-						for (int si = 0; si < NSCR; si++) { 
-						dNuNode = 1.0 / (1.0 + SCRF * dDeltaT * dNu);
-						if (pGrid->GetVarLocation(c) == DataLocation_Node) {
-							dataUpdateNode[c][k][i][j] = 
-								dNuNode * dataUpdateNode[c][k][i][j]
+					for (int si = 0; si < nRayleighCycles; si++) { 
+						dNuNode = 1.0 / (1.0 + dRayleighFactor * dDeltaT * dNu);
+						if (pGrid->GetVarLocation(nEffectiveC[c]) == 
+							DataLocation_Node) {
+							dataUpdateNode[nEffectiveC[c]][k][i][j] = 
+								dNuNode * dataUpdateNode[nEffectiveC[c]][k][i][j]
 								+ (1.0 - dNuNode)
-								* dataReferenceNode[c][k][i][j];
-						}
+								* dataReferenceNode[nEffectiveC[c]][k][i][j];
 						}
 					}
 				}
@@ -2194,21 +2226,16 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 
 				double dNuREdge = 1.0 / (1.0 + dDeltaT * dNu);
 
-				// Loop over all components NOT DENSITY
+				// Loop over all effective components
 				for (int c = 0; c < nComponents; c++) {
-					if ((m_model.GetEquationSet().GetComponentShortName(c) == "U") ||
-					((m_model.GetEquationSet().GetComponentShortName(c) == "V") && 
-					 (pGrid->GetIsCartesianXZ() == false)) ||
-					(m_model.GetEquationSet().GetComponentShortName(c) == "W") ||
-					(m_model.GetEquationSet().GetComponentShortName(c) == "Theta")) {
-						for (int si = 0; si < NSCR; si++) {
-						if (pGrid->GetVarLocation(c) == DataLocation_REdge) {
-							dNuREdge = 1.0 / (1.0 + SCRF * dDeltaT * dNu);
-							dataUpdateREdge[c][k][i][j] = 
-								dNuREdge * dataUpdateREdge[c][k][i][j]
+					for (int si = 0; si < nRayleighCycles; si++) { 
+						dNuREdge = 1.0 / (1.0 + dRayleighFactor * dDeltaT * dNu);
+						if (pGrid->GetVarLocation(nEffectiveC[c]) == 
+							DataLocation_REdge) {
+								dataUpdateREdge[nEffectiveC[c]][k][i][j] = 
+								dNuREdge * dataUpdateREdge[nEffectiveC[c]][k][i][j]
 								+ (1.0 - dNuREdge)
-								* dataReferenceREdge[c][k][i][j];
-						}
+								* dataReferenceREdge[nEffectiveC[c]][k][i][j];
 						}
 					}
 				}

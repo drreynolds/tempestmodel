@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///
-///	\file    DensityCurrentCartesianTest.cpp
+///	\file    ThermalBubbleCartesian3DTest.cpp
 ///	\author  Paul Ullrich, Jorge Guerra
-///	\version July 09, 2014
+///	\version December 18, 2013
 ///
 ///	<remarks>
 ///		Copyright 2000-2010 Paul Ullrich
@@ -19,11 +19,11 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 ///	<summary>
-///		Giraldo et al. (2008)
+///		Giraldo et al. (2007) modified to 3D
 ///
-///		Cold density current test case.
+///		Thermal rising bubble test case in 3D.
 ///	</summary>
-class DensityCurrentCartesianTest : public TestCase {
+class ThermalBubbleCartesian3DTest : public TestCase {
 
 public:
         /// <summary>
@@ -37,6 +37,11 @@ public:
 	double m_dGDim[6];
 
 private:
+	///	<summary>
+	///		Background height field.
+	///	</summary>
+	double m_dH0;
+
 	///	<summary>
 	///		Reference constant background pontential temperature
 	///	</summary>
@@ -58,6 +63,11 @@ private:
 	double m_dxC;
 
 	///	<summary>
+	///		Parameter reference length y for temperature disturbance
+	///	</summary>
+	double m_dyC;
+
+	///	<summary>
 	///		Parameter reference length z for temperature disturbance
 	///	</summary>
 	double m_dzC;
@@ -67,45 +77,39 @@ private:
 	///	</summary>
 	double m_dpiC;
 
-	///	<summary>
-	///		Flag indicating that Rayleigh friction is inactive.
-	///	</summary>
-	bool m_fNoRayleighFriction;
-
 public:
 	///	<summary>
 	///		Constructor. (with physical constants defined privately here)
 	///	</summary>
-	DensityCurrentCartesianTest(
+	ThermalBubbleCartesian3DTest(
 		double dThetaBar,
 		double dThetaC,
 		double drC,
 		double dxC,
+		double dyC,
 		double dzC,
-		double dpiC,
-		double fNoRayleighFriction
+		double dpiC
 	) :
 		m_dThetaBar(dThetaBar),
 		m_dThetaC(dThetaC),
 		m_drC(drC),
 		m_dxC(dxC),
+		m_dyC(dyC),
 		m_dzC(dzC),
-		m_dpiC(dpiC),
-		m_fNoRayleighFriction(fNoRayleighFriction)
+		m_dpiC(dpiC)
 	{
 		// Set the dimensions of the box
 		m_dGDim[0] = 0.0;
-		m_dGDim[1] = 25600.0;
-		//m_dGDim[1] = 12800.0;
-		m_dGDim[2] = -100.0;
-		m_dGDim[3] = 100.0;
+		m_dGDim[1] = 1000.0;
+		m_dGDim[2] = 0.0;
+		m_dGDim[3] = 1000.0;
 		m_dGDim[4] = 0.0;
-		m_dGDim[5] = 6400.0;
+		m_dGDim[5] = 1000.0;
 
-		// Set the boundary conditions for this test (no-flux in X)
-		m_iLatBC[0] = Grid::BoundaryCondition_NoFlux;
+		// Set the boundary conditions for this test (no-flux in Y)
+		m_iLatBC[0] = Grid::BoundaryCondition_Periodic;
 		m_iLatBC[1] = Grid::BoundaryCondition_Periodic;
-		m_iLatBC[2] = Grid::BoundaryCondition_NoFlux;
+		m_iLatBC[2] = Grid::BoundaryCondition_Periodic;
 		m_iLatBC[3] = Grid::BoundaryCondition_Periodic;
 	}
 
@@ -153,68 +157,24 @@ public:
 	}
 
 	///	<summary>
-	///		Flag indicating whether or not Rayleigh friction strength is given.
-	///	</summary>
-	virtual bool HasRayleighFriction() const {
-		return !m_fNoRayleighFriction;
-	}
-
-	///	<summary>
-	///		Evaluate the Rayleigh friction strength at the given point.
-	///	</summary>
-	virtual double EvaluateRayleighStrength(
-		double dZ,
-		double dXp,
-		double dYp
-	) const {
-		const double dRayleighStrength = 8.0E-3;
-		const double dRayleighDepth = 1400.0;
-		const double dRayleighWidth = 1000.0;
-
-		double dNuDepth = 0.0;
-		double dNuRight = 0.0;
-		double dNuLeft  = 0.0;
-
-		if (dZ > m_dGDim[5] - dRayleighDepth) {
-			double dNormZ = (m_dGDim[5] - dZ) / dRayleighDepth;
-			dNuDepth = 0.5 * dRayleighStrength * (1.0 + cos(M_PI * dNormZ));
-		}
-		if (dXp > m_dGDim[1] - dRayleighWidth) {
-			double dNormX = (m_dGDim[1] - dXp) / dRayleighWidth;
-			dNuRight = 0.5 * dRayleighStrength * (1.0 + cos(M_PI * dNormX));
-		}
-		if (dXp < m_dGDim[0] + dRayleighWidth) {
-			double dNormX = (dXp - m_dGDim[0]) / dRayleighWidth;
-			dNuLeft = 0.5 * dRayleighStrength * (1.0 + cos(M_PI * dNormX));
-		}
-
-		if ((dNuDepth >= dNuRight) && (dNuDepth >= dNuLeft)) {
-			return dNuDepth;
-		}
-		if (dNuRight >= dNuLeft) {
-			return dNuRight;
-		}
-		return dNuLeft;
-	}
-
-	///	<summary>
 	///		Evaluate the potential temperature field perturbation.
 	///	</summary>
 	double EvaluateTPrime(
 		const PhysicalConstants & phys,
 		double dXp,
-		double dZp,
-		double dExnerP
+		double dYp,
+		double dZp
 	) const {
 
 		// Potential temperature perturbation bubble using radius
-		double xL2 = (dXp - m_dxC) * (dXp - m_dxC) / (4000.0 * 4000.0);
-		double zL2 = (dZp - m_dzC) * (dZp - m_dzC) / (2000.0 * 2000.0);
-		double dRp = sqrt(xL2 + zL2);
+		double xL2 = (dXp - m_dxC) * (dXp - m_dxC);
+		double yL2 = (dYp - m_dyC) * (dYp - m_dyC);
+		double zL2 = (dZp - m_dzC) * (dZp - m_dzC);
+		double dRp = sqrt(xL2 + yL2 + zL2);
 
 		double dThetaHat = 1.0;
 		if (dRp <= m_drC) {
-			dThetaHat = 0.5 * m_dThetaC * (1.0 + cos(m_dpiC * dRp)) / dExnerP;
+			dThetaHat = 0.5 * m_dThetaC * (1.0 + cos(m_dpiC * dRp / m_drC));
 		} else if (dRp > m_drC) {
 			dThetaHat = 0.0;
 		}
@@ -277,12 +237,12 @@ public:
 		dState[1] = 0.0;
 		dState[3] = 0.0;
 
+		// Set the initial potential temperature field
+		dState[2] = m_dThetaBar + EvaluateTPrime(phys, dXp, dYp, dZp);
+
 		// Set the initial density based on the Exner pressure
 		double dExnerP =
 			- dG / (dCp * m_dThetaBar) * dZp + 1.0;
-		// Set the initial potential temperature field
-		dState[2] = m_dThetaBar + EvaluateTPrime(phys, dXp, dZp, dExnerP);
-
 		double dRho =
 			dP0 / (dRd * m_dThetaBar) *
 			  pow(dExnerP, (dCv / dRd));
@@ -311,47 +271,47 @@ try {
 	// Parameter reference length x for temperature disturbance
 	double dxC;
 
+	// Parameter reference length y for temperature disturbance
+	double dyC;
+
 	// Parameter reference length z for temperature disturbance
 	double dzC;
 
 	// Parameter Archimede's Constant (essentially Pi but to some digits)
 	double dpiC;
 
-	// Flag indicating that Rayleigh friction is inactive.
-	bool fNoRayleighFriction;
-
 	// Parse the command line
-	BeginTempestCommandLine("DensityCurrentCartesianTest");
+	BeginTempestCommandLine("ThermalBubbleCartesian3DTest");
 		SetDefaultResolutionX(36);
 		SetDefaultResolutionY(1);
 		SetDefaultLevels(72);
-		SetDefaultOutputDeltaT("20s");
+		SetDefaultOutputDeltaT("10s");
 		SetDefaultDeltaT("10000u");
-		SetDefaultEndTime("900s");
+		SetDefaultEndTime("700s");
 		SetDefaultHorizontalOrder(4);
-		SetDefaultVerticalOrder(4);
+		SetDefaultVerticalOrder(1);
 
 		CommandLineDouble(dThetaBar, "ThetaBar", 300.0);
-		CommandLineDouble(dThetaC, "ThetaC", -15.0);
-		CommandLineDouble(drC, "rC", 1.0);
-		CommandLineDouble(dxC, "xC", 0.0);
-		CommandLineDouble(dzC, "zC", 3000.0);
+		CommandLineDouble(dThetaC, "ThetaC", 0.5);
+		CommandLineDouble(drC, "rC", 250.0);
+		CommandLineDouble(dxC, "xC", 500.0);
+		CommandLineDouble(dyC, "yC", 500.0);
+		CommandLineDouble(dzC, "zC", 350.0);
 		CommandLineDouble(dpiC, "piC", 3.14159265);
-		CommandLineBool(fNoRayleighFriction, "norayleigh");
 
 		ParseCommandLine(argc, argv);
 	EndCommandLine(argv)
 
 	// Create a new instance of the test
-	DensityCurrentCartesianTest * test =
-		new DensityCurrentCartesianTest(
+	ThermalBubbleCartesian3DTest * test =
+		new ThermalBubbleCartesian3DTest(
 			dThetaBar,
 			dThetaC,
 			drC,
 			dxC,
+			dyC,
 			dzC,
-			dpiC,
-			fNoRayleighFriction);
+			dpiC);
 
 	// Setup the Model
 	AnnounceBanner("MODEL SETUP");
@@ -360,7 +320,7 @@ try {
 
 	// Setup the cartesian model with dimensions and reference latitude
 	TempestSetupCartesianModel(model, test->m_dGDim, 0.0, 
-								test->m_iLatBC, true);
+								test->m_iLatBC, false);
 
 	// Set the reference length to reduce diffusion relative to global scale
 	const double XL = std::abs(test->m_dGDim[1] - test->m_dGDim[0]);

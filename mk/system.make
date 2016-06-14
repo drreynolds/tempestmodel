@@ -31,7 +31,31 @@ else ifeq ($(UNAME),Linux)
   # else # FIXME: Add a test condition
   #   SYSTEM= AGRI
   #   SYSTEM_MAKEFILE= agri.make
-  endif   
+  endif
+  ifeq ($(HOSTNAME),yslogin1)
+    SYSTEM= YELLOWSTONE
+    SYSTEM_MAKEFILE= yellowstone.make
+  endif
+  ifeq ($(HOSTNAME),yslogin2)
+    SYSTEM= YELLOWSTONE
+    SYSTEM_MAKEFILE= yellowstone.make
+  endif
+  ifeq ($(HOSTNAME),yslogin3)
+    SYSTEM= YELLOWSTONE
+    SYSTEM_MAKEFILE= yellowstone.make
+  endif
+  ifeq ($(HOSTNAME),yslogin4)
+    SYSTEM= YELLOWSTONE
+    SYSTEM_MAKEFILE= yellowstone.make
+  endif
+  ifeq ($(HOSTNAME),yslogin5)
+    SYSTEM= YELLOWSTONE
+    SYSTEM_MAKEFILE= yellowstone.make
+  endif
+  ifeq ($(HOSTNAME),yslogin6)
+    SYSTEM= YELLOWSTONE
+    SYSTEM_MAKEFILE= yellowstone.make
+  endif 
 endif
 
 include $(TEMPESTBASEDIR)/mk/system/$(SYSTEM_MAKEFILE)

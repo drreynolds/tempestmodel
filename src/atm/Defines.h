@@ -23,9 +23,9 @@
 ///		Method to solve the vertical system.
 ///	</summary>
 //#define USE_JFNK_PETSC
-#define USE_JFNK_GMRES
+//#define USE_JFNK_GMRES
 //#define USE_DIRECTSOLVE_APPROXJ
-//#define USE_DIRECTSOLVE
+#define USE_DIRECTSOLVE
 
 ///	<summary>
 ///		Allows allocation of the Jacobian matrix when a JFNK method 
@@ -59,20 +59,6 @@
 ///		Apply positive definite filter to tracers.
 ///	</summary>
 #define POSITIVE_DEFINITE_FILTER_TRACERS
-
-///	<summary>
-///		Apply constant coefficient del^2 diffusion (COEFFs in m^2/s)
-///	</summary>
-//#define UNIFORM_DIFFUSION
-#define UNIFORM_SCALAR_DIFFUSION_COEFF 1500.0
-#define UNIFORM_VECTOR_DIFFUSION_COEFF 500.0
-
-///	<summary>
-///		Define a reference state for tracers.
-///	</summary>
-#if defined(UNIFORM_DIFFUSION)
-#define TRACER_REFERENCE_STATE
-#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 

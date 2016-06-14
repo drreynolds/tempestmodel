@@ -18,6 +18,7 @@
 
 #include "Model.h"
 #include "GridGLL.h"
+#include "Defines.h"
 
 #include "Announce.h" 
 
@@ -34,7 +35,7 @@ extern "C" {
 		double * dt,
 		double * z,
 		int * nz,
-		double * rainnc);
+		double * precl);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -151,7 +152,16 @@ void KesslerPhysics::Perform(
 			// Store virtual potential temperature on levels
 			} else {
 				for (int k = 0; k < nRElements; k++) {
-					m_dThetaVNode[k] = dataNode[TIx][k][i][j];
+#if defined(FORMULATION_THETA)
+					m_dThetaVNode[k] =
+						dataNode[TIx][k][i][j];
+#elif defined(FORMULATION_RHOTHETA_PI)
+					m_dThetaVNode[k] =
+						dataNode[TIx][k][i][j]
+						/ dataNode[RIx][k][i][j];
+#else
+					_EXCEPTIONT("Invalid FORMULATION");
+#endif
 				}
 			}
 
@@ -206,7 +216,7 @@ void KesslerPhysics::Perform(
 				m_dPk[k] = dTv / m_dThetaVNode[k];
 			}
 
-			double dRainNc = 0.0;
+			double dPrecL = 0.0;
 			kessler_(
 				&(m_dTheta[0]),
 				&(m_dQv[0]),
@@ -217,10 +227,23 @@ void KesslerPhysics::Perform(
 				&(dDeltaT),
 				&(m_dZc[0]),
 				&(nRElements),
-				&(dRainNc));
+				&(dPrecL));
 
 			// Store accumualted precipitation
-			dataUserData2D[0][i][j] += dRainNc;
+			dataUserData2D[0][i][j] += dPrecL * dDeltaT;
+
+			// Update mass variables
+			for (int k = 0; k < nRElements; k++) {
+
+				// Moist density
+				dataNode[RIx][k][i][j] =
+					m_dRho[k] / (1.0 - m_dQv[k] - m_dQc[k] - m_dQr[k]);
+
+				// Virtual potential temperature
+				dataTracer[0][k][i][j] = m_dQv[k] * dataNode[RIx][k][i][j];
+				dataTracer[1][k][i][j] = m_dQc[k] * dataNode[RIx][k][i][j];
+				dataTracer[2][k][i][j] = m_dQr[k] * dataNode[RIx][k][i][j];
+			}
 
 			// Remap virtual potential temperature tendency to interfaces
 			if (pGridGLL->GetVarLocation(TIx) == DataLocation_REdge) {
@@ -241,25 +264,20 @@ void KesslerPhysics::Perform(
 					dataREdge[TIx][k][i][j] -= m_dThetaVREdge[k];
 				}
 
-			// Update thetaV on nodes
+			// Update thetaV on levels
 			} else {
 				for (int k = 0; k < nRElements; k++) {
+#if defined(FORMULATION_THETA)
 					dataNode[TIx][k][i][j] =
 						m_dTheta[k] * (1.0 + 0.61 * m_dQv[k]);
+#elif defined(FORMULATION_RHOTHETA_PI)
+					dataNode[TIx][k][i][j] =
+						dataNode[RIx][k][i][j]
+						* m_dTheta[k] * (1.0 + 0.61 * m_dQv[k]);
+#else
+					_EXCEPTIONT("Invalid FORMULATION");
+#endif
 				}
-			}
-
-			// Update mass variables
-			for (int k = 0; k < nRElements; k++) {
-
-				// Moist density
-				dataNode[RIx][k][i][j] =
-					m_dRho[k] / (1.0 - m_dQv[k] - m_dQc[k] - m_dQr[k]);
-
-				// Virtual potential temperature
-				dataTracer[0][k][i][j] = m_dQv[k] * dataNode[RIx][k][i][j];
-				dataTracer[1][k][i][j] = m_dQc[k] * dataNode[RIx][k][i][j];
-				dataTracer[2][k][i][j] = m_dQr[k] * dataNode[RIx][k][i][j];
 			}
 		}
 		}
