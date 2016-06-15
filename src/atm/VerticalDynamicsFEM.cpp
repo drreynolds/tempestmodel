@@ -1577,24 +1577,6 @@ void VerticalDynamicsFEM::StepImplicit(
 			}
 #endif
 
-#if defined(EXPLICIT_VERTICAL_VELOCITY_ADVECTION)
-			// Verify vertical velocity is untouched by update
-			if (pGrid->GetVarLocation(WIx) == DataLocation_REdge) {
-				for (int k = 0; k <= pGrid->GetRElements(); k++) {
-					if (fabs(m_dSoln[VecFIx(FWIx, k)] - dataInitialREdge[WIx][k][iA][iB]) > 1.0e-12) {
-						_EXCEPTIONT("Logic error");
-					}
-				}
-
-			} else {
-				for (int k = 0; k < pGrid->GetRElements(); k++) {
-					if (fabs(m_dSoln[VecFIx(FWIx, k)] - dataInitialNode[WIx][k][iA][iB]) > 1.0e-12) {
-						_EXCEPTIONT("Logic error");
-					}
-				}
-			}
-
-#else
 			// Copy over W
 			if (pGrid->GetVarLocation(WIx) == DataLocation_REdge) {
 				for (int k = 0; k <= pGrid->GetRElements(); k++) {
@@ -1607,7 +1589,6 @@ void VerticalDynamicsFEM::StepImplicit(
 						m_dSoln[VecFIx(FWIx, k)];
 				}
 			}
-#endif
 
 			// Copy over Rho
 			if (pGrid->GetVarLocation(RIx) == DataLocation_REdge) {
@@ -3470,11 +3451,14 @@ void VerticalDynamicsFEM::BuildJacobianF(
 		int m = iDiffREdgeToNodeBegin[k];
 		for (; m < iDiffREdgeToNodeEnd[k]; m++) {
 
+			double dFluxCoeff = 
+				dDiffREdgeToNode[k][m]
+				* m_dColumnJacobianREdge[m]
+				* m_dColumnInvJacobianNode[k];
+
 			if ((m != 0) && (m != nRElements)) {
 				dDG[MatFIx(FWIx, m, FPIx, k)] +=
-					dDiffREdgeToNode[k][m]
-					* m_dColumnInvJacobianREdge[m]
-					* m_dColumnJacobianNode[k]
+					dFluxCoeff
 					* m_dStateREdge[PIx][m]
 					* m_dColumnContraMetricXiREdge[m][2]
 					* m_dColumnDerivRREdge[m][2];
@@ -3484,9 +3468,7 @@ void VerticalDynamicsFEM::BuildJacobianF(
 			for (; n < iInterpNodeToREdgeEnd[m]; n++) {
 
 				dDG[MatFIx(FPIx, n, FPIx, k)] +=
-					dDiffREdgeToNode[k][m]
-					* m_dColumnJacobianREdge[m]
-					* m_dColumnInvJacobianNode[k]
+					dFluxCoeff
 					* dInterpNodeToREdge[m][n]
 					* m_dXiDotREdge[m];
 			}
@@ -3694,11 +3676,14 @@ void VerticalDynamicsFEM::BuildJacobianF(
 			int m = iDiffREdgeToNodeBegin[k];
 			for (; m < iDiffREdgeToNodeEnd[k]; m++) {
 
+				double dFluxCoeff = 
+					dDiffREdgeToNode[k][m]
+					* m_dColumnJacobianREdge[m]
+					* m_dColumnInvJacobianNode[k];
+
 				if ((m != 0) && (m != nRElements)) {
 					dDG[MatFIx(FWIx, m, FRIx, k)] +=
-						dDiffREdgeToNode[k][m]
-						* m_dColumnInvJacobianREdge[m]
-						* m_dColumnJacobianNode[k]
+						dFluxCoeff
 						* m_dStateREdge[RIx][m]
 						* m_dColumnContraMetricXiREdge[m][2]
 						* m_dColumnDerivRREdge[m][2];
@@ -3708,9 +3693,7 @@ void VerticalDynamicsFEM::BuildJacobianF(
 				for (; n < iInterpNodeToREdgeEnd[m]; n++) {
 
 					dDG[MatFIx(FRIx, n, FRIx, k)] +=
-						dDiffREdgeToNode[k][m]
-						* m_dColumnJacobianREdge[m]
-						* m_dColumnInvJacobianNode[k]
+						dFluxCoeff
 						* dInterpNodeToREdge[m][n]
 						* m_dXiDotREdge[m];
 				}
