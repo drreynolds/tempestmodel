@@ -20,8 +20,8 @@
 // require SUNDIALS for compilation
 #ifdef USE_SUNDIALS
 
-#define DEBUG_OUTPUT
-#define STATISTICS_OUTPUT
+//#define DEBUG_OUTPUT
+//#define STATISTICS_OUTPUT
 
 //#define DSS_INPUT
 #define DSS_OUTPUT
