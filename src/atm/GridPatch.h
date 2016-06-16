@@ -741,7 +741,7 @@ public:
 
 		return m_dataContraMetricXiREdge;
 	}
-
+/*
 	///	<summary>
 	///		Get the components of the covariant metric (alpha)
 	///	</summary>
@@ -774,7 +774,7 @@ public:
 
 		return m_dataCovMetricXi;
 	}
-
+*/
  	///	<summary>
 	///		Get the vertical coordinate transform (derivatives of the
 	///		radius) at nodes.
@@ -1342,7 +1342,7 @@ protected:
 	///		Contravariant metric (xi) components (Geometric).
 	///	</summary>
 	DataArray4D<double> m_dataContraMetricXi;
-
+/*
 	///	<summary>
 	///		Covariant metric (alpha) components (Geometric).
 	///	</summary>
@@ -1357,7 +1357,7 @@ protected:
 	///		Covariant metric (xi) components (Geometric).
 	///	</summary>
 	DataArray4D<double> m_dataCovMetricXi;
-
+*/
 	///	<summary>
 	///		Contravariant metric (alpha) components on interfaces (Geometric).
 	///	</summary>

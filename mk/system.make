@@ -55,7 +55,11 @@ else ifeq ($(UNAME),Linux)
   ifeq ($(HOSTNAME),yslogin6)
     SYSTEM= YELLOWSTONE
     SYSTEM_MAKEFILE= yellowstone.make
-  endif 
+  endif
+  # ifeq ($(SYSTEM),)
+  #   SYSTEM= AGRI
+  #   SYSTEM_MAKEFILE= agri.make
+  # endif   
 endif
 
 include $(TEMPESTBASEDIR)/mk/system/$(SYSTEM_MAKEFILE)
