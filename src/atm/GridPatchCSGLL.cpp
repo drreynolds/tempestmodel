@@ -815,11 +815,9 @@ void GridPatchCSGLL::EvaluateTestCase(
 				m_dataRefStateNode[c][k][i][j] = dPointwiseRefState[c];
 			}
 
-#if defined(TRACER_REFERENCE_STATE)
 			for (int c = 0; c < dPointwiseRefTracers.GetRows(); c++) {
 				m_dataRefTracers[c][k][i][j] = dPointwiseRefTracers[c];
 			}
-#endif
 
 			// Transform reference velocities
 			dUlon = m_dataRefStateNode[0][k][i][j];
@@ -1272,6 +1270,10 @@ void GridPatchCSGLL::InterpolateData(
 	int nComponents = 0;
 	int nRElements = m_grid.GetRElements();
 
+	// Discretization type
+	Grid::VerticalDiscretization eVerticalDiscType =
+		m_grid.GetVerticalDiscretization();
+
 	// State Data: Perform interpolation on all variables
 	if (eDataType == DataType_State) {
 		nComponents = m_datavecStateNode[0].GetSize(0);
@@ -1297,6 +1299,11 @@ void GridPatchCSGLL::InterpolateData(
 	// Temperature Data
 	} else if (eDataType == DataType_Temperature) {
 		nComponents = 1;
+
+	// Surface Pressure Data
+	} else if (eDataType == DataType_SurfacePressure) {
+		nComponents = 1;
+		nRElements = 1;
 
 	// 2D User Data
 	} else if (eDataType == DataType_Auxiliary2D) {
@@ -1339,24 +1346,42 @@ void GridPatchCSGLL::InterpolateData(
 		LinearColumnInterpFEM opInterp;
 
 		if (nRElements != 1) {
-			if (eDataLocation == DataLocation_Node) {
-				opInterp.Initialize(
-					LinearColumnInterpFEM::InterpSource_Levels,
-					m_nVerticalOrder,
-					m_grid.GetREtaLevels(),
-					m_grid.GetREtaInterfaces(),
-					dREta);
 
-			} else if (eDataLocation == DataLocation_REdge) {
-				opInterp.Initialize(
-					LinearColumnInterpFEM::InterpSource_Interfaces,
-					m_nVerticalOrder,
-					m_grid.GetREtaLevels(),
-					m_grid.GetREtaInterfaces(),
-					dREta);
+			// Finite element interpolation
+			if (eVerticalDiscType ==
+				Grid::VerticalDiscretization_FiniteElement
+			) {
+				if (eDataLocation == DataLocation_Node) {
+					opInterp.Initialize(
+						LinearColumnInterpFEM::InterpSource_Levels,
+						m_nVerticalOrder,
+						m_grid.GetREtaLevels(),
+						m_grid.GetREtaInterfaces(),
+						dREta);
 
+				} else if (eDataLocation == DataLocation_REdge) {
+					opInterp.Initialize(
+						LinearColumnInterpFEM::InterpSource_Interfaces,
+						m_nVerticalOrder,
+						m_grid.GetREtaLevels(),
+						m_grid.GetREtaInterfaces(),
+						dREta);
+
+				} else {
+					_EXCEPTIONT("Invalid DataLocation");
+				}
+
+			// Finite volume interpolation
+			} else if (
+				eVerticalDiscType ==
+				Grid::VerticalDiscretization_FiniteVolume
+			) {
+#pragma message "Finite volume interpolation not implemented correctly"
+				opInterp.InitializeIdentity(nRElements);
+
+			// Invalid vertical discretization type
 			} else {
-				_EXCEPTIONT("Invalid DataLocation");
+				_EXCEPTIONT("Invalid VerticalDiscretization");
 			}
 
 		} else {
@@ -1405,6 +1430,9 @@ void GridPatchCSGLL::InterpolateData(
 
 		} else if (eDataType == DataType_Temperature) {
 			pData.AttachToData(&(m_dataTemperature[0][0][0]));
+
+		} else if (eDataType == DataType_SurfacePressure) {
+			pData.AttachToData(&(m_dataSurfacePressure[0][0]));
 
 		} else if (eDataType == DataType_Auxiliary2D) {
 			pData.AttachToData(&(m_dataUserData2D[c][0][0]));

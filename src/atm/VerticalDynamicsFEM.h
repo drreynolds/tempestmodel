@@ -56,10 +56,10 @@ public:
 		Model & model,
 		int nHorizontalOrder,
 		int nVerticalOrder,
-		int nHypervisOrder = 0,
-		bool fFullyExplicit = false,
-		bool fUseReferenceState = true,
-		bool fForceMassFluxOnLevels = false
+		int nHypervisOrder,
+		bool fFullyExplicit,
+		bool fUseReferenceState,
+		bool fForceMassFluxOnLevels
 	);
 
 	///	<summary>
@@ -151,16 +151,6 @@ public:
 	///		Advance an explicit update of implicit terms one time
 	///	</summary>
 	virtual void StepImplicitTermsExplicitly(
-		int iDataInitial,
-		int iDataUpdate,
-		const Time & time,
-		double dDeltaT
-	);
-
-	///	<summary>
-	///		Force a full explicit update one time only
-	///	</summary>
-	virtual void ForceStepExplicit(
 		int iDataInitial,
 		int iDataUpdate,
 		const Time & time,

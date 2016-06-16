@@ -275,8 +275,7 @@ void GridPatch::InitializeDataLocal(
 		m_grid.GetRElements()+1,
 		m_box.GetATotalWidth(),
 		m_box.GetBTotalWidth());
-	
-#if defined(TRACER_REFERENCE_STATE)
+
 	m_dataRefTracers.SetDataType(DataType_Tracers);
 	m_dataRefTracers.SetDataLocation(DataLocation_Node);
 	m_dataRefTracers.SetSize(
@@ -284,7 +283,6 @@ void GridPatch::InitializeDataLocal(
 		m_grid.GetRElements(),
 		m_box.GetATotalWidth(),
 		m_box.GetBTotalWidth());
-#endif
 
 	// Rayleigh friction strength
 	m_dataRayleighStrengthNode.SetDataType(DataType_None);
@@ -337,10 +335,7 @@ void GridPatch::InitializeDataLocal(
 	m_dcGeometric.PushDataChunk(&m_dataZInterfaces);
 	m_dcGeometric.PushDataChunk(&m_dataRefStateNode);
 	m_dcGeometric.PushDataChunk(&m_dataRefStateREdge);
-
-#if defined(TRACER_REFERENCE_STATE)
 	m_dcGeometric.PushDataChunk(&m_dataRefTracers);
-#endif
 
 	m_dcGeometric.PushDataChunk(&m_dataRayleighStrengthNode);
 	m_dcGeometric.PushDataChunk(&m_dataRayleighStrengthREdge);
@@ -457,12 +452,20 @@ void GridPatch::InitializeDataLocal(
 		m_box.GetATotalWidth(),
 		m_box.GetBTotalWidth());
 
+	// Surface pressure data
+	m_dataSurfacePressure.SetDataType(DataType_SurfacePressure);
+	m_dataSurfacePressure.SetDataLocation(DataLocation_None);
+	m_dataSurfacePressure.SetSize(
+		m_box.GetATotalWidth(),
+		m_box.GetBTotalWidth());
+
 	// Put auxiliary date into DataContainer
 	m_dcAuxiliary.PushDataChunk(&m_dataPressure);
 	m_dcAuxiliary.PushDataChunk(&m_dataDxPressure);
 	m_dcAuxiliary.PushDataChunk(&m_dataVorticity);
 	m_dcAuxiliary.PushDataChunk(&m_dataDivergence);
 	m_dcAuxiliary.PushDataChunk(&m_dataTemperature);
+	m_dcAuxiliary.PushDataChunk(&m_dataSurfacePressure);
 
 	// 2D User data
 	if (metaUserData.GetUserData2DItemCount() != 0) {
@@ -537,6 +540,47 @@ void GridPatch::DeinitializeData() {
 	m_dataRayleighStrengthNode.Deallocate();
 	m_dataRayleighStrengthREdge.Deallocate();
 */
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::ComputeSurfacePressure(
+	int iDataIndex
+) {
+	const PhysicalConstants & phys = m_grid.GetModel().GetPhysicalConstants();
+
+	// Indices of EquationSet variables
+	const int UIx = 0;
+	const int VIx = 1;
+	const int PIx = 2;
+	const int WIx = 3;
+	const int RIx = 4;
+
+	if (m_grid.GetModel().GetEquationSet().GetComponents() < 5) {
+		_EXCEPTIONT("Invalid EquationSet.");
+	}
+
+	int k;
+	int i;
+	int j;
+
+	// Calculate hydrostatic surface pressure on nodes
+	const DataArray4D<double> & dataNode = m_datavecStateNode[iDataIndex];
+
+	for (i = m_box.GetAInteriorBegin(); i < m_box.GetAInteriorEnd(); i++) {
+	for (j = m_box.GetBInteriorBegin(); j < m_box.GetBInteriorEnd(); j++) {
+
+		m_dataSurfacePressure[i][j] = 0.0;
+
+		for (k = 0; k < m_grid.GetRElements(); k++) {
+			m_dataSurfacePressure[i][j] +=
+				phys.GetG()
+				* dataNode[RIx][k][i][j]
+				* (m_dataZInterfaces[k+1][i][j]
+					- m_dataZInterfaces[k][i][j]);
+		}
+	}
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -84,11 +84,24 @@ public:
 		m_eDataType(DataType_Default),
 		m_eDataLocation(DataLocation_Default)
 	{
-		m_sSize[0] = 0;
-		m_sSize[1] = 0;
-		m_sSize[2] = 0;
+		if (da.IsAttached()) {
+			m_sSize[0] = 0;
+			m_sSize[1] = 0;
+			m_sSize[2] = 0;
 
-		Assign(da);
+			Assign(da);
+
+		} else {
+			m_sSize[0] = da.m_sSize[0];
+			m_sSize[1] = da.m_sSize[1];
+			m_sSize[2] = da.m_sSize[2];
+
+			m_fOwnsData = true;
+			m_eDataType = da.m_eDataType;
+			m_eDataLocation = da.m_eDataLocation;
+
+			m_data1D = NULL;
+		}
 	}
 
 	///	<summary>
@@ -420,17 +433,28 @@ public:
 	///	<summary>
 	///		Subscript DSEL operator.
 	///	</summary>
+#if defined(__INTEL_COMPILER)
+	inline Subscript<DataArray3D<T> const, 2, 3>
+	operator[](std::ptrdiff_t idx) const
+#else
 	inline Subscript<DataArray3D<T> const, 2, 3>
 	operator[](std::ptrdiff_t idx) const noexcept
+#endif
 	{
 		Subscript<DataArray3D<T> const, 3, 3> s(*this);
 		return s[idx];
 	}
+
 	///	<summary>
 	///		Subscript DSEL operator.
 	///	</summary>
+#if defined(__INTEL_COMPILER)
+	inline Subscript<DataArray3D<T>, 2, 3>
+	operator[](std::ptrdiff_t idx)
+#else
 	inline Subscript<DataArray3D<T>, 2, 3>
 	operator[](std::ptrdiff_t idx) noexcept
+#endif
 	{
 		Subscript<DataArray3D<T>, 3, 3> s(*this);
 		return s[idx];
@@ -439,16 +463,26 @@ public:
 	///	<summary>
 	///		Parenthetical array accessor.
 	///	</summary>
+#if defined(__INTEL_COMPILER)
+	inline T const&
+	operator()(std::array<std::ptrdiff_t, 3> indices) const
+#else
 	inline T const&
 	operator()(std::array<std::ptrdiff_t, 3> indices) const noexcept
+#endif
 	{
 		return (*this)(indices[0], indices[1], indices[2]);
 	}
 	///	<summary>
 	///		Parenthetical array accessor.
 	///	</summary>
+#if defined(__INTEL_COMPILER)
+	inline T&
+	operator()(std::array<std::ptrdiff_t, 3> indices)
+#else
 	inline T&
 	operator()(std::array<std::ptrdiff_t, 3> indices) noexcept
+#endif
 	{
 		return (*this)(indices[0], indices[1], indices[2]);
 	}
@@ -469,16 +503,26 @@ public:
 	///	<summary>
 	///		Parenthetical array accessor (unit-stride slicer).
 	///	</summary>
+#if defined(__INTEL_COMPILER)
+	inline T const*
+	operator()(std::array<std::ptrdiff_t, 2> indices) const
+#else
 	inline T const*
 	operator()(std::array<std::ptrdiff_t, 2> indices) const noexcept
+#endif
 	{
 		return (*this)(indices[0], indices[1]);
 	}
 	///	<summary>
 	///		Parenthetical array accessor (unit-stride slicer).
 	///	</summary>
+#if defined(__INTEL_COMPILER)
+	inline T*
+	operator()(std::array<std::ptrdiff_t, 2> indices)
+#else
 	inline T*
 	operator()(std::array<std::ptrdiff_t, 2> indices) noexcept
+#endif
 	{
 		return (*this)(indices[0], indices[1]);
 	}
@@ -486,13 +530,22 @@ public:
 	///	<summary>
 	///		Parenthetical array accessor (unit-stride slicer).
 	///	</summary>
+#if defined(__INTEL_COMPILER)
+	inline T const* operator()(size_t i, size_t j) const {
+#else
 	inline T const* operator()(size_t i, size_t j) const noexcept {
+#endif
 		return m_data1D + i * m_sSize[1] * m_sSize[2] + j * m_sSize[2];
 	}
+
 	///	<summary>
 	///		Parenthetical array accessor (unit-stride slicer).
 	///	</summary>
+#if defined(__INTEL_COMPILER)
+	inline T* operator()(size_t i, size_t j) {
+#else
 	inline T* operator()(size_t i, size_t j) noexcept {
+#endif
 		return m_data1D + i * m_sSize[1] * m_sSize[2] + j * m_sSize[2];
 	}
 
