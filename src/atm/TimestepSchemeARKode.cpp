@@ -1120,10 +1120,15 @@ void TimestepSchemeARKode::SetButcherTable()
     } else if (m_strButcherTable == "ars233") {      
 
       // ------------------------------------------------------------------------
-      // ARS233 - 2 implicit stages, 3 explicit stages, 2nd order
+      // ARS233 - 2 implicit stages, 3 explicit stages, 3rd order
       //
       // Ascher, Ruuth, and Spiteri, Implicit-explicit Runge-Kutta methods for 
       // time-dependent partial differential equations, 1997. (section 2.4)
+      //
+      // Note: Weller, Lock, and Wood, Runge-Kutta IMEX schemes for the 
+      // Horizontally Explicit/vertically Implicit (HEVI) soltuion of wave 
+      // equations, 2013 uses different table for ARS233 than the Ascher, Ruuth,
+      // and Spiteri paper. 
       // ------------------------------------------------------------------------
       Announce("Timestepping with ARS233");
       
@@ -1143,20 +1148,20 @@ void TimestepSchemeARKode::SetButcherTable()
       // Implicit table
       pci[0] = 0.0;
       pci[1] = gamma;
-      pci[2] = 1.0;
+      pci[2] = 1.0 - gamma;
       
       pAi[0] = 0.0; pAi[1] = 0.0;               pAi[2] = 0.0;
       pAi[3] = 0.0; pAi[4] = gamma;             pAi[5] = 0.0;
       pAi[6] = 0.0; pAi[7] = 1.0 - 2.0 * gamma; pAi[8] = gamma;
 
       pbi[0] = 0.0;
-      pbi[1] = gamma;
-      pbi[2] = 1.0 - gamma;     
+      pbi[1] = 0.5;
+      pbi[2] = 0.5;     
 
       // Explicit table
       pce[0] = 0.0;
       pce[1] = gamma;
-      pce[2] = 1.0;
+      pce[2] = 1.0 - gamma;
 
       pAe[0] = 0.0;         pAe[1] = 0.0;               pAe[2] = 0.0;
       pAe[3] = gamma;       pAe[4] = 0.0;               pAe[5] = 0.0;
@@ -1199,7 +1204,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbi  = new double [iStages];
       pbe  = new double [iStages];
       
-      double gamma = (2.0 - std::sqrt(2.0))/2.0;
+      double gamma = 1.0 - 1.0/std::sqrt(2.0); // (2-sqrt(2))/2
       double delta = -2.0 * std::sqrt(2.0) / 3.0;
       
       // Implicit table
@@ -1246,7 +1251,7 @@ void TimestepSchemeARKode::SetButcherTable()
       //          L-stable
       //
       // Ascher, Ruuth, and Spiteri, Implicit-explicit Runge-Kutta methods for 
-      // time-dependent partial differential equations, 1997. (section 2.5)
+      // time-dependent partial differential equations, 1997. (section 2.6)
       // ------------------------------------------------------------------------
       Announce("Timestepping with ARS222");
       
@@ -1261,7 +1266,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbi  = new double [iStages];
       pbe  = new double [iStages];
       
-      double gamma = (2.0 - std::sqrt(2.0))/2.0;
+      double gamma = 1.0 - 1.0/std::sqrt(2.0); // (2-sqrt(2))/2
       double delta = 1.0 - 1.0/(2.0*gamma);
       
       // Implicit table
@@ -1470,10 +1475,10 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe  = new double [iStages];
       
       double gamma = 1.0 - 1.0/std::sqrt(2.0);
-      double alpha = 0.5 + std::sqrt(2.0)/3.0;
-      double delta = std::sqrt(2.0)/4.0;
+      double alpha = 1.0/6.0 * (3.0 + 2.0 * std::sqrt(2.0)); // 0.5 + sqrt(2)/3
+      double delta = 1.0 / (2.0 * std::sqrt(2.0)); // sqrt(2)/4
 
-      double twogamma = 2.0 - std::sqrt(2.0);
+      double twogamma = 2.0 * gamma; // 2 - sqrt(2)
       
       // Implicit table
       pci[0] = 0.0;
@@ -1518,7 +1523,7 @@ void TimestepSchemeARKode::SetButcherTable()
       // ssp2(2,2,2) - 2 implicit stages, 2 explicit stages, 2nd order
       // 
       // Pareschi and Russo, Implicit-explicit Runge-Kutta schemes and 
-      // application to hyperbolic systems with relaxation, 2005.      
+      // application to hyperbolic systems with relaxation, 2005. (Table 2)     
       // ------------------------------------------------------------------------
       Announce("Timestepping with SSP2(2,2,2)");
       
@@ -1572,7 +1577,7 @@ void TimestepSchemeARKode::SetButcherTable()
       // ssp2(3,3,2)a - 3 implicit stages, 3 explicit stages, 2nd order
       //
       // Pareschi and Russo, Implicit-explicit Runge-Kutta schemes and 
-      // application to hyperbolic systems with relaxation, 2005.      
+      // application to hyperbolic systems with relaxation, 2005. (Table 4)
       // ------------------------------------------------------------------------
       Announce("Timestepping with SSP2(3,3,2)a");
       
@@ -1627,10 +1632,10 @@ void TimestepSchemeARKode::SetButcherTable()
     } else if (m_strButcherTable == "ssp3_332") {
 
       // ------------------------------------------------------------------------
-      // ssp3(3,3,2) - 3 implicit stages, 3 explicit stages, 2nd order
+      // ssp3(3,3,2) - 3 implicit stages, 3 explicit stages, 2nd order, L-stable
       //
       // Pareschi and Russo, Implicit-explicit Runge-Kutta schemes and 
-      // application to hyperbolic systems with relaxation, 2005.
+      // application to hyperbolic systems with relaxation, 2005. (Table 5)
       // ------------------------------------------------------------------------
       Announce("Timestepping with SSP3(3,3,2)");
       
@@ -1687,10 +1692,10 @@ void TimestepSchemeARKode::SetButcherTable()
     } else if (m_strButcherTable == "ssp3_433") {
 
       // ------------------------------------------------------------------------
-      // ssp3(4,3,3) - 4 implicit stages, 3 explicit stages, 3rd order
+      // ssp3(4,3,3) - 4 implicit stages, 3 explicit stages, 3rd order, L-stable
       //
       // Pareschi and Russo, Implicit-explicit Runge-Kutta schemes and 
-      // application to hyperbolic systems with relaxation, 2005.      
+      // application to hyperbolic systems with relaxation, 2005. (Table 6) 
       // ------------------------------------------------------------------------
       Announce("Timestepping with SSP3(4,3,3)");
       
@@ -1705,9 +1710,9 @@ void TimestepSchemeARKode::SetButcherTable()
       pbi  = new double [iStages];
       pbe  = new double [iStages];
 
-      double alpha = 0.2416942608; 
-      double beta  = 0.0604235652;
-      double eta   = 0.1291528696;
+      double alpha = 0.24169426078821; 
+      double beta  = 0.06042356519705;
+      double eta   = 0.12915286960590;
       double delta = 0.5 - beta - eta - alpha;    
 
       // Implicit table
