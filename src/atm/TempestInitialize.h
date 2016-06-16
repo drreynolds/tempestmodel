@@ -102,7 +102,8 @@ struct _TempestCommandLineVariables {
 	int iARKode_LinIters;
     std::string strARKode_ButcherTable;
 	bool fARKode_Diagnostics;
-    bool fARKode_UsePreconditioning;
+        bool fARKode_UsePreconditioning;
+        bool fARKode_ColumnSolver;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -146,7 +147,8 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0); \
 	CommandLineString(_tempestvars.strARKode_ButcherTable, "arkode_butchertable", ""); \
 	CommandLineBool(_tempestvars.fARKode_Diagnostics, "arkode_diagnostics"); \
-	CommandLineBool(_tempestvars.fARKode_UsePreconditioning, "arkode_usepreconditioning");
+	CommandLineBool(_tempestvars.fARKode_UsePreconditioning, "arkode_usepreconditioning"); \
+	CommandLineBool(_tempestvars.fARKode_ColumnSolver, "arkode_columnsolver");
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -272,6 +274,7 @@ void _TempestSetupMethodOfLines(
 		ARKodeVars.ButcherTable       = vars.strARKode_ButcherTable;
 		ARKodeVars.WriteDiagnostics   = vars.fARKode_Diagnostics;
 		ARKodeVars.UsePreconditioning = vars.fARKode_UsePreconditioning,
+		ARKodeVars.ColumnSolver       = vars.fARKode_ColumnSolver,
 
 		model.SetTimestepScheme(
 			new TimestepSchemeARKode(model, ARKodeVars));

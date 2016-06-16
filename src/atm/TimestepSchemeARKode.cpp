@@ -20,8 +20,8 @@
 // require SUNDIALS for compilation
 #ifdef USE_SUNDIALS
 
-//#define DEBUG_OUTPUT
-//#define STATISTICS_OUTPUT
+#define DEBUG_OUTPUT
+#define STATISTICS_OUTPUT
 
 //#define DSS_INPUT
 #define DSS_OUTPUT
@@ -35,7 +35,7 @@
 #include "VerticalDynamicsFEM.h"
 #include "Announce.h"
 
-void * TimestepSchemeARKode::ARKodeMem = NULL;
+void * TimestepSchemeARKode::arkode_mem = NULL;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -58,14 +58,15 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_iNonlinIters(ARKodeVars.NonlinIters),
 	m_iLinIters(ARKodeVars.LinIters),
 	m_fWriteDiagnostics(ARKodeVars.WriteDiagnostics),
-	m_fUsePreconditioning(ARKodeVars.UsePreconditioning)
+	m_fUsePreconditioning(ARKodeVars.UsePreconditioning),
+	m_fColumnSolver(ARKodeVars.ColumnSolver)
 {
         // error flag
         int ierr = 0;
 
         // Allocate ARKode memory
-        ARKodeMem = ARKodeCreate();
-	if (ARKodeMem == NULL) _EXCEPTIONT("ERROR: ARKodeCreate returned NULL");
+        arkode_mem = ARKodeCreate();
+	if (arkode_mem == NULL) _EXCEPTIONT("ERROR: ARKodeCreate returned NULL");
 
 	// Set number of NVectors to use (default is 50)
 	ierr = SetMaxTempestNVectorRegistryLength(m_iNVectors);
@@ -115,11 +116,11 @@ void TimestepSchemeARKode::Initialize() {
 
   // Initialize ARKode
   if (m_fFullyExplicit) {
-    ierr = ARKodeInit(ARKodeMem, ARKodeFullRHS, NULL, dCurrentT, m_Y);
+    ierr = ARKodeInit(arkode_mem, ARKodeFullRHS, NULL, dCurrentT, m_Y);
   } else if (m_fFullyImplicit) {
-    ierr = ARKodeInit(ARKodeMem, NULL, ARKodeFullRHS, dCurrentT, m_Y);
+    ierr = ARKodeInit(arkode_mem, NULL, ARKodeFullRHS, dCurrentT, m_Y);
   } else {
-    ierr = ARKodeInit(ARKodeMem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
+    ierr = ARKodeInit(arkode_mem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
   }
 
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeInit, ierr = %i",ierr);
@@ -128,11 +129,11 @@ void TimestepSchemeARKode::Initialize() {
   Time timeEndT = m_model.GetEndTime();
   double dEndT  = timeEndT.GetSeconds();
 
-  ierr = ARKodeSetStopTime(ARKodeMem, dEndT);
+  ierr = ARKodeSetStopTime(arkode_mem, dEndT);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetStopTime, ierr = %i",ierr);  
 
   // Set function to post process arkode steps
-  ierr = ARKodeSetPostprocessStepFn(ARKodeMem, ARKodePostProcessStep);
+  ierr = ARKodeSetPostprocessStepFn(arkode_mem, ARKodePostProcessStep);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetPostprocessStepFn, ierr = %i",ierr);
 
   // Set adaptive or fixed time stepping  
@@ -147,7 +148,7 @@ void TimestepSchemeARKode::Initialize() {
     Time timeDeltaT = m_model.GetDeltaT();
     double dDeltaT  = timeDeltaT.GetSeconds();
    
-    ierr = ARKodeSetFixedStep(ARKodeMem, dDeltaT);   
+    ierr = ARKodeSetFixedStep(arkode_mem, dDeltaT);   
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
   }
 
@@ -157,7 +158,7 @@ void TimestepSchemeARKode::Initialize() {
   }  
   
   // Specify tolerances
-  ierr = ARKodeSStolerances(ARKodeMem, m_dRelTol, m_dAbsTol);
+  ierr = ARKodeSStolerances(arkode_mem, m_dRelTol, m_dAbsTol);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSStolerances, ierr = %i",ierr);
 
   // Nonlinear Solver Settings
@@ -165,36 +166,54 @@ void TimestepSchemeARKode::Initialize() {
     
     if (m_fAAFP) { // Anderson accelerated fixed point solver
       
-      ierr = ARKodeSetFixedPoint(ARKodeMem, m_iAAFPAccelVec);
+      ierr = ARKodeSetFixedPoint(arkode_mem, m_iAAFPAccelVec);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedPoint, ierr = %i",ierr);
 
     } else { // Newton iteration
 
-      int precflag = PREC_NONE;
-      if (m_fUsePreconditioning)  precflag = PREC_RIGHT;
+      if (m_fColumnSolver) {
 
-      // Linear Solver Settings
-      ierr = ARKSpgmr(ARKodeMem, precflag, m_iLinIters);      
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
+        /* Set custom solver functions into ARKode memory structure, 
+           and set relevant parameters so that it is called appropriately */
+        ARKodeMem ark_mem;
+        //ark_mem = (ARKodeMem) arkode_mem;
+        ark_mem = static_cast<ARKodeMem>(arkode_mem);
+        ark_mem->ark_linit  = ARKodeColumnLInit;
+        ark_mem->ark_lsetup = ARKodeColumnLSetup;
+        ark_mem->ark_lsolve = ARKodeColumnLSolve;
+        ark_mem->ark_lfree  = ARKodeColumnLFree;
+        ark_mem->ark_lsolve_type = 4;
+        ark_mem->ark_setupNonNull = FALSE;
+        ark_mem->ark_lmem = NULL;
 
-      // Use preconditioning if requested
-      if (m_fUsePreconditioning) {
-	ierr = ARKSpilsSetPreconditioner(ARKodeMem, NULL, ARKodePreconditionerSolve);
-	if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetPreconditioner, ierr = %i",ierr);
-      }
-  
+      } else {
+
+        int precflag = PREC_NONE;
+        if (m_fUsePreconditioning)  precflag = PREC_RIGHT;
+
+        // Linear Solver Settings
+        ierr = ARKSpgmr(arkode_mem, precflag, m_iLinIters);      
+        if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
+
+        // Use preconditioning if requested
+        if (m_fUsePreconditioning) {
+          ierr = ARKSpilsSetPreconditioner(arkode_mem, NULL, ARKodePreconditionerSolve);
+          if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetPreconditioner, ierr = %i",ierr);
+        }
+
+      }  
     }
 
     // if negative nonlinear iterations are specified, switch to linear-implicit mode
     if (m_iNonlinIters < 0) {
       
-      ierr = ARKodeSetLinear(ARKodeMem, 1);
+      ierr = ARKodeSetLinear(arkode_mem, 1);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetLinear, ierr = %i",ierr);
       
       // otherwise, set the Max nonlinear solver iterations
     } else { 
       
-      ierr = ARKodeSetMaxNonlinIters(ARKodeMem, m_iNonlinIters);
+      ierr = ARKodeSetMaxNonlinIters(arkode_mem, m_iNonlinIters);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
     }
   }
@@ -211,7 +230,7 @@ void TimestepSchemeARKode::Initialize() {
       FILE * pFile;
       pFile = fopen("ARKode_Diagnostics.txt","w");
       
-      ierr = ARKodeSetDiagnostics(ARKodeMem, pFile);
+      ierr = ARKodeSetDiagnostics(arkode_mem, pFile);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetDiagnostics, ierr = %i",ierr);
     }
   }
@@ -260,7 +279,7 @@ void TimestepSchemeARKode::Step(
 
   // Adjust last time step size if using fixed step sizes
   if (!m_fDynamicStepSize && fLastStep) {
-    ierr = ARKodeSetFixedStep(ARKodeMem, dDeltaT);
+    ierr = ARKodeSetFixedStep(arkode_mem, dDeltaT);
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetFixedStep, ierr = %i",ierr);
   }
 
@@ -299,19 +318,19 @@ void TimestepSchemeARKode::Step(
 
     if (dNextT > dEndT) dNextT = dEndT;
 
-    ierr = ARKodeSetStopTime(ARKodeMem, dNextT);
+    ierr = ARKodeSetStopTime(arkode_mem, dNextT);
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetStopTime, ierr = %i",ierr);
   } else {
     stepmode = ARK_ONE_STEP;
   }
 
   // ARKode timestep
-  ierr = ARKode(ARKodeMem, dNextT, m_Y, &dCurrentT, stepmode);
+  ierr = ARKode(arkode_mem, dNextT, m_Y, &dCurrentT, stepmode);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
 
   // // With dynamic stepping, get the last step size to update model time
   // if (m_fDynamicStepSize) {
-  //   ierr = ARKodeGetLastStep(ARKodeMem, &m_dDynamicDeltaT);
+  //   ierr = ARKodeGetLastStep(arkode_mem, &m_dDynamicDeltaT);
   //   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
   // }
 
@@ -323,34 +342,49 @@ void TimestepSchemeARKode::Step(
     long int nsteps, expsteps, accsteps, step_attempts, nfe_evals, nfi_evals, nlinsetups, 
       netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
     realtype hinused, hlast, hcur, tcur;
-    ierr = ARKodeGetIntegratorStats(ARKodeMem, &nsteps, &expsteps, &accsteps, &step_attempts, 
+    ierr = ARKodeGetIntegratorStats(arkode_mem, &nsteps, &expsteps, &accsteps, &step_attempts, 
 				    &nfe_evals, &nfi_evals, &nlinsetups, &netfails, &hinused, 
 				    &hlast, &hcur, &tcur);
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetIntegratorStats, ierr = %i",ierr);
 
-    ierr = ARKodeGetNonlinSolvStats(ARKodeMem, &nniters, &nncfails);
+    ierr = ARKodeGetNonlinSolvStats(arkode_mem, &nniters, &nncfails);
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNonlinSolvStats, ierr = %i",ierr);
 
-    ierr = ARKSpilsGetNumPrecSolves(ARKodeMem, &npsolves);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNumPrecSolves, ierr = %i",ierr);
+    if (m_fColumnSolver) {
 
-    ierr = ARKSpilsGetNumLinIters(ARKodeMem, &nliters);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumLinIters, ierr = %i",ierr);
+      std::cout << std::endl
+                << "TimestepSchemeARKode::Step cumulative stats:\n"
+                << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
+                << "  step size: " << hlast << " previous, " << hcur << " next\n"
+                << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp\n" 
+                << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
+                << std::endl;
 
-    ierr = ARKSpilsGetNumConvFails(ARKodeMem, &nlcfails);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumConvFails, ierr = %i",ierr);
+    } else {
 
-    ierr = ARKSpilsGetNumRhsEvals(ARKodeMem, &nfevalsLS);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumRhsEvals, ierr = %i",ierr);
+      ierr = ARKSpilsGetNumPrecSolves(arkode_mem, &npsolves);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNumPrecSolves, ierr = %i",ierr);
 
-    std::cout << std::endl
-              << "TimestepSchemeARKode::Step cumulative stats:\n"
-              << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
-              << "  step size: " << hlast << " previous, " << hcur << " next\n"
-              << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp, " << nfevalsLS << " lin solve\n" 
-              << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
-              << "  linear: " << nliters << " iters, " << nlcfails << " fails, " << npsolves << " prec solves\n"
-              << std::endl;
+      ierr = ARKSpilsGetNumLinIters(arkode_mem, &nliters);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumLinIters, ierr = %i",ierr);
+
+      ierr = ARKSpilsGetNumConvFails(arkode_mem, &nlcfails);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumConvFails, ierr = %i",ierr);
+
+      ierr = ARKSpilsGetNumRhsEvals(arkode_mem, &nfevalsLS);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumRhsEvals, ierr = %i",ierr);
+
+      std::cout << std::endl
+                << "TimestepSchemeARKode::Step cumulative stats:\n"
+                << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
+                << "  step size: " << hlast << " previous, " << hcur << " next\n"
+                << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp, " << nfevalsLS << " lin solve\n" 
+                << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
+                << "  linear: " << nliters << " iters, " << nlcfails << " fails, " << npsolves << " prec solves\n"
+                << std::endl;
+
+    }
+
   }
 #endif
 
@@ -366,7 +400,7 @@ void TimestepSchemeARKode::Step(
       std::cout << std::endl
 		<< " Proc "
 		<< iRank
-		<< "N_Vector Registry Length After First Step: "
+		<< " N_Vector Registry Length After First Step: "
 		<< GetTempestNVectorRegistryLength()
 		<< std::endl;
     }
@@ -698,11 +732,131 @@ static int ARKodePreconditionerSolve(
   // Call column-wise linear solver (iZ holds RHS on input, solution on output)
   pVerticalDynamicsFEM->SolveImplicit(iY, iZ, timeT, gamma);
 
+
+  /*
+  // test for preconditioner accuracy
+  //   fill R with ones
+  N_VConst_Tempest(1.0, R);
+  //   perform solve using scaled time step of 1
+  pVerticalDynamicsFEM->SolveImplicit(iY, iR, timeT, 1.0);
+  //   perform finite-difference matrix-vector product
+  N_Vector V = N_VClone_Tempest(R);
+  double sigma = 1.e-8;
+  N_VLinearSum_Tempest(1.0, Y, sigma, R, V);
+  N_Vector FV = N_VClone_Tempest(R);
+  ARKodeImplicitRHS(time, V, FV, user_data);
+  N_VLinearSum_Tempest(1.0/sigma, FV, -1.0/sigma, F, Z);   // Z = (F(Y+sigma*R)-F(Y))/sigma
+  N_VLinearSum_Tempest(1.0, R, -1.0, Z, V);                // V = R-Z = (I-Ji)*R = (I-Ji)*(I-Ji)^{-1}*R
+  N_VConst_Tempest(1.0, R);
+  N_VLinearSum_Tempest(1.0, R, -1.0, V, Z);                // Z = R-V = R - (I-Ji)*(I-Ji)^{-1}*R
+  printf("Estimated Preconditioner error = %g\n",sqrt(N_VDotProd_Tempest(Z, Z)));
+  N_VDestroy_Tempest(V);
+  N_VDestroy_Tempest(FV);
+  */
+
 #ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");
 #endif
 
   return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+// this function does nothing since all relevant initialization done earlier
+int ARKodeColumnLInit(ARKodeMem ark_mem) {
+
+#ifdef DEBUG_OUTPUT
+  AnnounceStartBlock("ARKodeColumnLInit Start");
+#endif
+
+#ifdef DEBUG_OUTPUT
+  AnnounceEndBlock("Done");
+#endif
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+// this function is a placeholder only (should not be called)
+int ARKodeColumnLSetup(
+        ARKodeMem ark_mem,
+        int convfail,
+        N_Vector ypred,
+        N_Vector fpred,
+        booleantype *jcurPtr,
+        N_Vector vtemp1,
+        N_Vector vtemp2,
+        N_Vector vtemp3
+) {
+
+#ifdef DEBUG_OUTPUT
+  AnnounceStartBlock("ARKodeColumnLSetup Start");
+#endif
+
+#ifdef DEBUG_OUTPUT
+  AnnounceEndBlock("Done");
+#endif
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int ARKodeColumnLSolve(
+        ARKodeMem ark_mem,
+        N_Vector b,
+        N_Vector weight,
+        N_Vector ycur,
+        N_Vector fcur
+) {
+
+#ifdef DEBUG_OUTPUT
+  AnnounceStartBlock("ARKodeColumnLSolve Start");
+#endif
+
+  // model time (not used in preconditioning)
+  Time timeT;
+
+  // index of relevant N_Vector arguments in registry
+  int iB = NV_INDEX_TEMPEST(b);
+  int iY = NV_INDEX_TEMPEST(ycur);
+
+  // Get a copy of the grid
+  Grid * pGrid = NV_GRID_TEMPEST(b);
+
+  // Get a copy of the model
+  Model * pModel = NV_MODEL_TEMPEST(b);
+
+  // Get a copy of the VerticalDynamics
+  VerticalDynamicsFEM * pVerticalDynamicsFEM 
+    = dynamic_cast<VerticalDynamicsFEM*>(pModel->GetVerticalDynamics());
+
+  // Call column-wise linear solver (iB holds RHS on input, solution on output)
+  pVerticalDynamicsFEM->SolveImplicit(iY, iB, timeT, ark_mem->ark_gamma);
+
+#ifdef DEBUG_OUTPUT
+  AnnounceEndBlock("Done");
+#endif
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+// this function does nothing since no persistent linear solver memory is used
+void ARKodeColumnLFree(ARKodeMem ark_mem)
+{
+
+#ifdef DEBUG_OUTPUT
+  AnnounceStartBlock("ARKodeColumnLFree Start");
+#endif
+
+#ifdef DEBUG_OUTPUT
+  AnnounceEndBlock("Done");
+#endif
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -731,40 +885,40 @@ void TimestepSchemeARKode::SetButcherTable()
     // ============================================================================
     
     if (m_strButcherTable == "heun_euler_2_1_2") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, HEUN_EULER_2_1_2);
+      ierr = ARKodeSetERKTableNum(arkode_mem, HEUN_EULER_2_1_2);
 
     } else if (m_strButcherTable == "bogacki_shampine_4_2_3") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, BOGACKI_SHAMPINE_4_2_3);
+      ierr = ARKodeSetERKTableNum(arkode_mem, BOGACKI_SHAMPINE_4_2_3);
 
     } else if (m_strButcherTable == "ark324l2sa_erk_4_2_3") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, ARK324L2SA_ERK_4_2_3);
+      ierr = ARKodeSetERKTableNum(arkode_mem, ARK324L2SA_ERK_4_2_3);
 
     } else if (m_strButcherTable == "zonneveld_5_3_4") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, ZONNEVELD_5_3_4);
+      ierr = ARKodeSetERKTableNum(arkode_mem, ZONNEVELD_5_3_4);
 
     } else if (m_strButcherTable == "ark436l2sa_erk_6_3_4") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, ARK436L2SA_ERK_6_3_4);
+      ierr = ARKodeSetERKTableNum(arkode_mem, ARK436L2SA_ERK_6_3_4);
 
     } else if (m_strButcherTable == "sayfy_aburub_6_3_4") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, SAYFY_ABURUB_6_3_4);
+      ierr = ARKodeSetERKTableNum(arkode_mem, SAYFY_ABURUB_6_3_4);
 
     } else if (m_strButcherTable == "cash_karp_6_4_5") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, CASH_KARP_6_4_5);
+      ierr = ARKodeSetERKTableNum(arkode_mem, CASH_KARP_6_4_5);
 
     } else if (m_strButcherTable == "fehlberg_6_4_5") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, FEHLBERG_6_4_5);
+      ierr = ARKodeSetERKTableNum(arkode_mem, FEHLBERG_6_4_5);
 
     } else if (m_strButcherTable == "dormand_prince_7_4_5") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, DORMAND_PRINCE_7_4_5);
+      ierr = ARKodeSetERKTableNum(arkode_mem, DORMAND_PRINCE_7_4_5);
 
     } else if (m_strButcherTable == "ark548l2sa_erk_8_4_5") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, ARK548L2SA_ERK_8_4_5);
+      ierr = ARKodeSetERKTableNum(arkode_mem, ARK548L2SA_ERK_8_4_5);
 
     } else if (m_strButcherTable == "verner_8_5_6") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, VERNER_8_5_6);
+      ierr = ARKodeSetERKTableNum(arkode_mem, VERNER_8_5_6);
 
     } else if (m_strButcherTable == "fehlberg_13_7_8") {
-      ierr = ARKodeSetERKTableNum(ARKodeMem, FEHLBERG_13_7_8);
+      ierr = ARKodeSetERKTableNum(arkode_mem, FEHLBERG_13_7_8);
 
     } else if (m_strButcherTable == "forward_euler") {
 
@@ -790,7 +944,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[0] = 1.0;
       pbe[1] = 0.0;
             
-      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetERKTable(arkode_mem, iStages, iQorder, iPorder, 
 			       pce, pAe, pbe, NULL);
       
       delete[] pce;
@@ -833,7 +987,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[4] = 0.75;
       pbe[5] = 0.0;
              
-      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetERKTable(arkode_mem, iStages, iQorder, iPorder, 
 			       pce, pAe, pbe, NULL);
       
       delete[] pce;
@@ -881,7 +1035,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[3] = beta3 * pAe[23] + 0.063692468666290;
       pbe[4] = 0.226007483236906;
             
-      ierr = ARKodeSetERKTable(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetERKTable(arkode_mem, iStages, iQorder, iPorder, 
 			       pce, pAe, pbe, NULL);      
       
       delete[] pce;
@@ -900,46 +1054,46 @@ void TimestepSchemeARKode::SetButcherTable()
     // ==========================================================================
     
     if (m_strButcherTable == "sdirk_2_1_2") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, SDIRK_2_1_2);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, SDIRK_2_1_2);
       
     } else if (m_strButcherTable == "billington_3_3_2") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, BILLINGTON_3_3_2);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, BILLINGTON_3_3_2);
       
     } else if (m_strButcherTable == "trbdf2_3_3_2") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, TRBDF2_3_3_2);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, TRBDF2_3_3_2);
 
     } else if (m_strButcherTable == "kvaerno_4_2_3") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, KVAERNO_4_2_3);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, KVAERNO_4_2_3);
 
     } else if (m_strButcherTable == "ark324l2sa_dirk_4_2_3") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, ARK324L2SA_DIRK_4_2_3);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, ARK324L2SA_DIRK_4_2_3);
 
     } else if (m_strButcherTable == "cash_5_2_4") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, CASH_5_2_4);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, CASH_5_2_4);
 
     } else if (m_strButcherTable == "cash_5_3_4") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, CASH_5_3_4);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, CASH_5_3_4);
 
     } else if (m_strButcherTable == "sdirk_5_3_4") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, SDIRK_5_3_4);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, SDIRK_5_3_4);
 
     } else if (m_strButcherTable == "kvaerno_5_3_4") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, KVAERNO_5_3_4);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, KVAERNO_5_3_4);
 
     } else if (m_strButcherTable == "ark436l2sa_dirk_6_3_4") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, ARK436L2SA_DIRK_6_3_4);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, ARK436L2SA_DIRK_6_3_4);
 
     } else if (m_strButcherTable == "kvaerno_7_4_5") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, KVAERNO_7_4_5);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, KVAERNO_7_4_5);
 
     } else if (m_strButcherTable == "ark548l2sa_dirk_8_4_5") {
-      ierr = ARKodeSetIRKTableNum(ARKodeMem, ARK548L2SA_DIRK_8_4_5);
+      ierr = ARKodeSetIRKTableNum(arkode_mem, ARK548L2SA_DIRK_8_4_5);
 
     } else {     
       _EXCEPTIONT("ERROR: Invalid implicit Butcher table name");
     }
 
-    // ierr = ARKodeSetIRKTable(ARKodeMem, iStages, iQorder, iPorder, pci, pAi, pbi, pb2i)
+    // ierr = ARKodeSetIRKTable(arkode_mem, iStages, iQorder, iPorder, pci, pAi, pbi, pb2i)
     // if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetIRKTable, ierr = %i",ierr);
 
   } else {
@@ -950,17 +1104,17 @@ void TimestepSchemeARKode::SetButcherTable()
 
     if (m_strButcherTable == "ark324l2sa_erk_4_2_3" ||
 	m_strButcherTable == "ark324l2sa_dirk_4_2_3" ) {     
-      ierr = ARKodeSetARKTableNum(ARKodeMem, 
+      ierr = ARKodeSetARKTableNum(arkode_mem, 
 				  ARK324L2SA_DIRK_4_2_3, ARK324L2SA_ERK_4_2_3);
 
     } else if (m_strButcherTable == "ark436l2sa_erk_6_3_4" ||
 	       m_strButcherTable == "ark436l2sa_dirk_6_3_4" ) {
-      ierr = ARKodeSetARKTableNum(ARKodeMem, 
+      ierr = ARKodeSetARKTableNum(arkode_mem, 
 				  ARK436L2SA_DIRK_6_3_4, ARK436L2SA_ERK_6_3_4);
 
     } else if (m_strButcherTable == "ark548l2sa_erk_8_4_5" ||
 	       m_strButcherTable == "ark548l2sa_dirk_8_4_5" ) {
-      ierr = ARKodeSetARKTableNum(ARKodeMem, 
+      ierr = ARKodeSetARKTableNum(arkode_mem, 
 				  ARK548L2SA_DIRK_8_4_5, ARK548L2SA_ERK_8_4_5);
 
     } else if (m_strButcherTable == "ars233") {      
@@ -1013,7 +1167,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = 0.5;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;     
@@ -1075,7 +1229,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = gamma;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
       
       delete[] pci;
@@ -1137,7 +1291,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = 0.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
       
       delete[] pci;
@@ -1211,7 +1365,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[3] = gamma;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;     
@@ -1282,7 +1436,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[4] = 0.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;     
@@ -1348,7 +1502,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = gamma;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);     
 
       delete[] pci;     
@@ -1402,7 +1556,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[1] = 0.5;
          
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
@@ -1460,7 +1614,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = 1.0 / 3.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
@@ -1520,7 +1674,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = 2.0 / 3.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
@@ -1589,7 +1743,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[3] = 2.0 / 3.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
@@ -1647,7 +1801,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = 1.0 / 3.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
@@ -1705,7 +1859,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = 2.0 / 3.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
@@ -1764,7 +1918,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = 4.0/11.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
@@ -1823,7 +1977,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = 1.0/3.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
@@ -1882,7 +2036,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = 1.0/3.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
@@ -1941,7 +2095,7 @@ void TimestepSchemeARKode::SetButcherTable()
       pbe[2] = 1.0/3.0;
             
       // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
-      ierr = ARKodeSetARKTables(ARKodeMem, iStages, iQorder, iPorder, 
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      

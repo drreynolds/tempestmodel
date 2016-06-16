@@ -27,6 +27,7 @@
 
 #include "TempestNVector.h"
 #include "arkode/arkode.h"
+#include "arkode/arkode_impl.h"
 #include "arkode/arkode_spgmr.h"
 
 class Model;
@@ -45,6 +46,7 @@ struct ARKodeCommandLineVariables {
   int    NonlinIters;
   int    LinIters;
   bool   UsePreconditioning;
+  bool   ColumnSolver;
   int    ARKodeButcherTable;
   std::string ButcherTable;
   bool   WriteDiagnostics;
@@ -115,7 +117,7 @@ private:
 	///	<summary>
 	///		ARKode memory structure.
 	///	</summary>
-	static void * ARKodeMem;
+	static void * arkode_mem;
 
 	///	<summary>
 	///		Tempest NVector state vector.
@@ -197,6 +199,12 @@ private:
 	///		ARKode flag to enable preconditioning.
 	///	</summary>
 	bool m_fUsePreconditioning;
+
+	///	<summary>
+	///		ARKode flag to use Tempest column solver for 
+	///             linear systems (instead of GMRES).
+	///	</summary>
+	bool m_fColumnSolver;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -255,6 +263,29 @@ static int ARKodePreconditionerSolve(
 	void *user_data,
 	N_Vector TMP
 );
+
+///	<summary>
+///		Functions for replacing GMRES solver with Tempest column-wise linear solver
+///	</summary>
+int ARKodeColumnLInit(ARKodeMem ark_mem);
+int ARKodeColumnLSetup(
+        ARKodeMem ark_mem,
+        int convfail,
+        N_Vector ypred,
+        N_Vector fpred,
+        booleantype *jcurPtr,
+        N_Vector vtemp1,
+        N_Vector vtemp2,
+        N_Vector vtemp3
+);
+int ARKodeColumnLSolve(
+        ARKodeMem ark_mem,
+        N_Vector b,
+        N_Vector weight,
+        N_Vector ycur,
+        N_Vector fcur
+);
+void ARKodeColumnLFree(ARKodeMem ark_mem);
 
 ///////////////////////////////////////////////////////////////////////////////
 
