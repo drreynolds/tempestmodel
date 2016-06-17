@@ -57,6 +57,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_iAAFPAccelVec(ARKodeVars.AAFPAccelVec),
 	m_iNonlinIters(ARKodeVars.NonlinIters),
 	m_iLinIters(ARKodeVars.LinIters),
+	m_iPredictor(ARKodeVars.Predictor),
 	m_fWriteDiagnostics(ARKodeVars.WriteDiagnostics),
 	m_fUsePreconditioning(ARKodeVars.UsePreconditioning),
 	m_fColumnSolver(ARKodeVars.ColumnSolver)
@@ -164,6 +165,10 @@ void TimestepSchemeARKode::Initialize() {
   // Nonlinear Solver Settings
   if (!m_fFullyExplicit) {
     
+    // Set predictor method
+    ierr = ARKodeSetPredictorMethod(arkode_mem, m_iPredictor);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetPredictorMethod, ierr = %i",ierr);
+
     if (m_fAAFP) { // Anderson accelerated fixed point solver
       
       ierr = ARKodeSetFixedPoint(arkode_mem, m_iAAFPAccelVec);
@@ -200,7 +205,6 @@ void TimestepSchemeARKode::Initialize() {
           ierr = ARKSpilsSetPreconditioner(arkode_mem, NULL, ARKodePreconditionerSolve);
           if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetPreconditioner, ierr = %i",ierr);
         }
-
       }  
     }
 

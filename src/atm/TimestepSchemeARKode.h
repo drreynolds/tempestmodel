@@ -45,6 +45,7 @@ struct ARKodeCommandLineVariables {
   int    AAFPAccelVec;
   int    NonlinIters;
   int    LinIters;
+  int    Predictor;
   bool   UsePreconditioning;
   bool   ColumnSolver;
   int    ARKodeButcherTable;
@@ -189,6 +190,11 @@ private:
 	///		Max number of linear iterations.
 	///	</summary>
 	int m_iLinIters;
+
+	///	<summary>
+	///		Specifies method for prediciting implicit solutions.
+	///	</summary>
+	int m_iPredictor;
 
 	///	<summary>
 	///		ARKode flag to write diagnostics file.

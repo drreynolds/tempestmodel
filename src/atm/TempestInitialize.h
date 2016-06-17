@@ -101,6 +101,7 @@ struct _TempestCommandLineVariables {
 	int iARKode_AAFPAccelVec;
 	int iARKode_NonlinIters;
 	int iARKode_LinIters;
+	int iARKode_Predictor; 
     std::string strARKode_ButcherTable;
 	bool fARKode_Diagnostics;
         bool fARKode_UsePreconditioning;
@@ -147,6 +148,7 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.iARKode_AAFPAccelVec, "arkode_aafpaccelvec", 0); \
 	CommandLineInt(_tempestvars.iARKode_NonlinIters, "arkode_nonliniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0); \
+	CommandLineInt(_tempestvars.iARKode_Predictor, "arkode_predictor", 0); \
 	CommandLineString(_tempestvars.strARKode_ButcherTable, "arkode_butchertable", ""); \
 	CommandLineBool(_tempestvars.fARKode_Diagnostics, "arkode_diagnostics"); \
 	CommandLineBool(_tempestvars.fARKode_UsePreconditioning, "arkode_usepreconditioning"); \
@@ -272,6 +274,7 @@ void _TempestSetupMethodOfLines(
 		ARKodeVars.AAFPAccelVec    = vars.iARKode_AAFPAccelVec;
 		ARKodeVars.NonlinIters     = vars.iARKode_NonlinIters;
 		ARKodeVars.LinIters        = vars.iARKode_LinIters;
+		ARKodeVars.Predictor       = vars.iARKode_Predictor;
 
 		ARKodeVars.ButcherTable       = vars.strARKode_ButcherTable;
 		ARKodeVars.WriteDiagnostics   = vars.fARKode_Diagnostics;
