@@ -1461,7 +1461,7 @@ void TimestepSchemeARKode::SetButcherTable()
       // ARK232 - 2 implicit stages, 3 explicit stages, 2nd order
       //          L-stable
       //
-      // Giralso, Kelly, and Constantinescu, Implicit-Explicit formulations of a 
+      // Giraldo, Kelly, and Constantinescu, Implicit-Explicit formulations of a 
       // three dimensional nonhydrostatic unificed model of the atmosphere 
       // (NUMA), 2013. (equation 3.10)
       // ------------------------------------------------------------------------
