@@ -142,7 +142,7 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.nVerticalHyperdiffOrder, "vhypervisorder", 0); \
 	CommandLineString(_tempestvars.strTimestepScheme, "timescheme", "strang"); \
 	CommandLineStringD(_tempestvars.strHorizontalDynamics, "method", "SE", "(SE | DG)"); \
-	CommandLineStringD(_tempestvars.strVerticalDynamics, "vmethod", "DEFAULT", "(DEFAULT | SCHUR)");
+	CommandLineStringD(_tempestvars.strVerticalDynamics, "vmethod", "DEFAULT", "(DEFAULT | SCHUR)"); \
 	CommandLineInt(_tempestvars.iARKode_nvectors, "arkode_nvectors", 50); \
 	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-6); \
 	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-11); \

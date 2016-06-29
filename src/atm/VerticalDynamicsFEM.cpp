@@ -1900,7 +1900,7 @@ void VerticalDynamicsFEM::SolveImplicit(
 			// Use diagonal solver
 			int iInfo = LAPACK::DGBSV(
 				m_matJacobianF, m_dSoln, m_vecIPiv,
-				m_nJacobianFKL, m_nJacobianFKU);
+				m_nJacobianFOffD, m_nJacobianFOffD);
 			if (iInfo != 0) {
 				_EXCEPTION1("Solution failed: %i", iInfo);
 			}
