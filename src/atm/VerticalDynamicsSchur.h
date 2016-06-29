@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///
-///	\file    VerticalDynamicsFEM.h
+///	\file    VerticalDynamicsSchur.h
 ///	\author  Paul Ullrich
 ///	\version May 20, 2013
 ///
@@ -14,8 +14,8 @@
 ///		or implied warranty.
 ///	</remarks>
 
-#ifndef _VERTICALDYNAMICSFEM_H_
-#define _VERTICALDYNAMICSFEM_H_
+#ifndef _VERTICALDYNAMICSSCHUR_H_
+#define _VERTICALDYNAMICSSCHUR_H_
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -43,7 +43,7 @@ class Time;
 ///	<summary>
 ///		Finite-element based atmospheric vertical dynamics.
 ///	</summary>
-class VerticalDynamicsFEM :
+class VerticalDynamicsSchur :
 	public VerticalDynamics,
 	public JacobianFreeNewtonKrylov
 {
@@ -52,7 +52,7 @@ public:
 	///	<summary>
 	///		Constructor.
 	///	</summary>
-	VerticalDynamicsFEM(
+	VerticalDynamicsSchur(
 		Model & model,
 		int nHorizontalOrder,
 		int nVerticalOrder,
@@ -65,7 +65,7 @@ public:
 	///	<summary>
 	///		Destructor.
 	///	</summary>
-	~VerticalDynamicsFEM();
+	~VerticalDynamicsSchur();
 
 public:
 	///	<summary>
@@ -84,6 +84,12 @@ protected:
 
 	static const FComp FTot = 3;
 
+	typedef int SComp;
+	static const SComp SPIx = 0;
+	static const SComp SRIx = 1;
+
+	static const SComp STot = 2;
+
 	///	<summary>
 	///		Convert from standard state indices to component indices.
 	///	</summary>
@@ -95,11 +101,43 @@ protected:
 	///		Get the index of the component and level of the F vector.
 	///	</summary>
 	inline int VecFIx(FComp c, int k) {
-#if defined(USE_JACOBIAN_DEBUG)
-		int nREdges = m_model.GetGrid()->GetRElements() + 1;
-		return (nREdges * c + k);
-#else
+#if defined(USE_JACOBIAN_GENERAL)
+		//int nREdges = m_nRElements + 1;
+		//return (nREdges * c + k);
 		return (FTot*k + c);
+#elif defined(USE_JACOBIAN_DIAGONAL)
+		return (FTot*k + c);
+#else
+		_EXCEPTION();
+#endif
+	}
+
+	///	<summary>
+	///		Get the index of the component and level of the F vector.
+	///	</summary>
+	inline int VecSIx(SComp c, int k) {
+#if defined(USE_JACOBIAN_GENERAL)
+		return (m_nRElements * c + k);
+#elif defined(USE_JACOBIAN_DIAGONAL)
+		return (STot*k + c);
+#else
+		_EXCEPTION();
+#endif
+	}
+
+	///	<summary>
+	///		Get the index of for the component / level pair of the F Jacobian.
+	///		Note:  Is composed using Fortran ordering.
+	///	</summary>
+	inline int MatSIx(SComp c0, int k0, SComp c1, int k1) {
+#if defined(USE_JACOBIAN_GENERAL)
+		int nSchurColumnStateSize = 2 * m_nRElements;
+		return (nSchurColumnStateSize * (m_nRElements * c0 + k0) + (m_nRElements * c1 + k1));
+#elif defined(USE_JACOBIAN_DIAGONAL)
+		return (2 * m_nJacobianFSchurOffD + (STot*k1 + c1) - (STot*k0 + c0))
+			+ m_nJacobianFSchurWidth * (STot*k0 + c0);
+#else
+		_EXCEPTION();
 #endif
 	}
 
@@ -108,14 +146,13 @@ protected:
 	///		Note:  Is composed using Fortran ordering.
 	///	</summary>
 	inline int MatFIx(FComp c0, int k0, FComp c1, int k1) {
-#if defined(USE_JACOBIAN_DEBUG)
-		int nREdges = m_model.GetGrid()->GetRElements() + 1;
-		return (m_nColumnStateSize * (nREdges * c0 + k0) + (nREdges * c1 + k1));
-#elif defined(USE_JACOBIAN_GENERAL)
+#if defined(USE_JACOBIAN_GENERAL)
 		return (m_nColumnStateSize * (FTot*k0 + c0) + (FTot*k1 + c1));
+		//int nREdges = m_nRElements + 1;
+		//return (m_nColumnStateSize * (nREdges * c0 + k0) + (nREdges * c1 + k1));
 #elif defined(USE_JACOBIAN_DIAGONAL)
-		return (2 * m_nJacobianFOffD + (FTot*k1 + c1) - (FTot*k0 + c0))
-			+ m_nJacobianFWidth * (FTot*k0 + c0);
+		return (m_nJacobianFOffD + (FTot*k1 + c1) - (FTot*k0 + c0))
+			+ m_nJacobianFBandwidth * (FTot*k0 + c0);
 #else
 		_EXCEPTION();
 #endif
@@ -158,9 +195,9 @@ public:
 	);
 
 	///	<summary>
-	///		Build the Jacobian matrix.
+	///		Debug the Schur complement construction of the Jacobian matrix.
 	///	</summary>
-	void BootstrapJacobian();
+	void DebugJacobian();
 
 	///	<summary>
 	///		Advance implicit terms of the vertical column one substep.
@@ -170,16 +207,6 @@ public:
 		int iDataUpdate,
 		const Time & time,
 		double dDeltaT
-	);
-
-	///	<summary>
-	///		Solve linearly implicit problem on the vertical column for a provided RHS state
-	///	</summary>
-	void SolveImplicit(
-                int iDataInitial,
-                int iDataRHS,
-                const Time & time,
-                double dDeltaT
 	);
 
 public:
@@ -389,6 +416,11 @@ protected:
 	///		Number of degrees of freedom in vertical solution vector.
 	///	</summary>
 	int m_nColumnStateSize;
+
+	///	<summary>
+	///		Maximum number of off-diagonals.
+	///	</summary>
+	int m_nOffDiagonals;
 
 protected:
 	///	<summary>
@@ -732,7 +764,16 @@ private:
 	///	</summary>
 	DataArray1D<int> m_vecIPiv;
 
-#ifdef USE_JACOBIAN_DIAGONAL
+	///	<summary>
+	///		Schur complement of Jacobian matrix used in direct solve.
+	///	</summary>
+	DataArray2D<double> m_matJacobianFSchur;
+
+	///	<summary>
+	///		Solution obtained from Schur complement.
+	///	</summary>
+	DataArray1D<double> m_dSolnSchur;
+
 private:
 	///	<summary>
 	///		Number of off-diagonals in Jacobian.
@@ -742,14 +783,23 @@ private:
 	///	<summary>
 	///		Total bandwidth of Jacobian.
 	///	</summary>
-	int m_nJacobianFWidth;
-#endif
+	int m_nJacobianFBandwidth;
+
+	///	<summary>
+	///		Number of off-diagonals in Schur complement of Jacobian.
+	///	</summary>
+	int m_nJacobianFSchurOffD;
+
+	///	<summary>
+	///		Total width of Schur complement.
+	///	</summary>
+	int m_nJacobianFSchurWidth;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifdef USE_JFNK_PETSC
-PetscErrorCode VerticalDynamicsFEM_FormFunction(
+PetscErrorCode VerticalDynamicsSchur_FormFunction(
 	SNES snes,
 	Vec x,
 	Vec f,

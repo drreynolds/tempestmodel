@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///
-///	\file    VerticalDynamicsFEM.cpp
+///	\file    VerticalDynamicsSchur.cpp
 ///	\author  Paul Ullrich
-///	\version May 20, 2013
+///	\version June 20, 2016
 ///
 ///	<remarks>
 ///		Copyright 2000-2013 Paul Ullrich
@@ -15,11 +15,9 @@
 ///	</remarks>
 
 #include "Defines.h"
-#include "VerticalDynamicsFEM.h"
+#include "VerticalDynamicsSchur.h"
 #include "TimestepScheme.h"
 #include "FunctionTimer.h"
-
-#include "TempestNVector.h"
 
 #include "Announce.h"
 #include "Model.h"
@@ -47,7 +45,7 @@
 #define UNIFORM_DIFFUSION_TRACERS
 
 //#define EXPLICIT_THERMO
-//#define EXPLICIT_VERTICAL_VELOCITY_ADVECTION
+#define EXPLICIT_VERTICAL_VELOCITY_ADVECTION
 
 #define VERTICAL_VELOCITY_ADVECTION_CLARK
 
@@ -57,7 +55,7 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-VerticalDynamicsFEM::VerticalDynamicsFEM(
+VerticalDynamicsSchur::VerticalDynamicsSchur(
 	Model & model,
 	int nHorizontalOrder,
 	int nVerticalOrder,
@@ -86,7 +84,7 @@ VerticalDynamicsFEM::VerticalDynamicsFEM(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-VerticalDynamicsFEM::~VerticalDynamicsFEM() {
+VerticalDynamicsSchur::~VerticalDynamicsSchur() {
 #ifdef USE_JFNK_PETSC
 	SNESDestroy(&m_snes);
 	VecDestroy(&m_vecX);
@@ -97,7 +95,7 @@ VerticalDynamicsFEM::~VerticalDynamicsFEM() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::Initialize() {
+void VerticalDynamicsSchur::Initialize() {
 
 	// Indices of EquationSet variables
 	const int UIx = 0;
@@ -148,7 +146,7 @@ void VerticalDynamicsFEM::Initialize() {
 	SNESSetFunction(
 		m_snes,
 		m_vecR,
-		VerticalDynamicsFEM_FormFunction,
+		VerticalDynamicsSchur_FormFunction,
 		(void*)(this));
 
 	MatCreateSNESMF(m_snes, &m_matJ);
@@ -162,10 +160,9 @@ void VerticalDynamicsFEM::Initialize() {
 	// Initialize JFNK
 	InitializeJFNK(m_nColumnStateSize, m_nColumnStateSize, 1.0e-5);
 #endif
-#if defined(USE_DIRECTSOLVE_APPROXJ) \
- || defined(USE_DIRECTSOLVE) \
- || defined(ENABLE_JFNK_PRECONDITIONING)
-#ifdef USE_JACOBIAN_DIAGONAL
+
+#if defined(USE_DIRECTSOLVE_APPROXJ) || defined(USE_DIRECTSOLVE)
+#if defined(USE_JACOBIAN_DIAGONAL)
 	if (m_nHypervisOrder > 2) {
 		_EXCEPTIONT("Diagonal Jacobian only implemented for "
 			"Hypervis order <= 2");
@@ -200,26 +197,54 @@ void VerticalDynamicsFEM::Initialize() {
 			_EXCEPTIONT("UNIMPLEMENTED: At this vertical order");
 		}
 	}
+#endif
+#endif
 
-	// Total bandwidth
-	m_nJacobianFWidth = 3 * m_nJacobianFOffD + 1;
-#endif
-#endif
+	// Number of off-diagonals
+	if (pGrid->GetVerticalDiscretization() ==
+	    Grid::VerticalDiscretization_FiniteVolume
+	) {
+		m_nOffDiagonals = m_nVerticalOrder / 2;
+		m_nJacobianFSchurOffD = m_nVerticalOrder + 1;
+		m_nJacobianFBandwidth = 2 * m_nJacobianFOffD + 1;
+		m_nJacobianFSchurWidth = 3 * m_nJacobianFSchurOffD + 1;
+
+	} else {
+		_EXCEPTIONT("Not implemented");
+	}
 
 #if defined(USE_JACOBIAN_DIAGONAL)
 	// Initialize Jacobian matrix
-	m_matJacobianF.Allocate(m_nColumnStateSize, m_nJacobianFWidth);
-#else
+	m_matJacobianF.Allocate(m_nColumnStateSize, m_nJacobianFBandwidth);
+
+	// Initialize Schur complement Jacobian matrix
+	m_matJacobianFSchur.Allocate(
+		STot * m_nRElements,
+		m_nJacobianFSchurWidth);
+
+#elif defined(USE_JACOBIAN_GENERAL)
 	// Initialize Jacobian matrix
-	m_matJacobianF.Allocate(m_nColumnStateSize, m_nColumnStateSize);
+	m_matJacobianF.Allocate(
+		m_nColumnStateSize,
+		m_nColumnStateSize);
+
+	// Initialize Schur complement Jacobian matrix
+	m_matJacobianFSchur.Allocate(
+		STot * m_nRElements,
+		STot * m_nRElements);
+
+#else
+	_EXCEPTIONT("Not implemented");
 #endif
-	
+
 	// Initialize pivot vector
 	m_vecIPiv.Allocate(m_nColumnStateSize);
 
+	// Initialize solution in Schur complement
+	m_dSolnSchur.Allocate(STot * m_nRElements);
 
 	// Announce vertical dynamics configuration
-	AnnounceStartBlock("Configuring VerticalDynamicsFEM");
+	AnnounceStartBlock("Configuring VerticalDynamicsSchur");
 
 	m_fHypervisVar.Allocate(6);
 	m_fUpwindVar.Allocate(6);
@@ -442,7 +467,7 @@ void VerticalDynamicsFEM::Initialize() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::StepImplicitTermsExplicitly(
+void VerticalDynamicsSchur::StepImplicitTermsExplicitly(
 	int iDataInitial,
 	int iDataUpdate,
 	const Time & time,
@@ -626,7 +651,7 @@ void VerticalDynamicsFEM::StepImplicitTermsExplicitly(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::StepExplicit(
+void VerticalDynamicsSchur::StepExplicit(
 	int iDataInitial,
 	int iDataUpdate,
 	const Time & time,
@@ -1260,74 +1285,128 @@ void VerticalDynamicsFEM::StepExplicit(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::BootstrapJacobian() {
+void VerticalDynamicsSchur::DebugJacobian() {
 
-	static const double Epsilon = 1.0e-5;
+			double * dDG = &(m_matJacobianF[0][0]);
 
-	int nDim = m_dColumnState.GetRows();
+			double * dDGSchur = &(m_matJacobianFSchur[0][0]);
 
-	DataArray2D<double> dJacobian(nDim, nDim);
-	DataArray1D<double> dJC(nDim);
-	DataArray1D<double> dG(nDim);
-	DataArray1D<double> dJCref(nDim);
-
-	Evaluate(m_dColumnState, dJCref);
-
-	for (int i = 0; i < m_dColumnState.GetRows(); i++) {
-		dG = m_dColumnState;
-		dG[i] = dG[i] + Epsilon;
-
-		Evaluate(dG, dJC);
-
-		for (int j = 0; j < m_dColumnState.GetRows(); j++) {
-			dJacobian[i][j] = (dJC[j] - dJCref[j]) / Epsilon;
-		}
-	}
-
-	std::cout << "DeltaT: " << m_dDeltaT << std::endl;
-
-	FILE * fp;
-	fp = fopen("DGRef.txt", "w");
-	for (int i = 0; i < nDim; i++) {
-		for (int j = 0; j < nDim; j++) {
-			fprintf(fp, "%1.15e", dJacobian[i][j]);
-			if (j != nDim-1) {
-				fprintf(fp, " ");
+			{
+				FILE * fp = fopen("F.txt", "w");
+				for (int i = 0; i < m_nColumnStateSize; i++) {
+					fprintf(fp, "%1.15e", m_dSoln[i]);
+					if (i != m_nColumnStateSize-1) {
+						fprintf(fp, "\n");
+					}
+				}
+				fclose(fp);
 			}
-		}
-		fprintf(fp, "\n");
-	}
-	fclose(fp);
 
-	fp = fopen("G.txt", "w");
-	for (int i = 0; i < nDim; i++) {
-		fprintf(fp, "%1.15e", dJCref[i]);
-		if (i != nDim-1) {
-			fprintf(fp, "\n");
-		}
-	}
-	fclose(fp);
-
-	BuildJacobianF(m_dSoln, &(dJacobian[0][0]));
-
-	fp = fopen("DG.txt", "w");
-	for (int i = 0; i < nDim; i++) {
-		for (int j = 0; j < nDim; j++) {
-			fprintf(fp, "%1.15e", dJacobian[i][j]);
-			if (j != nDim-1) {
-				fprintf(fp, " ");
+			{
+				FILE * fp = fopen("DG.txt", "w");
+				for (int i = 0; i < m_matJacobianF.GetRows(); i++) {
+					for (int j = 0; j < m_matJacobianF.GetColumns(); j++) {
+						fprintf(fp, "%1.15e", m_matJacobianF[i][j]);
+						if (j != m_nColumnStateSize-1) {
+							fprintf(fp, " ");
+						}
+					}
+					fprintf(fp, "\n");
+				}
+				fclose(fp);
 			}
-		}
-		fprintf(fp, "\n");
-	}
-	fclose(fp);
 
-	_EXCEPTION();
+			{
+				FILE * fp = fopen("FSchur.txt", "w");
+				for (int i = 0; i < m_dSolnSchur.GetRows(); i++) {
+					fprintf(fp, "%1.15e", m_dSolnSchur[i]);
+					if (i != m_dSolnSchur.GetRows()-1) {
+						fprintf(fp, "\n");
+					}
+				}
+				fclose(fp);
+			}
+
+			{
+				FILE * fp = fopen("DGSchur.txt", "w");
+				for (int i = 0; i < m_matJacobianFSchur.GetRows(); i++) {
+					for (int j = 0; j < m_matJacobianFSchur.GetColumns(); j++) {
+						fprintf(fp, "%1.15e", m_matJacobianFSchur[i][j]);
+						if (j != m_matJacobianFSchur.GetColumns()-1) {
+							fprintf(fp, " ");
+						}
+					}
+					fprintf(fp, "\n");
+				}
+				fclose(fp);
+			}
+
+			// Solve for the solution with the general Jacobian
+			DataArray2D<double> dBackupJacobian(
+				m_matJacobianF.GetRows(),
+				m_matJacobianF.GetColumns());
+
+			DataArray1D<double> dBackupSoln(
+				m_dSoln.GetRows());
+
+			dBackupJacobian = m_matJacobianF;
+			dBackupSoln = m_dSoln;
+
+			LAPACK::DGESV(dBackupJacobian, dBackupSoln, m_vecIPiv);
+
+			{
+				FILE * fp = fopen("X.txt", "w");
+				for (int i = 0; i < dBackupSoln.GetRows(); i++) {
+					fprintf(fp, "%1.15e", dBackupSoln[i]);
+					if (i != dBackupSoln.GetRows()-1) {
+						fprintf(fp, "\n");
+					}
+				}
+				fclose(fp);
+			}
+
+			// Solve the Schur complement
+			LAPACK::DGESV(m_matJacobianFSchur, m_dSolnSchur, m_vecIPiv);
+
+			// Back out the full solution
+			memcpy(&(m_dSoln[0]), &(m_dSolnSchur[0]),
+				2 * (m_nRElements+1) * sizeof(double));
+
+			for (int i = 0; i <= m_nRElements; i++) {
+				m_dSoln[VecFIx(FWIx,i)] /= dDG[MatFIx(FWIx, i, FWIx, i)];
+			}
+
+			for (int i = 0; i <= m_nRElements; i++) {
+				for (int l = 0; l < m_nRElements; l++) {
+					m_dSoln[VecFIx(FWIx,i)] -=
+						dDG[MatFIx(FPIx, l, FWIx, i)]
+						/ dDG[MatFIx(FWIx, i, FWIx, i)]
+						* m_dSolnSchur[VecFIx(FPIx,l)];
+
+					m_dSoln[VecFIx(FWIx,i)] -=
+						dDG[MatFIx(FRIx, l, FWIx, i)]
+						/ dDG[MatFIx(FWIx, i, FWIx, i)]
+						* m_dSolnSchur[VecFIx(FRIx,l)];
+				}
+			}
+
+			{
+				FILE * fp = fopen("XSchur.txt", "w");
+				for (int i = 0; i < m_dSoln.GetRows(); i++) {
+					fprintf(fp, "%1.15e", m_dSoln[i]);
+					if (i != m_dSoln.GetRows()-1) {
+						fprintf(fp, "\n");
+					}
+				}
+				fclose(fp);
+			}
+
+			_EXCEPTION();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::StepImplicit(
+void VerticalDynamicsSchur::StepImplicit(
 	int iDataInitial,
 	int iDataUpdate,
 	const Time & time,
@@ -1493,44 +1572,6 @@ void VerticalDynamicsFEM::StepImplicit(
 	    	}
 
 #endif
-#ifdef USE_DIRECTSOLVE_APPROXJ
-			static const double Epsilon = 1.0e-5;
-
-			// Prepare the column
-			PrepareColumn(m_dColumnState);
-
-			// Build the F vector
-			BuildF(m_dColumnState, m_dSoln);
-
-			DataArray1D<double> dJC;
-			dJC.Allocate(m_dColumnState.GetRows());
-
-			DataArray1D<double> dG;
-			dG.Allocate(m_dColumnState.GetRows());
-
-			DataArray1D<double> dJCref;
-			dJCref.Allocate(m_dColumnState.GetRows());
-
-			Evaluate(m_dColumnState, dJCref);
-
-			for (int i = 0; i < m_dColumnState.GetRows(); i++) {
-				dG = m_dColumnState;
-				dG[i] = dG[i] + Epsilon;
-
-				Evaluate(dG, dJC);
-
-				for (int j = 0; j < m_dColumnState.GetRows(); j++) {
-					m_matJacobianF[i][j] = (dJC[j] - dJCref[j]) / Epsilon;
-				}
-			}
-
-			// Use direct solver
-			LAPACK::DGESV(m_matJacobianF, m_dSoln, m_vecIPiv);
-
-			for (int k = 0; k < m_dSoln.GetRows(); k++) {
-				m_dSoln[k] = m_dColumnState[k] - m_dSoln[k];
-			}
-#endif
 #ifdef USE_DIRECTSOLVE
 			// Prepare the column
 			PrepareColumn(m_dColumnState);
@@ -1539,27 +1580,208 @@ void VerticalDynamicsFEM::StepImplicit(
 			BuildF(m_dColumnState, m_dSoln);
 
 			// Build the Jacobian
+			m_matJacobianF.Zero();
+			
+			int nDim = m_dColumnState.GetRows();
+
 			BuildJacobianF(m_dColumnState, &(m_matJacobianF[0][0]));
 
-#ifdef USE_JACOBIAN_GENERAL
+			// Build the Schur complement array
+			double * dDG = &(m_matJacobianF[0][0]);
+
+			double * dDGSchur = &(m_matJacobianFSchur[0][0]);
+
+			m_matJacobianFSchur.Zero();
+
+			for (int k = 0; k < m_nRElements; k++) {
+				m_dSolnSchur[VecSIx(SPIx,k)] =
+					m_dSoln[VecFIx(FPIx,k)];
+				m_dSolnSchur[VecSIx(SRIx,k)] =
+					m_dSoln[VecFIx(FRIx,k)];
+			}
+
+			for (int k = 0; k < m_nRElements; k++) {
+
+				int ibegin = k;
+				int iend = k + 2;
+				if (ibegin < 1) {
+					ibegin = 1;
+				}
+				if (iend > m_nRElements) {
+					iend = m_nRElements;
+				}
+
+				for (int i = ibegin; i < iend; i++) {
+
+					m_dSolnSchur[VecSIx(SPIx,k)] -=
+						dDeltaT
+						* dDG[MatFIx(FWIx, i, FPIx, k)]
+						// dDG[MatFIx(FWIx, i, FWIx, i)]
+						* m_dSoln[VecFIx(FWIx,i)];
+
+					m_dSolnSchur[VecSIx(SRIx,k)] -=
+						dDeltaT
+						* dDG[MatFIx(FWIx, i, FRIx, k)]
+						// dDG[MatFIx(FWIx, i, FWIx, i)]
+						* m_dSoln[VecFIx(FWIx,i)];
+
+					int lbegin = i - m_nOffDiagonals;
+					int lend = i + m_nOffDiagonals + 1;
+					if (lbegin < 0) {
+						lbegin = 0;
+					}
+					if (lend > m_nRElements) {
+						lend = m_nRElements;
+					}
+
+					if (i == ibegin) {
+						for (int l = lbegin; l < lend; l++) {
+							dDGSchur[MatSIx(SPIx, l, SPIx, k)] =
+								dDG[MatFIx(FPIx, l, FPIx, k)];
+							dDGSchur[MatSIx(SPIx, l, SRIx, k)] =
+								dDG[MatFIx(FPIx, l, FRIx, k)];
+							dDGSchur[MatSIx(SRIx, l, SPIx, k)] =
+								dDG[MatFIx(FRIx, l, FPIx, k)];
+							dDGSchur[MatSIx(SRIx, l, SRIx, k)] =
+								dDG[MatFIx(FRIx, l, FRIx, k)];
+						}
+					}
+
+					for (int l = lbegin; l < lend; l++) {
+						dDGSchur[MatSIx(SPIx, l, SPIx, k)] -=
+							dDeltaT
+							* dDG[MatFIx(FWIx, i, FPIx, k)]
+							// dDG[MatFIx(FWIx, i, FWIx, i)]
+							* dDG[MatFIx(FPIx, l, FWIx, i)];
+
+						dDGSchur[MatSIx(SPIx, l, SRIx, k)] -=
+							dDeltaT
+							* dDG[MatFIx(FWIx, i, FRIx, k)]
+							// dDG[MatFIx(FWIx, i, FWIx, i)]
+							* dDG[MatFIx(FPIx, l, FWIx, i)];
+
+						dDGSchur[MatSIx(SRIx, l, SPIx, k)] -=
+							dDeltaT
+							* dDG[MatFIx(FWIx, i, FPIx, k)]
+							// dDG[MatFIx(FWIx, i, FWIx, i)]
+							* dDG[MatFIx(FRIx, l, FWIx, i)];
+
+						dDGSchur[MatSIx(SRIx, l, SRIx, k)] -=
+							dDeltaT
+							* dDG[MatFIx(FWIx, i, FRIx, k)]
+							// dDG[MatFIx(FWIx, i, FWIx, i)]
+							* dDG[MatFIx(FRIx, l, FWIx, i)];
+					}
+				}
+			}
+
+			// Debug
+			//DebugJacobian();
+/*
+			{
+				FILE * fp = fopen("DG.txt", "w");
+				for (int i = 0; i < m_matJacobianF.GetRows(); i++) {
+					for (int j = 0; j < m_matJacobianF.GetColumns(); j++) {
+						fprintf(fp, "%1.15e", m_matJacobianF[i][j]);
+						if (j != m_matJacobianF.GetColumns()-1) {
+							fprintf(fp, " ");
+						}
+					}
+					fprintf(fp, "\n");
+				}
+				fclose(fp);
+			}
+			_EXCEPTION();
+*/
+/*
+			{
+				FILE * fp = fopen("DGSchur.txt", "w");
+				for (int i = 0; i < m_matJacobianFSchur.GetRows(); i++) {
+					for (int j = 0; j < m_matJacobianFSchur.GetColumns(); j++) {
+						fprintf(fp, "%1.15e", m_matJacobianFSchur[i][j]);
+						if (j != m_matJacobianFSchur.GetColumns()-1) {
+							fprintf(fp, " ");
+						}
+					}
+					fprintf(fp, "\n");
+				}
+				fclose(fp);
+			}
+			_EXCEPTION();
+*/
+#if defined(USE_JACOBIAN_GENERAL)
+			// Solve using the general matrix solver
+			int iInfo = LAPACK::DGESV(
+				m_matJacobianFSchur, m_dSolnSchur, m_vecIPiv);
+
+			if (iInfo != 0) {
+				_EXCEPTION1("Solution failed: %i", iInfo);
+			}
+/*
 			// Use direct solver
-			int iInfo = LAPACK::DGESV(m_matJacobianF, m_dSoln, m_vecIPiv);
+			LAPACK::DGESV(m_matJacobianF, m_dSoln, m_vecIPiv);
 
 			if (iInfo != 0) {
 				_EXCEPTION1("Solution failed: %i", iInfo);
 			}
+*/
 #endif
-#ifdef USE_JACOBIAN_DIAGONAL
-			// Use diagonal solver
+#if defined(USE_JACOBIAN_DIAGONAL)
+			// Solve using the diagonal matrix solver
 			int iInfo = LAPACK::DGBSV(
-				m_matJacobianF, m_dSoln, m_vecIPiv,
-				m_nJacobianFOffD, m_nJacobianFOffD);
+				m_matJacobianFSchur, m_dSolnSchur, m_vecIPiv,
+				m_nJacobianFSchurOffD, m_nJacobianFSchurOffD);
 
 			if (iInfo != 0) {
 				_EXCEPTION1("Solution failed: %i", iInfo);
 			}
 #endif
 
+			// Back out the full solution
+			for (int k = 0; k < m_nRElements; k++) {
+				m_dSoln[VecFIx(FPIx,k)] = m_dSolnSchur[VecSIx(SPIx,k)];
+				m_dSoln[VecFIx(FRIx,k)] = m_dSolnSchur[VecSIx(SRIx,k)];
+
+				m_dSoln[VecFIx(FWIx,k)] *= dDeltaT;
+					// 1.0 /dDG[MatFIx(FWIx, i, FWIx, i)];
+			}
+			m_dSoln[VecFIx(FWIx,m_nRElements)] = 0.0;
+
+			for (int i = 1; i < m_nRElements; i++) {
+
+				int lbegin = i - m_nOffDiagonals;
+				int lend = i + m_nOffDiagonals + 1;
+				if (lbegin < 0) {
+					lbegin = 0;
+				}
+				if (lend > m_nRElements) {
+					lend = m_nRElements;
+				}
+
+				for (int l = lbegin; l < lend; l++) {
+					m_dSoln[VecFIx(FWIx,i)] -=
+						dDeltaT
+						* dDG[MatFIx(FPIx, l, FWIx, i)]
+						// dDG[MatFIx(FWIx, k, FWIx, k)]
+						* m_dSolnSchur[VecSIx(SPIx,l)];
+
+					m_dSoln[VecFIx(FWIx,i)] -=
+						dDeltaT
+						* dDG[MatFIx(FRIx, l, FWIx, i)]
+						// dDG[MatFIx(FWIx, k, FWIx, k)]
+						* m_dSolnSchur[VecSIx(SRIx,l)];
+				}
+			}
+
+/*
+			for (int k = 0; k <= m_nRElements; k++) {
+				printf("%1.10e %1.10e %1.10e\n",
+					m_dSoln[VecFIx(FPIx,k)],
+					m_dSoln[VecFIx(FRIx,k)],
+					m_dSoln[VecFIx(FWIx,k)]);
+			}
+			_EXCEPTION();
+*/
 			// DEBUG (check for NANs in output)
 			if (!(m_dSoln[0] == m_dSoln[0])) {
 				DataArray1D<double> dEval;
@@ -1568,7 +1790,8 @@ void VerticalDynamicsFEM::StepImplicit(
 
 				for (int p = 0; p < dEval.GetRows(); p++) {
 					printf("%1.15e %1.15e %1.15e\n",
-						dEval[p], m_dSoln[p] - m_dColumnState[p], m_dColumnState[p]);
+						dEval[p], m_dSoln[p] - m_dColumnState[p],
+						m_dColumnState[p]);
 				}
 				for (int p = 0; p < m_dExnerRefREdge.GetRows(); p++) {
 					printf("%1.15e %1.15e\n",
@@ -1577,6 +1800,7 @@ void VerticalDynamicsFEM::StepImplicit(
 				_EXCEPTIONT("Inversion failure");
 			}
 
+			// Update the solution
 			for (int k = 0; k < m_dSoln.GetRows(); k++) {
 				m_dSoln[k] = m_dColumnState[k] - m_dSoln[k];
 			}
@@ -1749,321 +1973,14 @@ void VerticalDynamicsFEM::StepImplicit(
 		}
 	}
 
-#ifndef USE_SUNDIALS
 	// Filter negative tracers
 	FilterNegativeTracers(iDataUpdate);
-#endif
 }
 
 
 ///////////////////////////////////////////////////////////////////////////////
-#ifdef USE_SUNDIALS
 
-void VerticalDynamicsFEM::SolveImplicit(
-	int iDataInitial,
-	int iDataRHS,
-	const Time & time,
-	double dDeltaT
-) {
-
-#ifdef ENABLE_JFNK_PRECONDITIONING
-        static int count = 0;
-	count++;
-
-	// Get a copy of the grid
-	Grid * pGrid = m_model.GetGrid();
-
-	// Physical constants
-	const PhysicalConstants & phys = m_model.GetPhysicalConstants();
-
-	// Indices of EquationSet variables
-	const int UIx = 0;
-	const int VIx = 1;
-	const int PIx = 2;
-	const int WIx = 3;
-	const int RIx = 4;
-
-	// Store timestep size
-	m_dDeltaT = dDeltaT;
-
-	// Perform local solve
-	for (int n = 0; n < pGrid->GetActivePatchCount(); n++) {
-		GridPatch * pPatch = pGrid->GetActivePatch(n);
-
-		const PatchBox & box = pPatch->GetPatchBox();
-
-		// Contravariant metric components
-		const DataArray4D<double> & dContraMetricA =
-			pPatch->GetContraMetricA();
-		const DataArray4D<double> & dContraMetricB =
-			pPatch->GetContraMetricB();
-
-		// State Data
-		const DataArray4D<double> & dataRefNode =
-			pPatch->GetReferenceState(DataLocation_Node);
-
-		const DataArray4D<double> & dataInitialNode =
-			pPatch->GetDataState(iDataInitial, DataLocation_Node);
-
-		DataArray4D<double> & dataRHSNode =
-			pPatch->GetDataState(iDataRHS, DataLocation_Node);
-
-		const DataArray4D<double> & dataRefREdge =
-			pPatch->GetReferenceState(DataLocation_REdge);
-
-		const DataArray4D<double> & dataInitialREdge =
-			pPatch->GetDataState(iDataInitial, DataLocation_REdge);
-
-		DataArray4D<double> & dataRHSREdge =
-			pPatch->GetDataState(iDataRHS, DataLocation_REdge);
-
-		// Tracer Data
-		DataArray4D<double> & dataReferenceTracer =
-			pPatch->GetReferenceTracers();
-
-		DataArray4D<double> & dataInitialTracer =
-			pPatch->GetDataTracers(iDataInitial);
-
-		DataArray4D<double> & dataRHSTracer =
-			pPatch->GetDataTracers(iDataRHS);
-
-		// Number of tracers
-		const int nTracerCount = dataInitialTracer.GetSize(0);
-
-		// Number of finite elements
-		int nAElements =
-			box.GetAInteriorWidth() / m_nHorizontalOrder;
-		int nBElements =
-			box.GetBInteriorWidth() / m_nHorizontalOrder;
-
-		// Loop over all nodes, but only perform calculation on shared
-		// nodes once
-		for (int a = 0; a < nAElements; a++) {
-		for (int b = 0; b < nBElements; b++) {
-
-			int iEnd;
-			int jEnd;
-
-			if (a == nAElements-1) {
-				iEnd = m_nHorizontalOrder;
-			} else {
-				iEnd = m_nHorizontalOrder-1;
-			}
-
-			if (b == nBElements-1) {
-				jEnd = m_nHorizontalOrder;
-			} else {
-				jEnd = m_nHorizontalOrder-1;
-			}
-
-		for (int i = 0; i < iEnd; i++) {
-		for (int j = 0; j < jEnd; j++) {
-
-			int iA = box.GetAInteriorBegin() + a * m_nHorizontalOrder + i;
-			int iB = box.GetBInteriorBegin() + b * m_nHorizontalOrder + j;
-
-			// fill m_dColumnState with initial state data
-			SetupReferenceColumn(
-				pPatch, iA, iB,
-				dataRefNode,
-				dataInitialNode,
-				dataRefREdge,
-				dataInitialREdge);
-
-			// Prepare the column (computes metric terms, fills internal 
-			// storage with data from m_dColumnState)
-			PrepareColumn(m_dColumnState);
-
-			// Build the F vector (don't actually need F, but we do need
-			// temporary data stored internally in class)
-			BuildF(m_dColumnState, m_dSoln);
-
-			// Build the Jacobian (uses internal data structures filled by BuildF)
-			BuildJacobianF(m_dColumnState, &(m_matJacobianF[0][0]));
-
-			// modify Jacobian (rescale all entries by m_dDeltaT)
-			m_matJacobianF.Scale(m_dDeltaT);
-
-			// fill m_dSoln with RHS data
-			//    first fill m_dColumnState with RHS data instead of state data
-			SetupReferenceColumn(
-				pPatch, iA, iB,
-				dataRefNode,
-				dataRHSNode,
-				dataRefREdge,
-				dataRHSREdge);
-
-  			//    then copy RHS into m_dSoln
-			for (int ivec=0; ivec<m_nColumnStateSize; ivec++)
-			  m_dSoln[ivec] = m_dColumnState[ivec];
-
-			// Use diagonal solver
-			int iInfo = LAPACK::DGBSV(
-				m_matJacobianF, m_dSoln, m_vecIPiv,
-				m_nJacobianFKL, m_nJacobianFKU);
-			if (iInfo != 0) {
-				_EXCEPTION1("Solution failed: %i", iInfo);
-			}
-
-			// DEBUG (check for NANs in output)
-			if (!(m_dSoln[0] == m_dSoln[0])) {
-				DataArray1D<double> dEval;
-				dEval.Allocate(m_dColumnState.GetRows());
-				Evaluate(m_dSoln, dEval);
-
-				for (int p = 0; p < dEval.GetRows(); p++) {
-					printf("%1.15e %1.15e %1.15e\n",
-						dEval[p], m_dSoln[p] - m_dColumnState[p], m_dColumnState[p]);
-				}
-				for (int p = 0; p < m_dExnerRefREdge.GetRows(); p++) {
-					printf("%1.15e %1.15e\n",
-						m_dExnerRefREdge[p], dataRefREdge[RIx][p][iA][iB]);
-				}
-				_EXCEPTIONT("Inversion failure");
-			}
-
-
-			// Copy solution to thermodynamic closure
-			if (pGrid->GetVarLocation(PIx) == DataLocation_REdge) {
-				for (int k = 0; k <= pGrid->GetRElements(); k++) {
-					dataRHSREdge[PIx][k][iA][iB] =
-						m_dSoln[VecFIx(FPIx, k)];
-				}
-			} else {
-				for (int k = 0; k < pGrid->GetRElements(); k++) {
-					dataRHSNode[PIx][k][iA][iB] =
-						m_dSoln[VecFIx(FPIx, k)];
-				}
-			}
-
-			// Copy over W
-			if (pGrid->GetVarLocation(WIx) == DataLocation_REdge) {
-				for (int k = 0; k <= pGrid->GetRElements(); k++) {
-					dataRHSREdge[WIx][k][iA][iB] =
-						m_dSoln[VecFIx(FWIx, k)];
-				}
-			} else {
-				for (int k = 0; k < pGrid->GetRElements(); k++) {
-					dataRHSNode[WIx][k][iA][iB] =
-						m_dSoln[VecFIx(FWIx, k)];
-				}
-			}
-
-			// Copy over Rho
-			if (pGrid->GetVarLocation(RIx) == DataLocation_REdge) {
-				for (int k = 0; k <= pGrid->GetRElements(); k++) {
-					dataRHSREdge[RIx][k][iA][iB] =
-						m_dSoln[VecFIx(FRIx, k)];
-				}
-			} else {
-				for (int k = 0; k < pGrid->GetRElements(); k++) {
-					dataRHSNode[RIx][k][iA][iB] =
-						m_dSoln[VecFIx(FRIx, k)];
-				}
-			}
-
-			// "Update" tracers in column: initialize to zero, then apply update
-			if (dataInitialTracer.GetSize(0) > 0) {
-			  dataRHSTracer.Constant(0.0);
-			  UpdateColumnTracers(dDeltaT,
-					      dataInitialNode,
-					      dataRHSNode,
-					      dataInitialREdge,
-					      dataRHSREdge,
-					      dataReferenceTracer,
-					      dataInitialTracer,
-					      dataRHSTracer);
-			}
-		}
-		}
-
-		}
-		}
-
-		// Copy over new state on shared nodes (edges of constant alpha)
-		for (int a = 1; a < nAElements; a++) {
-			int iA = box.GetAInteriorBegin() + a * m_nHorizontalOrder - 1;
-
-			for (int b = 0; b < nBElements; b++) {
-
-				// Top element contains more information
-				int jEnd;
-				if (b == nBElements-1) {
-					jEnd = m_nHorizontalOrder;
-				} else {
-					jEnd = m_nHorizontalOrder-1;
-				}
-
-				// Loop along edges of constant alpha
-				for (int j = 0; j < jEnd; j++) {
-
-					int iB = box.GetBInteriorBegin() + b * m_nHorizontalOrder + j;
-
-					for (int k = 0; k < pGrid->GetRElements(); k++) {
-						dataRHSNode[PIx][k][iA][iB]
-							= dataRHSNode[PIx][k][iA+1][iB];
-						dataRHSNode[WIx][k][iA][iB]
-							= dataRHSNode[WIx][k][iA+1][iB];
-						dataRHSNode[RIx][k][iA][iB]
-							= dataRHSNode[RIx][k][iA+1][iB];
-
-						for (int c = 0; c < nTracerCount; c++) {
-							dataRHSTracer[c][k][iA][iB]
-								= dataRHSTracer[c][k][iA+1][iB];
-						}
-					}
-
-					for (int k = 0; k <= pGrid->GetRElements(); k++) {
-						dataRHSREdge[PIx][k][iA][iB]
-							= dataRHSREdge[PIx][k][iA+1][iB];
-						dataRHSREdge[WIx][k][iA][iB]
-							= dataRHSREdge[WIx][k][iA+1][iB];
-						dataRHSREdge[RIx][k][iA][iB]
-							= dataRHSREdge[RIx][k][iA+1][iB];
-					}
-				}
-			}
-		}
-
-		// Copy over new state on shared nodes (edges of constant beta)
-		for (int b = 1; b < nBElements; b++) {
-		for (int i = box.GetAInteriorBegin(); i < box.GetAInteriorEnd(); i++) {
-			int iB = box.GetBInteriorBegin() + b * m_nHorizontalOrder - 1;
-
-			for (int k = 0; k < pGrid->GetRElements(); k++) {
-				dataRHSNode[PIx][k][i][iB]
-					= dataRHSNode[PIx][k][i][iB+1];
-				dataRHSNode[WIx][k][i][iB]
-					= dataRHSNode[WIx][k][i][iB+1];
-				dataRHSNode[RIx][k][i][iB]
-					= dataRHSNode[RIx][k][i][iB+1];
-
-				for (int c = 0; c < nTracerCount; c++) {
-					dataRHSTracer[c][k][i][iB]
-						= dataRHSTracer[c][k][i][iB+1];
-				}
-
-			}
-
-			for (int k = 0; k <= pGrid->GetRElements(); k++) {
-				dataRHSREdge[PIx][k][i][iB]
-					= dataRHSREdge[PIx][k][i][iB+1];
-				dataRHSREdge[WIx][k][i][iB]
-					= dataRHSREdge[WIx][k][i][iB+1];
-				dataRHSREdge[RIx][k][i][iB]
-					= dataRHSREdge[RIx][k][i][iB+1];
-			}
-		}
-		}
-	}
-	
-#endif
-}
-#endif
-
-///////////////////////////////////////////////////////////////////////////////
-
-void VerticalDynamicsFEM::SetupReferenceColumn(
+void VerticalDynamicsSchur::SetupReferenceColumn(
 	GridPatch * pPatch,
 	int iA,
 	int iB,
@@ -2259,7 +2176,7 @@ void VerticalDynamicsFEM::SetupReferenceColumn(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::PrepareColumn(
+void VerticalDynamicsSchur::PrepareColumn(
 	const double * dX
 ) {
 	// Indices of EquationSet variables
@@ -2609,7 +2526,7 @@ void VerticalDynamicsFEM::PrepareColumn(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::BuildF(
+void VerticalDynamicsSchur::BuildF(
 	const double * dX,
 	double * dF
 ) {
@@ -3050,10 +2967,13 @@ void VerticalDynamicsFEM::BuildF(
 				pGrid->GetVectorUniformDiffusionCoeff() / (dZtop * dZtop);
 		}
 
+		// Get fix
+		const int fix = FIxFromCIx(c);
+
 		// Uniform diffusion on interfaces
 		if (pGrid->GetVarLocation(c) == DataLocation_REdge) {
 			for (int k = 0; k <= nRElements; k++) {
-				dF[VecFIx(FIxFromCIx(c), k)] -=
+				dF[VecFIx(fix, k)] -=
 					dUniformDiffusionCoeff
 					* m_dDiffDiffStateUniform[c][k];
 			}
@@ -3221,7 +3141,7 @@ void VerticalDynamicsFEM::BuildF(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::BuildJacobianF_Diffusion(
+void VerticalDynamicsSchur::BuildJacobianF_Diffusion(
 	const double * dX,
 	double * dDG
 ) {
@@ -3322,6 +3242,9 @@ void VerticalDynamicsFEM::BuildJacobianF_Diffusion(
 			_EXCEPTIONT("Upwinding DIRECTSOLVE requires W on interfaces");
 		}
 
+		// Convert to Jacobian index
+		int fix = FIxFromCIx(c);
+
 		// Upwinding on interfaces (velocity-weighted hyperviscosity)
 		if (pGrid->GetVarLocation(c) == DataLocation_REdge) {
 
@@ -3336,7 +3259,7 @@ void VerticalDynamicsFEM::BuildJacobianF_Diffusion(
 					dSignWeight = 0.0;
 				}
 
-				dDG[MatFIx(FWIx, k, FIxFromCIx(c), k)] -=
+				dDG[MatFIx(FWIx, k, fix, k)] -=
 					m_dUpwindCoeff
 					* dSignWeight
 					/ m_dColumnDerivRREdge[k][2]
@@ -3347,7 +3270,7 @@ void VerticalDynamicsFEM::BuildJacobianF_Diffusion(
 			for (int k = 0; k <= nRElements; k++) {
 				int n = iDiffDiffREdgeToREdgeBegin[k];
 				for (; n < iDiffDiffREdgeToREdgeEnd[k]; n++) {
-					dDG[MatFIx(FIxFromCIx(c), n, FIxFromCIx(c), k)] -=
+					dDG[MatFIx(fix, n, fix, k)] -=
 						m_dUpwindCoeff
 						* fabs(m_dXiDotREdge[k])
 						* dDiffDiffREdgeToREdge[k][n];
@@ -3380,7 +3303,7 @@ void VerticalDynamicsFEM::BuildJacobianF_Diffusion(
 				for (int k = kLeftBegin; k < kLeftEnd; k++) {
 					int n = iPenaltyLeftBegin[k];
 					for (; n < iPenaltyLeftEnd[k]; n++) {
-						dDG[MatFIx(FWIx, kLeftEnd, FIxFromCIx(c), k)] -=
+						dDG[MatFIx(FWIx, kLeftEnd, fix, k)] -=
 							dSignWeight
 							/ m_dColumnDerivRREdge[kLeftEnd][2]
 							* dPenaltyLeft[k][n]
@@ -3392,7 +3315,7 @@ void VerticalDynamicsFEM::BuildJacobianF_Diffusion(
 				for (int k = kRightBegin; k < kRightEnd; k++) {
 					int n = iPenaltyRightBegin[k];
 					for (; n < iPenaltyRightEnd[k]; n++) {
-						dDG[MatFIx(FWIx, kRightBegin, FIxFromCIx(c), k)] -=
+						dDG[MatFIx(FWIx, kRightBegin, fix, k)] -=
 							dSignWeight
 							/ m_dColumnDerivRREdge[kRightBegin][2]
 							* dPenaltyRight[k][n]
@@ -3404,7 +3327,7 @@ void VerticalDynamicsFEM::BuildJacobianF_Diffusion(
 				for (int k = kLeftBegin; k < kLeftEnd; k++) {
 					int n = iPenaltyLeftBegin[k];
 					for (; n < iPenaltyLeftEnd[k]; n++) {
-						dDG[MatFIx(FIxFromCIx(c), n, FIxFromCIx(c), k)] -=
+						dDG[MatFIx(fix, n, fix, k)] -=
 							dWeight * dPenaltyLeft[k][n];
 					}
 				}
@@ -3413,7 +3336,7 @@ void VerticalDynamicsFEM::BuildJacobianF_Diffusion(
 				for (int k = kRightBegin; k < kRightEnd; k++) {
 					int n = iPenaltyRightBegin[k];
 					for (; n < iPenaltyRightEnd[k]; n++) {
-						dDG[MatFIx(FIxFromCIx(c), n, FIxFromCIx(c), k)] -=
+						dDG[MatFIx(fix, n, fix, k)] -=
 							dWeight * dPenaltyRight[k][n];
 					}
 				}
@@ -3424,7 +3347,7 @@ void VerticalDynamicsFEM::BuildJacobianF_Diffusion(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::BuildJacobianF_LOR_RhoTheta_Pi(
+void VerticalDynamicsSchur::BuildJacobianF(
 	const double * dX,
 	double * dDG
 ) {
@@ -3498,13 +3421,8 @@ void VerticalDynamicsFEM::BuildJacobianF_LOR_RhoTheta_Pi(
 	const int nRElements = pGrid->GetRElements();
 
 	// Zero DG
-#if defined(USE_JACOBIAN_DIAGONAL)
 	memset(dDG, 0,
-		m_nColumnStateSize * m_nJacobianFWidth * sizeof(double));
-#else
-	memset(dDG, 0,
-		m_nColumnStateSize * m_nColumnStateSize * sizeof(double));
-#endif
+		m_nColumnStateSize * m_nJacobianFBandwidth * sizeof(double));
 
 #if defined(EXPLICIT_THERMO)
 	// Only support implicit thermodynamics
@@ -3604,7 +3522,8 @@ void VerticalDynamicsFEM::BuildJacobianF_LOR_RhoTheta_Pi(
 	}
 
 #if !defined(EXPLICIT_VERTICAL_VELOCITY_ADVECTION)
-
+	_EXCEPTIONT("Not implemented");
+/*
 	// dW_k/dW_m (Clark form)
 	for (int k = 1; k < nRElements; k++) {
 
@@ -3622,6 +3541,7 @@ void VerticalDynamicsFEM::BuildJacobianF_LOR_RhoTheta_Pi(
 			}
 		}
 	}
+*/
 #endif
 
 	// Add the diffusion terms
@@ -3649,617 +3569,7 @@ void VerticalDynamicsFEM::BuildJacobianF_LOR_RhoTheta_Pi(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::BuildJacobianF(
-	const double * dX,
-	double * dDG
-) {
-
-	// Indices of EquationSet variables
-	const int UIx = 0;
-	const int VIx = 1;
-	const int PIx = 2;
-	const int WIx = 3;
-	const int RIx = 4;
-
-	// Finite element grid
-	const GridGLL * pGrid = dynamic_cast<const GridGLL *>(m_model.GetGrid());
-
-#if defined(FORMULATION_RHOTHETA_PI)
-#if !defined(EXPLICIT_THERMO)
-	if (pGrid->GetVarLocation(PIx) == DataLocation_Node) {
-		BuildJacobianF_LOR_RhoTheta_Pi(dX, dDG);
-		return;
-	}
-#endif
-#endif
-
-	// Get the column interpolation and differentiation coefficients
-	const LinearColumnInterpFEM & opInterpNodeToREdge =
-		pGrid->GetOpInterpNodeToREdge();
-	const LinearColumnInterpFEM & opInterpREdgeToNode =
-		pGrid->GetOpInterpREdgeToNode();
-	const LinearColumnDiffFEM & opDiffNodeToNode =
-		pGrid->GetOpDiffNodeToNode();
-	const LinearColumnDiffFEM & opDiffNodeToREdge =
-		pGrid->GetOpDiffNodeToREdge();
-	const LinearColumnDiffFEM & opDiffREdgeToNode =
-		pGrid->GetOpDiffREdgeToNode();
-	const LinearColumnDiffFEM & opDiffREdgeToREdge =
-		pGrid->GetOpDiffREdgeToREdge();
-
-	const DataArray2D<double> & dInterpNodeToREdge =
-		opInterpNodeToREdge.GetCoeffs();
-	const DataArray2D<double> & dInterpREdgeToNode =
-		opInterpREdgeToNode.GetCoeffs();
-	const DataArray2D<double> & dDiffNodeToNode =
-		opDiffNodeToNode.GetCoeffs();
-	const DataArray2D<double> & dDiffNodeToREdge =
-		opDiffNodeToREdge.GetCoeffs();
-	const DataArray2D<double> & dDiffREdgeToNode =
-		opDiffREdgeToNode.GetCoeffs();
-	const DataArray2D<double> & dDiffREdgeToREdge =
-		opDiffREdgeToREdge.GetCoeffs();
-
-	const DataArray1D<int> & iInterpNodeToREdgeBegin =
-		opInterpNodeToREdge.GetIxBegin();
-	const DataArray1D<int> & iInterpREdgeToNodeBegin =
-		opInterpREdgeToNode.GetIxBegin();
-	const DataArray1D<int> & iDiffNodeToNodeBegin =
-		opDiffNodeToNode.GetIxBegin();
-	const DataArray1D<int> & iDiffNodeToREdgeBegin =
-		opDiffNodeToREdge.GetIxBegin();
-	const DataArray1D<int> & iDiffREdgeToNodeBegin =
-		opDiffREdgeToNode.GetIxBegin();
-	const DataArray1D<int> & iDiffREdgeToREdgeBegin =
-		opDiffREdgeToREdge.GetIxBegin();
-
-	const DataArray1D<int> & iInterpNodeToREdgeEnd =
-		opInterpNodeToREdge.GetIxEnd();
-	const DataArray1D<int> & iInterpREdgeToNodeEnd =
-		opInterpREdgeToNode.GetIxEnd();
-	const DataArray1D<int> & iDiffNodeToNodeEnd =
-		opDiffNodeToNode.GetIxEnd();
-	const DataArray1D<int> & iDiffNodeToREdgeEnd =
-		opDiffNodeToREdge.GetIxEnd();
-	const DataArray1D<int> & iDiffREdgeToNodeEnd =
-		opDiffREdgeToNode.GetIxEnd();
-	const DataArray1D<int> & iDiffREdgeToREdgeEnd =
-		opDiffREdgeToREdge.GetIxEnd();
-
-	// Physical constants
-	const PhysicalConstants & phys = m_model.GetPhysicalConstants();
-
-	// Number of radial elements
-	const int nRElements = pGrid->GetRElements();
-
-	// Zero DG
-	memset(dDG, 0,
-		m_nColumnStateSize * m_nColumnStateSize * sizeof(double));
-
-	// Mass flux on levels
-	bool fMassFluxOnLevels = false;
-	if (m_fForceMassFluxOnLevels) {
-		fMassFluxOnLevels = true;
-	} else if (pGrid->GetVarLocation(WIx) == DataLocation_Node) {
-		fMassFluxOnLevels = true;
-	}
-
-	if (fMassFluxOnLevels) {
-		_EXCEPTIONT("Mass flux on levels -- not implemented");
-	}
-
-//////////////////////////////////////////////
-// Prognostic thermodynamic variable pressure
-#if defined(FORMULATION_PRESSURE)
-
-	// Vertical velocity on interfaces (CPH or LOR staggering)
-	if (pGrid->GetVarLocation(WIx) == DataLocation_REdge) {
-		_EXCEPTIONT("Not implemented");
-
-	// Vertical velocity on nodes (LEV or INT staggering)
-	} else {
-
-#if !defined(EXPLICIT_THERMO)
-		// dP_k/dP_n
-		for (int k = 0; k < nRElements; k++) {
-
-			int n = iDiffNodeToNodeBegin[k];
-			for (; n < iDiffNodeToNodeEnd[k]; n++) {
-
-				// Pressure flux
-				dDG[MatFIx(FPIx, n, FPIx, k)] +=
-					phys.GetGamma()
-					* m_dColumnJacobianNode[n]
-					* m_dColumnInvJacobianNode[k]
-					* dDiffNodeToNode[k][n]
-					* m_dXiDotNode[n];
-
-				// Correction terms
-				dDG[MatFIx(FPIx, n, FPIx, k)] +=
-					- (phys.GetGamma() - 1.0)
-					* m_dXiDotNode[k]
-					* dDiffNodeToNode[k][n];
-			}
-		}
-
-		// dP_k/dW_n
-		for (int k = 0; k < nRElements; k++) {
-
-			int n = iDiffNodeToNodeBegin[k];
-			for (; n < iDiffNodeToNodeEnd[k]; n++) {
-				if (pGrid->GetVerticalStaggering() ==
-				    Grid::VerticalStaggering_Interfaces
-				) {
-					if ((n == 0) || (n == nRElements-1)) {
-						continue;
-					}
-				}
-
-				// Pressure flux
-				dDG[MatFIx(FWIx, n, FPIx, k)] +=
-					dDiffNodeToNode[k][n]
-					* m_dColumnInvJacobianNode[k]
-					* m_dColumnJacobianNode[n]
-					* phys.GetGamma()
-					* m_dStateNode[PIx][n]
-					* m_dColumnContraMetricXi[n][2]
-					* m_dColumnDerivRNode[n][2];
-			}
-
-			// Correction terms
-			if (pGrid->GetVerticalStaggering() ==
-			    Grid::VerticalStaggering_Interfaces
-			) {
-				if ((k == 0) || (k == nRElements-1)) {
-					continue;
-				}
-			}
-
-			dDG[MatFIx(FWIx, k, FPIx, k)] +=
-				- (phys.GetGamma() - 1.0)
-				* m_dColumnContraMetricXi[k][2]
-				* m_dColumnDerivRNode[k][2]
-				* m_dDiffPNode[k];
-		}
-#endif
-
-		// Account for interfaces
-		int kBegin = 0;
-		int kEnd = nRElements;
-
-		if (pGrid->GetVerticalStaggering() ==
-		    Grid::VerticalStaggering_Interfaces
-		) {
-			kBegin = 1;
-			kEnd = nRElements-1;
-		}
-
-		// dW_k/dP_n and dW_k/dR_k
-		for (int k = kBegin; k < kEnd; k++) {
-
-			int n = iDiffNodeToNodeBegin[k];
-			for (; n < iDiffNodeToNodeEnd[k]; n++) {
-				dDG[MatFIx(FPIx, n, FWIx, k)] +=
-					dDiffNodeToNode[k][n]
-					/ m_dStateNode[RIx][k]
-					/ m_dColumnDerivRNode[k][2];
-			}
-
-			dDG[MatFIx(FRIx, k, FWIx, k)] +=
-				- m_dDiffPNode[k]
-				/ m_dColumnDerivRNode[k][2]
-				/ (m_dStateNode[RIx][k] * m_dStateNode[RIx][k]);
-		}
-	}
-
-#endif
-#if defined(FORMULATION_RHOTHETA_PI)
-
-#if defined(EXPLICIT_THERMO)
-	_EXCEPTIONT("Not implemented");
-#endif
-
-	// Charney-Phillips staggering
-	if (pGrid->GetVarLocation(PIx) == DataLocation_REdge) {
-		_EXCEPTIONT("Not implemented");
-	}
-
-	// RhoTheta flux Jacobian is the same as it is for Rho
-	for (int k = 0; k < nRElements; k++) {
-
-		// dP_k/dW_l and dP_k/dP_n
-		int m = iDiffREdgeToNodeBegin[k];
-		for (; m < iDiffREdgeToNodeEnd[k]; m++) {
-
-			double dFluxCoeff = 
-				dDiffREdgeToNode[k][m]
-				* m_dColumnJacobianREdge[m]
-				* m_dColumnInvJacobianNode[k];
-
-			if ((m != 0) && (m != nRElements)) {
-				dDG[MatFIx(FWIx, m, FPIx, k)] +=
-					dFluxCoeff
-					* m_dStateREdge[PIx][m]
-					* m_dColumnContraMetricXiREdge[m][2]
-					* m_dColumnDerivRREdge[m][2];
-			}
-
-			int n = iInterpNodeToREdgeBegin[m];
-			for (; n < iInterpNodeToREdgeEnd[m]; n++) {
-
-				dDG[MatFIx(FPIx, n, FPIx, k)] +=
-					dFluxCoeff
-					* dInterpNodeToREdge[m][n]
-					* m_dXiDotREdge[m];
-			}
-		}
-	}
-
-	// dW_k/dP_m (in pressure gradient)
-	for (int k = 1; k < nRElements; k++) {
-
-		double dRHSWCoeff = 
-			1.0 / m_dColumnDerivRNode[k][2]
-			* m_dStateREdge[PIx][k]
-			/ m_dStateREdge[RIx][k]
-			* phys.GetR()
-			/ phys.GetCv();
-
-		int m = iDiffNodeToREdgeBegin[k];
-		for (; m < iDiffNodeToREdgeEnd[k]; m++) {
-			dDG[MatFIx(FPIx, m, FWIx, k)] +=
-				dRHSWCoeff 
-				* dDiffNodeToREdge[k][m]
-				* m_dExnerNode[m]
-				/ m_dStateNode[PIx][m];
-		}
-	}
-
-	// dW_k/dR_l (first rho in RHS)
-	for (int k = 1; k < nRElements; k++) {
-		int l = iInterpNodeToREdgeBegin[k];
-		for (; l < iInterpNodeToREdgeEnd[k]; l++) {
-			dDG[MatFIx(FRIx, l, FWIx, k)] +=
-				 - 1.0 / m_dColumnDerivRREdge[k][2]
-				 * dInterpNodeToREdge[k][l]
-				 * m_dStateREdge[PIx][k]
-				 / (m_dStateREdge[RIx][k] * m_dStateREdge[RIx][k])
-				 * m_dDiffPREdge[k];
-		}
-	}
-
-	// dW_k/dP_l (first rhotheta in RHS)
-	for (int k = 1; k < nRElements; k++) {
-		int l = iInterpNodeToREdgeBegin[k];
-		for (; l < iInterpNodeToREdgeEnd[k]; l++) {
-			dDG[MatFIx(FPIx, l, FWIx, k)] +=
-				 1.0 / m_dColumnDerivRREdge[k][2]
-				 * dInterpNodeToREdge[k][l]
-				 / m_dStateREdge[RIx][k]
-				 * m_dDiffPREdge[k];
-		}
-	}
-
-#endif
-#if defined(FORMULATION_RHOTHETA_P)
-	_EXCEPTIONT("Not implemented");
-#endif
-
-//////////////////////////////////////////////
-// Prognostic thermodynamic variable theta
-#if defined(FORMULATION_THETA)
-
-	// Lorenz staggering
-	if (pGrid->GetVarLocation(PIx) == DataLocation_Node) {
-		if (pGrid->GetVarLocation(WIx) != DataLocation_REdge) {
-			_EXCEPTIONT("Not implemented");
-		}
-
-#if !defined(EXPLICIT_THERMO)
-		// dT_k/dW_l
-		for (int k = 0; k < nRElements; k++) {
-			int l = iInterpREdgeToNodeBegin[k];
-			for (; l < iInterpREdgeToNodeEnd[k]; l++) {
-				dDG[MatFIx(FWIx, l, FPIx, k)] +=
-					m_dDiffThetaNode[k]
-					* dInterpREdgeToNode[k][l]
-					* m_dColumnContraMetricXi[k][2]
-					* m_dColumnDerivRNode[k][2];
-			}
-		}
-
-		// Test using u^xi on interfaces interpolated to nodes for Lorenz
-		pGrid->InterpolateREdgeToNode(
-				m_dXiDotREdge,
-				m_dXiDotNode);
-
-		// dT_k/dT_l
-		for (int k = 0; k < nRElements; k++) {
-			int l = iDiffNodeToNodeBegin[k];
-			for (; l < iDiffNodeToNodeEnd[k]; l++) {
-				dDG[MatFIx(FPIx, l, FPIx, k)] +=
-					dDiffNodeToNode[k][l]
-					* m_dXiDotNode[k];
-			}
-		}
-#endif
-
-		// dW_k/dT_m and dW_k/dR_m
-		for (int k = 1; k < nRElements; k++) {
-
-			double dRHSWCoeff = 
-				1.0 / m_dColumnDerivRNode[k][2]
-				* m_dStateREdge[PIx][k]
-				* phys.GetR()
-				/ phys.GetCv();
-
-			int m = iDiffNodeToREdgeBegin[k];
-			for (; m < iDiffNodeToREdgeEnd[k]; m++) {
-
-				dDG[MatFIx(FPIx, m, FWIx, k)] +=
-					dRHSWCoeff 
-					* dDiffNodeToREdge[k][m]
-					* m_dExnerNode[m]
-					/ m_dStateNode[PIx][m];
-
-				dDG[MatFIx(FRIx, m, FWIx, k)] +=
-					dRHSWCoeff
-					* dDiffNodeToREdge[k][m]
-					* m_dExnerNode[m]
-					/ m_dStateNode[RIx][m];
-			}
-		}
-
-		// dW_k/dT_k (first theta in RHS)
-		for (int k = 1; k < nRElements; k++) {
-			int l = iInterpNodeToREdgeBegin[k];
-			for (; l < iInterpNodeToREdgeEnd[k]; l++) {
-				dDG[MatFIx(FPIx, l, FWIx, k)] +=
-					 1.0 / m_dColumnDerivRREdge[k][2]
-					 * dInterpNodeToREdge[k][l]
-					 * m_dDiffPREdge[k];
-			}
-		}
-
-	// Charney-Phillips staggering
-	} else {
-		if (pGrid->GetVarLocation(WIx) != DataLocation_REdge) {
-			_EXCEPTIONT("Not implemented");
-		}
-
-#if !defined(EXPLICIT_THERMO)
-		// dT_k/dW_k
-		for (int k = 1; k < nRElements; k++) {
-			dDG[MatFIx(FWIx, k, FPIx, k)] +=
-				m_dDiffThetaREdge[k]
-				* m_dColumnContraMetricXiREdge[k][2]
-				* m_dColumnDerivRREdge[k][2];
-		}
-
-		// dT_k/dT_l
-		for (int k = 0; k <= nRElements; k++) {
-			int l = iDiffREdgeToREdgeBegin[k];
-			for (; l < iDiffREdgeToREdgeEnd[k]; l++) {
-				dDG[MatFIx(FPIx, l, FPIx, k)] +=
-					dDiffREdgeToREdge[k][l]
-					* m_dXiDotREdge[k];
-			}
-		}
-#endif
-
-		// dW_k/dT_l and dW_k/dR_m
-		for (int k = 1; k < nRElements; k++) {
-
-			double dRHSWCoeff = 
-				1.0 / m_dColumnDerivRNode[k][2]
-				* m_dStateREdge[PIx][k]
-				* phys.GetR()
-				/ phys.GetCv();
-
-			int m = iDiffNodeToREdgeBegin[k];
-			for (; m < iDiffNodeToREdgeEnd[k]; m++) {
-
-				double dTEntry =
-					dRHSWCoeff 
-					* dDiffNodeToREdge[k][m]
-					* m_dExnerNode[m]
-					/ m_dStateNode[PIx][m];
-
-				int l = iInterpREdgeToNodeBegin[m];
-				for (; l < iInterpREdgeToNodeEnd[m]; l++) {
-					dDG[MatFIx(FPIx, l, FWIx, k)] +=
-						dTEntry * dInterpREdgeToNode[m][l];
-				}
-
-				dDG[MatFIx(FRIx, m, FWIx, k)] +=
-					dRHSWCoeff
-					* dDiffNodeToREdge[k][m]
-					* m_dExnerNode[m]
-					/ m_dStateNode[RIx][m];
-			}
-		}
-
-		// dW_k/dT_k (first theta in RHS)
-		for (int k = 1; k < nRElements; k++) {
-			dDG[MatFIx(FPIx, k, FWIx, k)] +=
-				 1.0 / m_dColumnDerivRREdge[k][2]
-				 * m_dDiffPREdge[k];
-		}
-	}
-#endif
-
-	// Vertical velocity on interfaces (CPH or LOR staggering)
-	if (pGrid->GetVarLocation(WIx) == DataLocation_REdge) {
-		for (int k = 0; k < nRElements; k++) {
-
-			// dRho_k/dW_l and dRho_k/dRho_n
-			int m = iDiffREdgeToNodeBegin[k];
-			for (; m < iDiffREdgeToNodeEnd[k]; m++) {
-
-				double dFluxCoeff = 
-					dDiffREdgeToNode[k][m]
-					* m_dColumnJacobianREdge[m]
-					* m_dColumnInvJacobianNode[k];
-
-				if ((m != 0) && (m != nRElements)) {
-					dDG[MatFIx(FWIx, m, FRIx, k)] +=
-						dFluxCoeff
-						* m_dStateREdge[RIx][m]
-						* m_dColumnContraMetricXiREdge[m][2]
-						* m_dColumnDerivRREdge[m][2];
-				}
-
-				int n = iInterpNodeToREdgeBegin[m];
-				for (; n < iInterpNodeToREdgeEnd[m]; n++) {
-
-					dDG[MatFIx(FRIx, n, FRIx, k)] +=
-						dFluxCoeff
-						* dInterpNodeToREdge[m][n]
-						* m_dXiDotREdge[m];
-				}
-			}
-		}
-
-#if !defined(EXPLICIT_VERTICAL_VELOCITY_ADVECTION)
-#if defined(VERTICAL_VELOCITY_ADVECTION_CLARK)
-		// dW_k/dW_m
-		for (int k = 1; k < nRElements; k++) {
-			int l = iDiffNodeToREdgeBegin[k];
-			for (; l < iDiffNodeToREdgeEnd[k]; l++) {
-
-				int m = iInterpREdgeToNodeBegin[l];
-				for (; m < iInterpREdgeToNodeEnd[l]; m++) {
-					dDG[MatFIx(FWIx, m, FWIx, k)] +=
-						dInterpREdgeToNode[l][m]
-						* dDiffNodeToREdge[k][l]
-						/ m_dColumnDerivRREdge[k][2]
-						* m_dColumnDerivRNode[l][2]
-						* m_dXiDotNode[l];
-				}
-			}
-		}
-#else
-
-		// dW_k/dW_m
-		for (int k = 1; k < nRElements; k++) {
-			int m = iDiffREdgeToREdgeBegin[k];
-			for (; m < iDiffREdgeToREdgeEnd[k]; m++) {
-				dDG[MatFIx(FWIx, m, FWIx, k)] +=
-					m_dXiDotREdge[k]
-					* dDiffREdgeToREdge[k][m];
-			}
-
-			dDG[MatFIx(FWIx, k, FWIx, k)] +=
-				m_dDiffWREdge[k]
-				* m_dColumnContraMetricXiREdge[k][2]
-				* m_dColumnDerivRREdge[k][2];
-		}
-
-#endif
-#endif
-
-	// Vertical velocity on nodes (LEV or INT staggering)
-	} else {
-
-		for (int k = 0; k < nRElements; k++) {
-
-			int n = iDiffNodeToNodeBegin[k];
-			for (; n < iDiffNodeToNodeEnd[k]; n++) {
-
-				// dRho_k/dRho_n
-				dDG[MatFIx(FRIx, n, FRIx, k)] +=
-					dDiffNodeToNode[k][n]
-					* m_dColumnJacobianNode[n]
-					* m_dColumnInvJacobianNode[k]
-					* m_dXiDotNode[n];
-
-				// Boundary conditions
-				if (pGrid->GetVerticalStaggering() ==
-				    Grid::VerticalStaggering_Interfaces
-				) {
-					if ((n == 0) || (n == nRElements-1)) {
-						continue;
-					}
-				}
-
-				// dRho_k/dW_n
-				dDG[MatFIx(FWIx, n, FRIx, k)] +=
-					dDiffNodeToNode[k][n]
-					* m_dColumnJacobianNode[n]
-					* m_dColumnInvJacobianNode[k]
-					* m_dStateNode[RIx][n]
-					* m_dColumnDerivRNode[n][2]
-					* m_dColumnContraMetricXi[n][2];
-			}
-
-			// Boundary conditions
-			if (pGrid->GetVerticalStaggering() ==
-			    Grid::VerticalStaggering_Interfaces
-			) {
-				if ((k == 0) || (k == nRElements-1)) {
-					continue;
-				}
-			}
-
-#if !defined(EXPLICIT_VERTICAL_VELOCITY_ADVECTION)
-#if defined(VERTICAL_VELOCITY_ADVECTION_CLARK)
-			// dW_k/dW_n
-			n = iDiffNodeToNodeBegin[k];
-			for (; n < iDiffNodeToNodeEnd[k]; n++) {
-				dDG[MatFIx(FWIx, n, FWIx, k)] +=
-					dDiffNodeToNode[k][n]
-					/ m_dColumnDerivRNode[k][2]
-					* m_dColumnDerivRNode[n][2]
-					* m_dXiDotNode[n];
-
-			}
-#else
-		// dW_k/dW_m
-		for (int k = 0; k < nRElements; k++) {
-			int m = iDiffNodeToNodeBegin[k];
-			for (; m < iDiffNodeToNodeEnd[k]; m++) {
-				dDG[MatFIx(FWIx, m, FWIx, k)] +=
-					m_dXiDotNode[k]
-					* dDiffNodeToNode[k][m];
-			}
-
-			dDG[MatFIx(FWIx, k, FWIx, k)] +=
-				m_dDiffWNode[k]
-				* m_dColumnContraMetricXi[k][2];
-		}
-#endif
-#endif
-
-		}
-	}
-
-	// Add the diffusion terms
-	BuildJacobianF_Diffusion(dX, dDG);
-
-	// Add the identity components
-	for (int k = 0; k <= nRElements; k++) {
-		dDG[MatFIx(FPIx, k, FPIx, k)] += 1.0 / m_dDeltaT;
-		dDG[MatFIx(FWIx, k, FWIx, k)] += 1.0 / m_dDeltaT;
-		dDG[MatFIx(FRIx, k, FRIx, k)] += 1.0 / m_dDeltaT;
-	}
-
-	// Boundary conditions for W
-	if (pGrid->GetVerticalStaggering() ==
-	    Grid::VerticalStaggering_Interfaces
-	) {
-		dDG[MatFIx(FWIx, 0, FWIx, 0)] =
-			m_dColumnDerivRNode[0][2]
-			* m_dColumnContraMetricXi[0][2];
-		dDG[MatFIx(FWIx, nRElements-1, FWIx, nRElements-1)] =
-			m_dColumnDerivRNode[nRElements-1][2]
-			* m_dColumnContraMetricXi[nRElements-1][2];
-	}
-
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-void VerticalDynamicsFEM::Evaluate(
+void VerticalDynamicsSchur::Evaluate(
 	const double * dX,
 	double * dF
 ) {
@@ -4272,7 +3582,7 @@ void VerticalDynamicsFEM::Evaluate(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::UpdateColumnTracers(
+void VerticalDynamicsSchur::UpdateColumnTracers(
 	double dDeltaT,
 	const DataArray4D<double> & dataInitialNode,
 	const DataArray4D<double> & dataUpdateNode,
@@ -4783,7 +4093,7 @@ void VerticalDynamicsFEM::UpdateColumnTracers(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void VerticalDynamicsFEM::FilterNegativeTracers(
+void VerticalDynamicsSchur::FilterNegativeTracers(
 	int iDataUpdate
 ) {
 #ifdef POSITIVE_DEFINITE_FILTER_TRACERS
@@ -4851,7 +4161,7 @@ void VerticalDynamicsFEM::FilterNegativeTracers(
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifdef USE_JFNK_PETSC
-PetscErrorCode VerticalDynamicsFEM_FormFunction(
+PetscErrorCode VerticalDynamicsSchur_FormFunction(
 	SNES snes,
 	Vec x,
 	Vec f,
@@ -4866,7 +4176,7 @@ PetscErrorCode VerticalDynamicsFEM_FormFunction(
 	VecGetArray(f, &dF);
 
 	// Cast the context to VerticalDynamics and call Evaluate
-	((VerticalDynamicsFEM*)(pDyn))->Evaluate(dX, dF);
+	((VerticalDynamicsSchur*)(pDyn))->Evaluate(dX, dF);
 
 	// Restore the array
 	VecRestoreArrayRead(x, &dX);
