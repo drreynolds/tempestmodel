@@ -21,7 +21,6 @@
 #include "EquationSet.h"
 #include "UserDataMeta.h"
 #include "PhysicalConstants.h"
-#include "GridStaggering.h"
 #include "Grid.h"
 #include "TestCase.h"
 #include "TimestepScheme.h"
@@ -375,11 +374,6 @@ protected:
 	///		User data item metadata.
 	///	</summary>
 	UserDataMeta m_metaUserData;
-
-	///	<summary>
-	///		Type of staggering used for each variable.
-	///	</summary>
-	GridStaggering m_stag;
 
 private:
 	///	<summary>
