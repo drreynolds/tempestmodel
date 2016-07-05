@@ -104,10 +104,11 @@ struct _TempestCommandLineVariables {
 	int iARKode_NonlinIters;
 	int iARKode_LinIters;
 	int iARKode_Predictor; 
-    std::string strARKode_ButcherTable;
+        std::string strARKode_ButcherTable;
 	bool fARKode_Diagnostics;
         bool fARKode_UsePreconditioning;
         bool fARKode_ColumnSolver;
+        bool fFullyImplicit; 
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -155,7 +156,8 @@ struct _TempestCommandLineVariables {
 	CommandLineString(_tempestvars.strARKode_ButcherTable, "arkode_butchertable", ""); \
 	CommandLineBool(_tempestvars.fARKode_Diagnostics, "arkode_diagnostics"); \
 	CommandLineBool(_tempestvars.fARKode_UsePreconditioning, "arkode_usepreconditioning"); \
-	CommandLineBool(_tempestvars.fARKode_ColumnSolver, "arkode_columnsolver");
+	CommandLineBool(_tempestvars.fARKode_ColumnSolver, "arkode_columnsolver"); \
+	CommandLineBool(_tempestvars.fFullyImplicit, "fullyimplicit");
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -267,12 +269,20 @@ void _TempestSetupMethodOfLines(
  	        ARKodeCommandLineVariables ARKodeVars;
 
 		STLStringHelper::ToLower(vars.strARKode_ButcherTable);
+
+		if (vars.fFullyImplicit) {
+		  vars.fExplicitVertical   = true;
+		  ARKodeVars.FullyExplicit = false;
+		  ARKodeVars.FullyImplicit = vars.fFullyImplicit;
+		} else {
+		  ARKodeVars.FullyExplicit = vars.fExplicitVertical;
+		  ARKodeVars.FullyImplicit = false;
+		}
 		
 		ARKodeVars.nvectors        = vars.iARKode_nvectors;
 		ARKodeVars.rtol            = vars.dARKode_rtol;
 		ARKodeVars.atol            = vars.dARKode_atol;
 		ARKodeVars.DynamicStepSize = vars.fARKode_DynamicStepSize;
-		ARKodeVars.FullyExplicit   = vars.fExplicitVertical;
 		ARKodeVars.AAFP            = vars.fARKode_aafp;
 		ARKodeVars.AAFPAccelVec    = vars.iARKode_AAFPAccelVec;
 		ARKodeVars.NonlinIters     = vars.iARKode_NonlinIters;

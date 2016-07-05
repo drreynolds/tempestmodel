@@ -50,7 +50,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_dRelTol(ARKodeVars.rtol),
 	m_dAbsTol(ARKodeVars.atol),
 	m_fFullyExplicit(ARKodeVars.FullyExplicit),
-	m_fFullyImplicit(false),
+	m_fFullyImplicit(ARKodeVars.FullyImplicit),
 	m_fDynamicStepSize(ARKodeVars.DynamicStepSize),
 	m_dDynamicDeltaT(0.0),
 	m_fAAFP(ARKodeVars.AAFP),
@@ -117,10 +117,13 @@ void TimestepSchemeARKode::Initialize() {
 
   // Initialize ARKode
   if (m_fFullyExplicit) {
+    Announce("Running ARKode fully explicit");
     ierr = ARKodeInit(arkode_mem, ARKodeFullRHS, NULL, dCurrentT, m_Y);
   } else if (m_fFullyImplicit) {
+    Announce("Running ARKode fully implicit");
     ierr = ARKodeInit(arkode_mem, NULL, ARKodeFullRHS, dCurrentT, m_Y);
   } else {
+    Announce("Running ARKode IMEX");
     ierr = ARKodeInit(arkode_mem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
   }
 
