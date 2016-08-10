@@ -60,6 +60,13 @@
 ///	</summary>
 #define POSITIVE_DEFINITE_FILTER_TRACERS
 
+#define FULLY_IMPLICIT_THERMO
+#define FULLY_IMPLICIT_DENSITY
+#define FULLY_IMPLICIT_VERTICAL_VELOCITY
+
+//#define USE_IMPROVED_DENSITY_EQUATION_PRECONDITIONER
+//#define USE_IMPROVED_THERMO_EQUATION_PRECONDITIONER        
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif

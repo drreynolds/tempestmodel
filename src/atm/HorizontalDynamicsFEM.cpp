@@ -779,7 +779,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 
 				int iElementA = a * m_nHorizontalOrder + box.GetHaloElements();
 				int iElementB = b * m_nHorizontalOrder + box.GetHaloElements();
-
+ 
 				// Derivatives of the covariant velocity field
 				double dCovDaUb = 0.0;
 				double dCovDaUx = 0.0;
@@ -1039,9 +1039,9 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						// Update density: Differential formulation
 						dDaRhoFluxA +=
 							m_dAlphaMassFlux[s][j]
-							* dDxBasis1D[s][i];
+						  * dDxBasis1D[s][i];
 
-#pragma message "Only evaluate pressure flux for relevant formulations"
+						  //#pragma message "Only evaluate pressure flux for relevant formulations"
 						// Update pressure: Differential formulation
 						dDaPressureFluxA +=
 							m_dAlphaPressureFlux[s][j]
@@ -1237,11 +1237,14 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					}
 #endif
 
+#if !defined(FULLY_IMPLICIT_DENSITY)
+
 					// Update density on model levels
 					dataUpdateNode[RIx][k][iA][iB] -=
 						dDeltaT * dInvJacobian * (
 							  dDaRhoFluxA
 							+ dDbRhoFluxB);
+#endif 
 
 #ifdef FORMULATION_PRESSURE
 					// Update pressure on model levels
@@ -1289,6 +1292,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					}
 
 #ifdef FORMULATION_THETA
+#ifndef FULLY_IMPLICIT_THERMO
 					// Update thermodynamic variable on nodes
 					if (pGrid->GetVarLocation(PIx) == DataLocation_Node) {
 
@@ -1313,6 +1317,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						dataUpdateNode[PIx][k][iA][iB] -=
 							dDeltaT * (dConUa * dDaTheta + dConUb * dDbTheta);
 					}
+#endif
 #endif
 #ifdef FORMULATION_THETA_FLUX
 					// Update thermodynamic variable on nodes
@@ -1395,6 +1400,8 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 				}
 			}
 
+#if !defined(FULLY_IMPLICIT_VERTICAL_VELOCITY)
+
 			// Update vertical velocity on interfaces
 			if (pGrid->GetVarLocation(WIx) == DataLocation_REdge) {
 
@@ -1449,6 +1456,8 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 				}
 				}
 			}
+
+#endif
 
 #if defined(FORMULATION_THETA) || defined(FORMULATION_THETA_FLUX)
 			// Update thermodynamic variable on interfaces
@@ -1630,6 +1639,7 @@ void HorizontalDynamicsFEM::StepExplicit(
 
 		if (eqn.GetType() == EquationSet::PrimitiveNonhydrostaticEquations) {
 
+		  //#ifndef FULLY_IMPLICIT_THERMO
 			// Uniform diffusion of Theta with scalar diffusion coeff
 			ApplyScalarHyperdiffusion(
 				iDataInitial,
@@ -1639,7 +1649,7 @@ void HorizontalDynamicsFEM::StepExplicit(
 				false,
 				2,
 				true);
-
+			//#endif
 			// Uniform diffusion of W with vector diffusion coeff
 			ApplyScalarHyperdiffusion(
 				iDataInitial,
@@ -1774,6 +1784,11 @@ void HorizontalDynamicsFEM::ApplyScalarHyperdiffusion(
 
 			// Loop over all components
 			for (int c = nComponentStart; c < nComponentEnd; c++) {
+
+			  //#ifdef FULLY_IMPLICIT_THERMO
+			  //			  if (c == 2) 
+			  //         continue;
+		        	//#endif
 
 				int nElementCountR;
 

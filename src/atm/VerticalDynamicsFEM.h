@@ -191,6 +191,10 @@ public:
 		GridPatch * pPatch,
 		int iA,
 		int iB,
+		int iLocalA,
+		int iLocalB,
+		int iElementA,
+		int iElementB,
 		const DataArray4D<double> & dataRefNode,
 		const DataArray4D<double> & dataInitialNode,
 		const DataArray4D<double> & dataRefREdge,
@@ -211,7 +215,8 @@ public:
 	///	</summary>
 	void BuildF(
 		const double * dX,
-		double * dF
+		double * dF,
+		bool bUpdatedF
 	);
 
 	///	<summary>
@@ -264,6 +269,23 @@ protected:
 		DataArray4D<double> & dataUpdateTracer
 	);
 
+	///     <summary>
+	///             Save the initial data before the columwise-computation of the implicit right-hand side
+	///             This is needed when some horizontal terms are treated explicitly, and others implicitly
+	///     <summary>
+        void SaveInitialDataInPatch(
+ 		const DataArray4D<double> & dataInitialNode,
+		const DataArray4D<double> & dataInitialREdge
+        );
+
+
+	///    <summary>
+	///             Save the mass flux computed with the initial data before the columwise-computation of the implicit right-hand side
+	///             This is needed to compute the horizontal update of rho implicitly
+	void SaveMassFluxDataInPatch(
+	        const DataArray4D<double> & dataInitialNode
+	);				     
+ 
 public:
 	///	<summary>
 	///		Apply a positive definite filter to tracers in each column.
@@ -359,6 +381,26 @@ protected:
 	///	</summary>
 	DataArray2D<double> m_dDiffDiffStateUniform;
 
+	///     <summary>
+	///         	Auxiliary storage for the initial data before the columwise-computation of the implicit right-hand side
+	///             Needed when some horizontal terms are treated explicitly, and others implicitly
+	///     <summary>
+	DataArray4D<double> m_dSavedDataNode;
+
+	///     <summary>
+	///         	Auxiliary storage for the mass flux (alpha - direction) 
+	///                 before the columwise-computation of the implicit right-hand side
+	///             Needed when some horizontal terms are treated explicitly, and others implicitly
+	///     <summary>
+	DataArray3D<double> m_dSavedAlphaMassFlux;
+	  
+	///     <summary>
+	///         	Auxiliary storage for the mass flux (beta - direction)
+	///                 before the columwise-computation of the implicit right-hand side
+	///             Needed when some horizontal terms are treated explicitly, and others implicitly
+	///     <summary>
+	DataArray3D<double> m_dSavedBetaMassFlux;
+
 protected:
 	///	<summary>
 	///		Timestep size.
@@ -379,6 +421,27 @@ protected:
 	///		Active beta index on m_pPatch.
 	///	</summary>
 	int m_iB;
+
+	///     <summary>
+	///             Local alpha index in element
+	///     </summary>
+	int m_iLocalA;
+
+	///     <summary> 
+	///             Local beta index in element
+	///     </summary>
+	int m_iLocalB;
+	
+	///     <summary>
+	///             First alpha index in element
+	///     </summary>
+	int m_iElementA;
+
+	///     <summary>
+	///             First beta index in element
+	///     </summary>
+	int m_iElementB;
+
 
 	///	<summary>
 	///		Number of radial elements in the vertical column.

@@ -51,6 +51,7 @@ struct ARKodeCommandLineVariables {
   int    ARKodeButcherTable;
   std::string ButcherTable;
   bool   WriteDiagnostics;
+  bool   FullyImplicit;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

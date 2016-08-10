@@ -25,6 +25,7 @@
 #include "Model.h"
 #include "Grid.h"
 #include "GridCSGLL.h"
+#include "GridPatchGLL.h"
 #include "EquationSet.h"
 #include "TimeObj.h"
 #include "PolynomialInterp.h"
@@ -547,21 +548,45 @@ void VerticalDynamicsFEM::StepImplicitTermsExplicitly(
 #endif
 #if defined(EXPLICIT_THERMO) \
  || (defined(EXPLICIT_VERTICAL_VELOCITY_ADVECTION) \
-     && defined(VERTICAL_VELOCITY_ADVECTION_CLARK))
+     && defined(VERTICAL_VELOCITY_ADVECTION_CLARK)) \
+  || (defined(FULLY_IMPLICIT_THERMO)) \
+  || (defined(FULLY_IMPLICIT_DENSITY))
+		
 		// Interpolate W to levels
 		pPatch->InterpolateREdgeToNode(WIx, iDataInitial);
+#endif		
+
+#if defined(FULLY_IMPLICIT_THERMO) || \
+    defined(FULLY_IMPLICIT_DENSITY) || \
+    defined(FULLY_IMPLICIT_VERTICAL_VELOCITY)
+		m_pPatch = pPatch;
+		SaveInitialDataInPatch(dataInitialNode,dataInitialREdge);
+		m_pPatch = NULL;
 #endif
+
 
 		// Loop over all nodes
 		for (int i = box.GetAInteriorBegin(); i < box.GetAInteriorEnd(); i++) {
 		for (int j = box.GetBInteriorBegin(); j < box.GetBInteriorEnd(); j++) {
 
 			//UPDATE ONLY THE TERMS TREATED IMPLICITLY BUT EXPLICITLY
-			int iA = i;
-			int iB = j;
+			
+		        // global (in patch) node id
+		        int iA        = i;
+			int iB        = j;
+			// global (in patch) element id
+			int a         = floor((iA - box.GetHaloElements()) / m_nHorizontalOrder);
+			int b         = floor((iB - box.GetHaloElements()) / m_nHorizontalOrder);
+			// first global node id in element a (resp., b)
+			int iElementA = a * m_nHorizontalOrder + box.GetHaloElements();
+			int iElementB = b * m_nHorizontalOrder + box.GetHaloElements();
+			// local (in element) node id
+			int iLocalA   = iA - iElementA;
+			int iLocalB   = iB - iElementB;
 
 			SetupReferenceColumn(
-				pPatch, iA, iB,
+				pPatch,  
+				iA, iB, iLocalA, iLocalB, iElementA, iElementB, 
 				dataRefNode,
 				dataInitialNode,
 				dataRefREdge,
@@ -744,14 +769,38 @@ void VerticalDynamicsFEM::StepExplicit(
 		pPatch->InterpolateREdgeToNode(WIx, iDataInitial);
 #endif
 */
+#if defined(FULLY_IMPLICIT_THERMO) || \
+    defined(FULLY_IMPLICIT_DENSITY) || \
+    defined(FULLY_IMPLICIT_VERTICAL_VELOCITY)		
+		m_pPatch = pPatch;
+		SaveInitialDataInPatch(dataInitialNode,dataInitialREdge);
+		m_pPatch = NULL;
+#endif
+
+
 		// Loop over all nodes
 		for (int i = box.GetAInteriorBegin(); i < box.GetAInteriorEnd(); i++) {
 		for (int j = box.GetBInteriorBegin(); j < box.GetBInteriorEnd(); j++) {
 
+		        // global (in patch) node id
+		        int iA        = i;
+			int iB        = j;
+			// global (in patch) element id
+			int a         = floor((iA - box.GetHaloElements()) / m_nHorizontalOrder);
+			int b         = floor((iB - box.GetHaloElements()) / m_nHorizontalOrder);
+			// first global node id in element a (resp., b)
+			int iElementA = a * m_nHorizontalOrder + box.GetHaloElements();
+			int iElementB = b * m_nHorizontalOrder + box.GetHaloElements();
+			// local (in element) node id
+			int iLocalA   = iA - iElementA;
+			int iLocalB   = iB - iElementB;
+
 			// Setup the reference column:  Store U and V in m_dState arrays
 			// and interpolate U and V from levels to interfaces.
+
 			SetupReferenceColumn(
-				pPatch, i, j,
+				pPatch, iA, iB,
+				iLocalA, iLocalB, iElementA, iElementB, 
 				dataRefNode,
 				dataInitialNode,
 				dataRefREdge,
@@ -1407,6 +1456,15 @@ void VerticalDynamicsFEM::StepImplicit(
 		int nBElements =
 			box.GetBInteriorWidth() / m_nHorizontalOrder;
 
+#if defined(FULLY_IMPLICIT_THERMO) || \
+    defined(FULLY_IMPLICIT_DENSITY) || \
+    defined(FULLY_IMPLICIT_VERTICAL_VELOCITY)
+		m_pPatch = pPatch;
+		SaveInitialDataInPatch(dataInitialNode,dataInitialREdge);
+		m_pPatch = NULL;
+#endif
+
+
 		// Loop over all nodes, but only perform calculation on shared
 		// nodes once
 		for (int a = 0; a < nAElements; a++) {
@@ -1430,11 +1488,16 @@ void VerticalDynamicsFEM::StepImplicit(
 		for (int i = 0; i < iEnd; i++) {
 		for (int j = 0; j < jEnd; j++) {
 
+		        // global (in patch) node id
 			int iA = box.GetAInteriorBegin() + a * m_nHorizontalOrder + i;
 			int iB = box.GetBInteriorBegin() + b * m_nHorizontalOrder + j;
+			// first node id in element a (resp., b)
+			int iElementA = a * m_nHorizontalOrder + box.GetAInteriorBegin();
+			int iElementB = b * m_nHorizontalOrder + box.GetBInteriorBegin();
 
 			SetupReferenceColumn(
 				pPatch, iA, iB,
+				i, j, iElementA, iElementB, 
 				dataRefNode,
 				dataInitialNode,
 				dataRefREdge,
@@ -1500,7 +1563,7 @@ void VerticalDynamicsFEM::StepImplicit(
 			PrepareColumn(m_dColumnState);
 
 			// Build the F vector
-			BuildF(m_dColumnState, m_dSoln);
+			BuildF(m_dColumnState, m_dSoln, true);
 
 			DataArray1D<double> dJC;
 			dJC.Allocate(m_dColumnState.GetRows());
@@ -1536,7 +1599,7 @@ void VerticalDynamicsFEM::StepImplicit(
 			PrepareColumn(m_dColumnState);
 
 			// Build the F vector
-			BuildF(m_dColumnState, m_dSoln);
+			BuildF(m_dColumnState, m_dSoln, true);
 
 			// Build the Jacobian
 			BuildJacobianF(m_dColumnState, &(m_matJacobianF[0][0]));
@@ -1836,6 +1899,22 @@ void VerticalDynamicsFEM::SolveImplicit(
 		int nBElements =
 			box.GetBInteriorWidth() / m_nHorizontalOrder;
 
+#if defined(FULLY_IMPLICIT_THERMO) || \
+    defined(FULLY_IMPLICIT_DENSITY) || \
+    defined(FULLY_IMPLICIT_VERTICAL_VELOCITY)
+	
+#if defined(USE_IMPROVED_DENSITY_EQUATION_PRECONDITIONER) || \
+    defined(USE_IMPROVED_THERMO_EQUATION_PRECONDITIONER) 
+	    
+		m_pPatch = pPatch;
+		SaveInitialDataInPatch(dataInitialNode,dataInitialREdge);
+		m_pPatch = NULL;
+
+#endif
+
+#endif
+
+
 		// Loop over all nodes, but only perform calculation on shared
 		// nodes once
 		for (int a = 0; a < nAElements; a++) {
@@ -1859,12 +1938,17 @@ void VerticalDynamicsFEM::SolveImplicit(
 		for (int i = 0; i < iEnd; i++) {
 		for (int j = 0; j < jEnd; j++) {
 
-			int iA = box.GetAInteriorBegin() + a * m_nHorizontalOrder + i;
-			int iB = box.GetBInteriorBegin() + b * m_nHorizontalOrder + j;
+			// global (in patch) node id
+			int iA        = box.GetAInteriorBegin() + a * m_nHorizontalOrder + i;
+			int iB        = box.GetBInteriorBegin() + b * m_nHorizontalOrder + j;
+			// first node id in element a (resp., b)
+			int iElementA = a * m_nHorizontalOrder + box.GetAInteriorBegin();
+			int iElementB = b * m_nHorizontalOrder + box.GetBInteriorBegin();
 
 			// fill m_dColumnState with initial state data
 			SetupReferenceColumn(
 				pPatch, iA, iB,
+				i, j, iElementA, iElementB, 
 				dataRefNode,
 				dataInitialNode,
 				dataRefREdge,
@@ -1876,7 +1960,7 @@ void VerticalDynamicsFEM::SolveImplicit(
 
 			// Build the F vector (don't actually need F, but we do need
 			// temporary data stored internally in class)
-			BuildF(m_dColumnState, m_dSoln);
+			BuildF(m_dColumnState, m_dSoln, false);
 
 			// Build the Jacobian (uses internal data structures filled by BuildF)
 			BuildJacobianF(m_dColumnState, &(m_matJacobianF[0][0]));
@@ -1888,6 +1972,7 @@ void VerticalDynamicsFEM::SolveImplicit(
 			//    first fill m_dColumnState with RHS data instead of state data
 			SetupReferenceColumn(
 				pPatch, iA, iB,
+				i, j, iElementA, iElementB,
 				dataRefNode,
 				dataRHSNode,
 				dataRefREdge,
@@ -2067,6 +2152,10 @@ void VerticalDynamicsFEM::SetupReferenceColumn(
 	GridPatch * pPatch,
 	int iA,
 	int iB,
+	int iLocalA,
+	int iLocalB,
+	int iElementA,
+	int iElementB,
 	const DataArray4D<double> & dataRefNode,
 	const DataArray4D<double> & dataInitialNode,
 	const DataArray4D<double> & dataRefREdge,
@@ -2087,9 +2176,13 @@ void VerticalDynamicsFEM::SetupReferenceColumn(
 	const int nRElements = pGrid->GetRElements();
 
 	// Store active patch in index
-	m_pPatch = pPatch;
-	m_iA = iA;
-	m_iB = iB;
+	m_pPatch    = pPatch;
+	m_iA        = iA;
+	m_iB        = iB;
+	m_iLocalA   = iLocalA;
+	m_iLocalB   = iLocalB;
+	m_iElementA = iElementA;
+	m_iElementB = iElementB;
 
 	// Store U in State structure
 	for (int k = 0; k < nRElements; k++) {
@@ -2305,7 +2398,6 @@ void VerticalDynamicsFEM::PrepareColumn(
 	if (pGrid->GetVarLocation(PIx) == DataLocation_REdge) {
 		m_dStateREdge[PIx][nRElements] = dX[VecFIx(FPIx, nRElements)];
 	}
-
 	// Vertical velocity on model levels
 	if (pGrid->GetVarLocation(WIx) == DataLocation_Node) {
 
@@ -2611,7 +2703,8 @@ void VerticalDynamicsFEM::PrepareColumn(
 
 void VerticalDynamicsFEM::BuildF(
 	const double * dX,
-	double * dF
+	double * dF,
+	bool bUpdate_dF
 ) {
 	// Indices of EquationSet variables
 	const int UIx = 0;
@@ -2672,6 +2765,9 @@ void VerticalDynamicsFEM::BuildF(
 			fZeroBoundaries);
 	}
 
+
+	if (bUpdate_dF) {
+
 	// Change in density on model levels
 	double dSum = 0.0;
 	for (int k = 0; k < nRElements; k++) {
@@ -2681,6 +2777,71 @@ void VerticalDynamicsFEM::BuildF(
 			m_dDiffMassFluxNode[k]
 			* m_dColumnInvJacobianNode[k];
 	}
+
+	}
+
+#if defined(FULLY_IMPLICIT_DENSITY) 
+
+       	if (bUpdate_dF) {
+
+	GridPatchGLL * pPatch =	  
+	                 dynamic_cast<GridPatchGLL*>(m_pPatch);
+	
+	// Element grid spacing and derivative coefficients
+	const double dElementDeltaA              = pPatch->GetElementDeltaA();
+	const double dElementDeltaB              = pPatch->GetElementDeltaB();
+
+	const double dInvElementDeltaA           = 1.0 / dElementDeltaA;
+	const double dInvElementDeltaB           = 1.0 / dElementDeltaB;
+
+	const DataArray2D<double> & dDxBasis1D   = pGrid->GetDxBasis1D();
+	const DataArray2D<double> & dStiffness1D = pGrid->GetStiffness1D();
+	const DataArray3D<double> & dJacobian    = pPatch->GetJacobian();
+
+       	// Change in Theta on model levels
+	for (int k = 0; k < nRElements; k++) {
+		  
+	      const double dInvJacobian = 1.0 / dJacobian[k][m_iA][m_iB];
+
+	      double dDaRhoFluxA = 0.0;
+	      double dDbRhoFluxB = 0.0;
+	
+	      for (int s = 0; s < m_nHorizontalOrder; s++) {
+	
+#ifdef DIFFERENTIAL_FORM
+		
+		// update density (differential form)
+		dDaRhoFluxA += m_dSavedAlphaMassFlux[k][m_iElementA+s][m_iB]
+		  * dDxBasis1D[s][m_iLocalA];
+		
+		dDbRhoFluxB += m_dSavedBetaMassFlux[k][m_iA][m_iElementB+s]
+		  * dDxBasis1D[s][m_iLocalB];
+		
+#else 
+		
+		// update density (variational form)
+		dDaRhoFluxA -= m_dSavedAlphaMassFlux[k][m_iElementA+s][m_iB]
+		  * dStiffness1D[m_iLocalA][s];
+
+		dDbRhoFluxB -= m_dSavedBetaMassFlux[k][m_iA][m_iElementB+s]
+		  * dStiffness1D[m_iLocalB][s];
+		
+#endif
+	      
+	      dDaRhoFluxA *= dInvElementDeltaA;
+	      dDbRhoFluxB *= dInvElementDeltaB;
+
+	      dF[VecFIx(FRIx, k)] += 
+		dInvJacobian * ( 
+				dDaRhoFluxA 
+				+ dDbRhoFluxB
+				 );
+
+	}
+
+	}
+	
+#endif
 
 #if !defined(EXPLICIT_THERMO)
 #if defined(FORMULATION_PRESSURE)
@@ -2725,6 +2886,7 @@ void VerticalDynamicsFEM::BuildF(
 			m_dDiffPressureFluxNode[k]
 			* m_dColumnInvJacobianNode[k];
 	}
+
 #endif
 #if defined(FORMULATION_RHOTHETA_PI) || defined(FORMULATION_RHOTHETA_P)
 	// RhoTheta flux on model interfaces
@@ -2772,11 +2934,80 @@ void VerticalDynamicsFEM::BuildF(
 				m_dXiDotREdge,
 				m_dXiDotNode);
 
+		if (bUpdate_dF) {
+
 		// Change in Theta on model levels
 		for (int k = 0; k < nRElements; k++) {
 			dF[VecFIx(FPIx, k)] +=
 				m_dXiDotNode[k] * m_dDiffThetaNode[k];
 		}
+
+		}
+      
+#ifdef FULLY_IMPLICIT_THERMO
+
+		if (bUpdate_dF) {
+
+		// Compute the horizontal terms of the thermodynamics equation IMPLICITLY
+		
+		GridPatchGLL * pPatch = dynamic_cast<GridPatchGLL*>(m_pPatch);
+		
+		// element grid spacing
+		const double dElementDeltaA    = pPatch->GetElementDeltaA();
+		const double dElementDeltaB    = pPatch->GetElementDeltaB();
+
+		const double dInvElementDeltaA = 1.0 / dElementDeltaA;
+		const double dInvElementDeltaB = 1.0 / dElementDeltaB;
+
+		// derivatives of the basis functions
+		const DataArray2D<double> & dDxBasis1D = pGrid->GetDxBasis1D();
+
+		// Change in Theta on model levels
+		for (int k = 0; k < nRElements; k++) {
+
+            	        const double dCovUa   = m_dStateNode[UIx][k];
+    		        const double dCovUb   = m_dStateNode[VIx][k];
+ 		        const double dCovUx   = m_dStateNode[WIx][k] * m_dColumnDerivRNode[k][2];
+
+		        const double dConUa   =
+		                m_dColumnContraMetricA[k][0] * dCovUa
+         		      + m_dColumnContraMetricA[k][1] * dCovUb
+ 		              + m_dColumnContraMetricA[k][2] * dCovUx;
+		  
+ 		        const double dConUb   =
+			        m_dColumnContraMetricB[k][0] * dCovUa
+			      + m_dColumnContraMetricB[k][1] * dCovUb
+			      + m_dColumnContraMetricB[k][2] * dCovUx;
+
+		        const double dConUx   =
+			        m_dColumnContraMetricXi[k][0] * dCovUa
+           		      + m_dColumnContraMetricXi[k][1] * dCovUb
+  			      + m_dColumnContraMetricXi[k][2] * dCovUx;
+
+			double dDaTheta = 0.0;
+                        double dDbTheta = 0.0;
+		
+			for (int s = 0; s < m_nHorizontalOrder; s++) {
+			        dDaTheta +=
+			                 m_dSavedDataNode[PIx][k][m_iElementA+s][m_iB]
+                                         * dDxBasis1D[s][m_iLocalA];
+		  
+				dDbTheta +=
+				         m_dSavedDataNode[PIx][k][m_iA][m_iElementB+s]
+             				 * dDxBasis1D[s][m_iLocalB];
+			}
+
+			dDaTheta *= dInvElementDeltaA;
+			dDbTheta *= dInvElementDeltaB;
+			
+			// Change in theta in model k
+			dF[VecFIx(FPIx, k)] += 
+			  dConUa * dDaTheta + dConUb * dDbTheta;
+		}
+
+		}
+
+#endif
 
 	// Update theta on model interfaces
 	} else {
@@ -2786,6 +3017,8 @@ void VerticalDynamicsFEM::BuildF(
 				m_dXiDotREdge[k] * m_dDiffThetaREdge[k];
 		}
 	}
+
+
 #endif
 #if defined(FORMULATION_THETA_FLUX)
 	// Update theta on model levels
@@ -2847,7 +3080,7 @@ void VerticalDynamicsFEM::BuildF(
 		pGrid->DifferentiateREdgeToREdge(
 			m_dPressureFluxREdge,
 			m_dDiffPressureFluxREdge);
-
+		
 		// Change in Theta on model interfaces
 		for (int k = 0; k <= nRElements; k++) {
 			dF[VecFIx(FPIx, k)] +=
@@ -2962,6 +3195,25 @@ void VerticalDynamicsFEM::BuildF(
 
 	// Update equation for vertical velocity on interfaces
 	} else {
+
+#if defined(FULLY_IMPLICIT_VERTICAL_VELOCITY)
+
+	        GridPatchGLL * pPatch = dynamic_cast<GridPatchGLL*>(m_pPatch);
+	  
+	        // element grid spacing
+	        const double dElementDeltaA    = pPatch->GetElementDeltaA();
+	        const double dElementDeltaB    = pPatch->GetElementDeltaB();
+	  
+	        const double dInvElementDeltaA = 1.0 / dElementDeltaA;
+	        const double dInvElementDeltaB = 1.0 / dElementDeltaB;
+	  
+	        // derivatives of the basis functions
+       	        const DataArray2D<double> & dDxBasis1D = pGrid->GetDxBasis1D();
+
+#endif	  
+
+		if (bUpdate_dF) {
+
 		for (int k = 1; k < nRElements; k++) {
 
 			// Pressure gradient force
@@ -2991,23 +3243,23 @@ void VerticalDynamicsFEM::BuildF(
 #if !defined(EXPLICIT_VERTICAL_VELOCITY_ADVECTION)
 #if defined(VERTICAL_VELOCITY_ADVECTION_CLARK)
 			// Vertical advection of vertical velocity
-			double dCovUa = m_dStateREdge[UIx][k];
-			double dCovUb = m_dStateREdge[VIx][k];
-			double dCovUx = m_dStateREdge[WIx][k] * m_dColumnDerivRREdge[k][2];
+			double dCovUaREdge = m_dStateREdge[UIx][k];
+			double dCovUbREdge = m_dStateREdge[VIx][k];
+			double dCovUxREdge = m_dStateREdge[WIx][k] * m_dColumnDerivRREdge[k][2];
 
-			double dConUa =
-				  m_dColumnContraMetricAREdge[k][0] * dCovUa
-				+ m_dColumnContraMetricAREdge[k][1] * dCovUb
-				+ m_dColumnContraMetricAREdge[k][2] * dCovUx;
+			double dConUaREdge =
+				  m_dColumnContraMetricAREdge[k][0] * dCovUaREdge
+				+ m_dColumnContraMetricAREdge[k][1] * dCovUbREdge
+				+ m_dColumnContraMetricAREdge[k][2] * dCovUxREdge;
 
-			double dConUb =
-				  m_dColumnContraMetricBREdge[k][0] * dCovUa
-				+ m_dColumnContraMetricBREdge[k][1] * dCovUb
-				+ m_dColumnContraMetricBREdge[k][2] * dCovUx;
+			double dConUbREdge =
+				  m_dColumnContraMetricBREdge[k][0] * dCovUaREdge
+				+ m_dColumnContraMetricBREdge[k][1] * dCovUbREdge
+				+ m_dColumnContraMetricBREdge[k][2] * dCovUxREdge;
 
 			double dCurlTerm =
-				- dConUa * m_dDiffUa[k]
-				- dConUb * m_dDiffUb[k];
+				- dConUaREdge * m_dDiffUa[k]
+				- dConUbREdge * m_dDiffUb[k];
 
 			dF[VecFIx(FWIx, k)] +=
 				(m_dDiffKineticEnergyREdge[k] + dCurlTerm)
@@ -3019,7 +3271,95 @@ void VerticalDynamicsFEM::BuildF(
 
 #endif
 #endif
+
 		}
+
+		}
+
+#if defined(FULLY_IMPLICIT_VERTICAL_VELOCITY) 
+
+		if (bUpdate_dF) {
+
+		for (int k = 0; k < nRElements; k++) {
+
+			// Derivatives of the covariant velocity field
+			double dCovDaUxNode = 0;
+			double dCovDbUxNode = 0;
+
+			// Loop over the nodes in the element 
+			for (int s = 0; s < m_nHorizontalOrder; s++) {
+			  
+    			       // Derivative of covariant xi velocity wrt alpha
+			       dCovDaUxNode += m_dSavedDataNode[WIx][k][m_iElementA+s][m_iB]
+			                     * m_dColumnDerivRNode[k][2]
+				             * dDxBasis1D[s][m_iLocalA];
+			
+			       // Derivative of covariant xi velocity wrt beta
+			       dCovDbUxNode += m_dSavedDataNode[WIx][k][m_iA][m_iElementB+s]
+             		   	             * m_dColumnDerivRNode[k][2]
+ 			                     * dDxBasis1D[s][m_iLocalB];
+
+			}
+			
+			dCovDaUxNode *= dInvElementDeltaA;
+			dCovDbUxNode *= dInvElementDeltaB;
+			
+			// Covariant velocities at the nodes 
+			const double dCovUaNode = m_dStateNode[UIx][k];
+			const double dCovUbNode = m_dStateNode[VIx][k];
+			const double dCovUxNode = m_dStateNode[WIx][k] 
+			                        / m_dColumnDerivRNode[k][2];
+			
+			// Contravariant velocities at the nodes
+			const double dConUaNode = 
+			          m_dColumnContraMetricA[k][0] * dCovUaNode
+			        + m_dColumnContraMetricA[k][1] * dCovUbNode
+			        + m_dColumnContraMetricA[k][2] * dCovUxNode;
+
+			const double dConUbNode =
+			          m_dColumnContraMetricB[k][0] * dCovUaNode
+			        + m_dColumnContraMetricB[k][1] * dCovUbNode
+			        + m_dColumnContraMetricB[k][2] * dCovUxNode;
+			
+			// Compute U cross relative vorticity batstoi
+			m_dStateAux[k] = 
+ 			        - dConUaNode * dCovDaUxNode - dConUbNode * dCovDbUxNode;
+			
+		}
+
+		// Interpolate U cross Zeta from Nodes to interfaces
+		for (int k = 0; k <= nRElements; k++) {
+
+		        m_dStateAux[k] = 
+			  pGrid->InterpolateNodeToREdge(&(m_dStateAux[0]),
+							NULL,
+							k,  
+							0.0,  
+							1);
+			
+		}
+			
+		// Update vertical velocity at bottom boundary
+		dF[VecFIx(FWIx,0)] += 
+ 		        + ( m_dColumnContraMetricXiREdge[0][0] * m_dStateREdge[UIx][0]
+		          + m_dColumnContraMetricXiREdge[0][1] * m_dStateREdge[VIx][0])
+		        / m_dColumnContraMetricXiREdge[0][2]
+		        / m_dColumnDerivRNode[0][2]; 
+		 
+		// Update interior interfaces
+		for (int k = 1; k < nRElements; k++) {
+		        
+		        // Calculate vertical velocity update
+		        dF[VecFIx(FWIx,k)] -= 
+			           m_dStateAux[k] // contains U cross relative vorticity at nodes
+ 			           / m_dColumnDerivRREdge[k][2];
+		 
+		}
+
+		}
+	       	
+#endif
+		
 	}
 
 	///////////////////////////////////////////////////////////////////
@@ -3050,6 +3390,8 @@ void VerticalDynamicsFEM::BuildF(
 				pGrid->GetVectorUniformDiffusionCoeff() / (dZtop * dZtop);
 		}
 
+		if (bUpdate_dF) {
+
 		// Uniform diffusion on interfaces
 		if (pGrid->GetVarLocation(c) == DataLocation_REdge) {
 			for (int k = 0; k <= nRElements; k++) {
@@ -3066,7 +3408,11 @@ void VerticalDynamicsFEM::BuildF(
 					* m_dDiffDiffStateUniform[c][k];
 			}
 		}
+
+		}
 	}
+
+
 
 	///////////////////////////////////////////////////////////////////
 	// Apply vertical upwinding
@@ -3128,11 +3474,15 @@ void VerticalDynamicsFEM::BuildF(
 					m_dDiffDiffStateUpwind[c][nRElements] = 0.0;
 				}
 
+				if (bUpdate_dF) {
+
 				for (int k = 0; k <= nRElements; k++) {
 					dF[VecFIx(FIxFromCIx(c), k)] -=
 						m_dUpwindCoeff
 						* fabs(m_dXiDotREdge[k])
 						* m_dDiffDiffStateUpwind[c][k];
+				}
+
 				}
 
 			// Upwinding on levels (discontinuous penalization)
@@ -3145,12 +3495,18 @@ void VerticalDynamicsFEM::BuildF(
 					1,
 					1);
 
+				if (bUpdate_dF) {
+
 				for (int k = 0; k < nRElements; k++) {
 					dF[VecFIx(FIxFromCIx(c), k)] -= m_dStateAux[k];
+				}
+
 				}
 			}
 		}
 	}
+
+	if (bUpdate_dF) {
 
 	// Apply flow-dependent hyperviscosity
 	if (m_nHypervisOrder > 0) {
@@ -3211,6 +3567,8 @@ void VerticalDynamicsFEM::BuildF(
 		}
 	}
 #endif
+
+	}
 
 	// Construct the time-dependent component of the RHS
 	double dInvDeltaT = 1.0 / m_dDeltaT;
@@ -3989,6 +4347,58 @@ void VerticalDynamicsFEM::BuildJacobianF(
 		}
 #endif
 
+#if defined(FULLY_IMPLICIT_THERMO) || \
+    defined(USE_IMPROVED_THERMO_EQUATION_PRECONDITIONER)
+
+		GridPatchGLL * pPatch = dynamic_cast<GridPatchGLL*>(m_pPatch);
+		
+		// element grid spacing
+		const double dElementDeltaA    = pPatch->GetElementDeltaA();
+		const double dElementDeltaB    = pPatch->GetElementDeltaB();
+
+		const double dInvElementDeltaA = 1.0 / dElementDeltaA;
+		const double dInvElementDeltaB = 1.0 / dElementDeltaB;
+
+		// derivatives of the basis functions
+		const DataArray2D<double> & dDxBasis1D = pGrid->GetDxBasis1D();
+
+		// Change in Theta on model levels
+		for (int k = 0; k < nRElements; k++) {
+
+            	        const double dCovUa   = m_dStateNode[UIx][k];
+    		        const double dCovUb   = m_dStateNode[VIx][k];
+ 		        const double dCovUx   = m_dStateNode[WIx][k] * m_dColumnDerivRNode[k][2];
+
+		        const double dConUa   =
+		                m_dColumnContraMetricA[k][0] * dCovUa
+         		      + m_dColumnContraMetricA[k][1] * dCovUb
+ 		              + m_dColumnContraMetricA[k][2] * dCovUx;
+		  
+ 		        const double dConUb   =
+			        m_dColumnContraMetricB[k][0] * dCovUa
+			      + m_dColumnContraMetricB[k][1] * dCovUb
+			      + m_dColumnContraMetricB[k][2] * dCovUx;
+
+		        const double dConUx   =
+			        m_dColumnContraMetricXi[k][0] * dCovUa
+           		      + m_dColumnContraMetricXi[k][1] * dCovUb
+  			      + m_dColumnContraMetricXi[k][2] * dCovUx;
+
+			const double dDaTheta = 
+			        dInvElementDeltaA 
+                   		* dDxBasis1D[m_iLocalA][m_iLocalA];
+		  
+			const double dDbTheta = 
+			        dInvElementDeltaB 
+ 			        * dDxBasis1D[m_iLocalB][m_iLocalB];
+
+			dDG[MatFIx(FPIx, k, FPIx, k)] += 
+			  dConUa * dDaTheta + dConUb * dDbTheta;
+
+		}
+
+#endif
+
 		// dW_k/dT_m and dW_k/dR_m
 		for (int k = 1; k < nRElements; k++) {
 
@@ -4123,7 +4533,144 @@ void VerticalDynamicsFEM::BuildJacobianF(
 						* m_dXiDotREdge[m];
 				}
 			}
+      	
 		}
+
+		
+#if defined(FULLY_IMPLICIT_DENSITY) && \
+    defined(USE_IMPROVED_DENSITY_EQUATION_PRECONDITIONER)
+
+		GridPatchGLL * pPatch =	  
+		  dynamic_cast<GridPatchGLL*>(m_pPatch);
+		
+		// Element grid spacing and derivative coefficients
+		const double dElementDeltaA              = pPatch->GetElementDeltaA();
+		const double dElementDeltaB              = pPatch->GetElementDeltaB();
+			
+		const double dInvElementDeltaA           = 1.0 / dElementDeltaA;
+		const double dInvElementDeltaB           = 1.0 / dElementDeltaB;
+		
+		const DataArray2D<double> & dDxBasis1D   = pGrid->GetDxBasis1D();
+		const DataArray2D<double> & dStiffness1D = pGrid->GetStiffness1D();
+		const DataArray3D<double> & dJacobian    = pPatch->GetJacobian();
+	
+		// loop over the vertical nodes
+		for (int k = 0; k < nRElements; k++) {
+		  
+			// compute the covariant velocities
+			const double dCovUa   = m_dStateNode[UIx][k];
+			const double dCovUb   = m_dStateNode[VIx][k];
+			const double dCovUx   = m_dStateNode[WIx][k]
+			               * m_dColumnDerivRNode[k][2];
+			
+			// Compute the contravariant velocities
+			const double dConUaIx = 
+			               m_dColumnContraMetricA[k][0] * dCovUa
+                   		       + m_dColumnContraMetricA[k][1] * dCovUb
+			               + m_dColumnContraMetricA[k][2] * dCovUx;
+			const double dConUbIx = 
+			               m_dColumnContraMetricA[k][1] * dCovUa 
+                                       + m_dColumnContraMetricB[k][1] * dCovUb 
+                  		       + m_dColumnContraMetricB[k][2] * dCovUx;
+
+			// in the following lines, the contributions coming from horizontal neighbors are neglected
+			
+#ifdef DIFFERENTIAL_FORM
+
+			const double dDiffDaRhoFluxA_dRho_k = 
+			               m_dColumnJacobianNode[k]
+			               * dDxBasis1D[m_iLocalA][m_iLocalA]
+				       * dInvElementDeltaA
+                   		       * dConUaIx;
+			const double dDiffDbRhoFluxB_dRho_k =
+			               m_dColumnJacobianNode[k]
+			               * dDxBasis1D[m_iLocalB][m_iLocalB]
+                                       * dInvElementDeltaB
+			               * dConUbIx; 
+
+			const double dFluxCoeffA =             
+                   		       m_dColumnJacobianNode[k] 
+				       * dDxBasis1D[m_iLocalA][m_iLocalA]
+			               * dInvElementDeltaA
+ 			               * m_dColumnDerivRNode[k][2] 
+                   		       * m_dColumnContraMetricA[k][2]
+                    		       * m_dStateNode[RIx][k];
+			const double dFluxCoeffB = 
+                                       * m_dColumnJacobianNode[k] 
+                           	       * dDxBasis1D[m_iLocalB][m_iLocalB]
+			               * dInvElementDeltaB
+			               * m_dColumnDerivRNode[k][2] 
+ 			               * m_dColumnContraMetricB[k][2]
+                 		       * m_dStateNode[RIx][k];
+				   
+#else
+
+			const double dDiffDaRhoFluxA_dRho_k = 
+    			              - m_dColumnJacobianNode[k]
+			              * dStiffness1D[m_iLocalA][m_iLocalA]
+			              * dInvElementDeltaA
+			              * dConUaIx;
+			const double dDiffDbRhoFluxB_dRho_k =
+                		      - m_dColumnJacobianNode[k]
+			              * dStiffness1D[m_iLocalB][m_iLocalB]
+			              * dInvElementDeltaB
+			              * dConUbIx; 
+
+			const double dFluxCoeffA = 
+			              - m_dColumnJacobianNode[k] 
+			              * dStiffness1D[m_iLocalA][m_iLocalA]
+			              * dInvElementDeltaA
+			              * m_dColumnDerivRNode[k][2] 
+			              * m_dColumnContraMetricA[k][2]
+			              * m_dStateNode[RIx][k];
+			const double dFluxCoeffB = 
+			              - m_dColumnJacobianNode[k] 
+			              * dStiffness1D[m_iLocalB][m_iLocalB]
+			              * dInvElementDeltaB
+			              * m_dColumnDerivRNode[k][2] 
+			              * m_dColumnContraMetricB[k][2]
+			              * m_dStateNode[RIx][k];
+#endif
+			
+			double dDiffDaRhoFluxA_dWi_m = 0.0;
+			double dDiffDbRhoFluxB_dWi_m = 0.0;
+
+			// derivative of the horizontal term at node k w.r.t W_m
+			// dRho_k/dW_m 
+
+			int m = iInterpREdgeToNodeBegin[k];
+			for (; m < iInterpREdgeToNodeEnd[k]; m++) {
+
+			         dDiffDaRhoFluxA_dWi_m = 
+				          dFluxCoeffA 
+					  * dInterpREdgeToNode[k][m];
+				 dDiffDbRhoFluxB_dWi_m = 
+				          dFluxCoeffB 
+				          * dInterpREdgeToNode[k][m];
+				 
+				 // add the derivative with respect to W_m to the Jacobian matrix
+				 dDG[MatFIx(FWIx, m, FRIx, k)] +=
+				          m_dColumnInvJacobianNode[k] * ( 
+							  dDiffDaRhoFluxA_dWi_m 
+							  + dDiffDbRhoFluxB_dWi_m
+									  );
+				 
+				 
+			}
+
+			// derivative of the horizontal term at node k w.r.t Rho_k
+			// dRho_k/dRho_k 
+						
+			// add the derivative with respect to Rho_k to the Jacobian matrix
+			dDG[MatFIx(FRIx, k, FRIx, k)] += 
+						  m_dColumnInvJacobianNode[k] * (
+						       dDiffDaRhoFluxA_dRho_k 
+					     	     + dDiffDbRhoFluxB_dRho_k
+					          );
+			
+		}
+
+#endif
 
 #if !defined(EXPLICIT_VERTICAL_VELOCITY_ADVECTION)
 #if defined(VERTICAL_VELOCITY_ADVECTION_CLARK)
@@ -4272,7 +4819,7 @@ void VerticalDynamicsFEM::Evaluate(
 	PrepareColumn(dX);
 
 	// Evaluate the zero equations
-	BuildF(dX, dF);
+	BuildF(dX, dF, true);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -4785,6 +5332,129 @@ void VerticalDynamicsFEM::UpdateColumnTracers(
 		}
 	}
 }
+
+///////////////////////////////////////////////////////////////////////////////
+
+void VerticalDynamicsFEM::SaveInitialDataInPatch(
+         const DataArray4D<double> & dataInitialNode,
+	 const DataArray4D<double> & dataInitialREdge
+) {
+  // if memory has not been allocated, allocate 
+  if (m_dSavedDataNode.GetSize(0) != dataInitialNode.GetSize(0) ||
+      m_dSavedDataNode.GetSize(1) != dataInitialNode.GetSize(1) ||
+      m_dSavedDataNode.GetSize(2) != dataInitialNode.GetSize(2) ||
+      m_dSavedDataNode.GetSize(3) != dataInitialNode.GetSize(3))
+    {
+      m_dSavedDataNode.Detach();
+      m_dSavedDataNode.Allocate(dataInitialNode.GetSize(0),dataInitialNode.GetSize(1),
+				       dataInitialNode.GetSize(2),dataInitialNode.GetSize(3));
+    }
+
+  // copy the content of dataInitialNode into m_dSavedDataNode
+  m_dSavedDataNode.Copy(dataInitialNode);
+  
+#if defined(FULLY_IMPLICIT_DENSITY)
+  SaveMassFluxDataInPatch(dataInitialNode);
+#endif
+
+}						 
+
+///////////////////////////////////////////////////////////////////////////////
+
+void VerticalDynamicsFEM::SaveMassFluxDataInPatch(
+	 const DataArray4D<double> & dataInitialNode
+) {
+
+
+  if (m_dSavedAlphaMassFlux.GetSize(0) != dataInitialNode.GetSize(1) ||
+      m_dSavedAlphaMassFlux.GetSize(1) != dataInitialNode.GetSize(2) ||
+      m_dSavedAlphaMassFlux.GetSize(2) != dataInitialNode.GetSize(3))
+    {
+          m_dSavedAlphaMassFlux.Detach();
+          m_dSavedAlphaMassFlux.Allocate(dataInitialNode.GetSize(1),
+	            			 dataInitialNode.GetSize(2),
+		  	 	         dataInitialNode.GetSize(3));
+    }
+
+  
+  if (m_dSavedBetaMassFlux.GetSize(0) != dataInitialNode.GetSize(1) ||
+      m_dSavedBetaMassFlux.GetSize(1) != dataInitialNode.GetSize(2) ||
+      m_dSavedBetaMassFlux.GetSize(2) != dataInitialNode.GetSize(3))
+    {
+          m_dSavedBetaMassFlux.Detach();
+          m_dSavedBetaMassFlux.Allocate(dataInitialNode.GetSize(1),
+	            			 dataInitialNode.GetSize(2),
+		  	 	         dataInitialNode.GetSize(3));
+    }
+  
+  // Indices of EquationSet variables
+  const int UIx = 0;
+  const int VIx = 1;
+  const int PIx = 2;
+  const int WIx = 3;
+  const int RIx = 4;
+	
+  // Get a copy of the GLL grid
+  GridGLL * pGrid = dynamic_cast<GridGLL*>(m_model.GetGrid());
+  
+  // Get a copy of the GLL patch
+  GridPatchGLL * pPatch = dynamic_cast<GridPatchGLL*>(m_pPatch);
+  
+  // Get a copy of the patch box
+  const PatchBox & box = pPatch->GetPatchBox();
+
+  const DataArray4D<double> & dDerivRNode =
+           pPatch->GetDerivRNode();
+  const DataArray3D<double> & dJacobian =
+           pPatch->GetJacobian();
+  const DataArray4D<double> & dContraMetricA =
+           pPatch->GetContraMetricA();
+  const DataArray4D<double> & dContraMetricB =
+           pPatch->GetContraMetricB();
+
+  // Number of vertical elements
+  const int nRElements = pGrid->GetRElements();
+
+  // Loop over all nodes
+  for (int k = 0; k < nRElements; k++) {
+  for (int i = box.GetAInteriorBegin(); i < box.GetAInteriorEnd(); i++) {
+  for (int j = box.GetBInteriorBegin(); j < box.GetBInteriorEnd(); j++) {
+    
+         // global (in patch) node id
+         int iA = i;
+	 int iB = j;
+
+	 // compute the covariant velocities
+	 const double dCovUa   = dataInitialNode[UIx][k][iA][iB];
+	 const double dCovUb   = dataInitialNode[VIx][k][iA][iB];
+	 const double dCovUx   = dataInitialNode[WIx][k][iA][iB]
+	   * dDerivRNode[k][iA][iB][2];
+	       
+	 // Compute the contravariant velocities
+	 const double dConUaIx = 
+	                dContraMetricA[k][iA][iB][0] * dCovUa
+              	      + dContraMetricA[k][iA][iB][1] * dCovUb
+ 	              + dContraMetricA[k][iA][iB][2] * dCovUx;
+	 const double dConUbIx = 
+	                dContraMetricA[k][iA][iB][1] * dCovUa 
+	              + dContraMetricB[k][iA][iB][1] * dCovUb 
+	              + dContraMetricB[k][iA][iB][2] * dCovUx;
+
+	 // Compute the mass fluxes in each horizontal direction
+	 m_dSavedAlphaMassFlux[k][iA][iB] = 
+	                dJacobian[k][iA][iB] 
+	              * dConUaIx 
+	              * dataInitialNode[RIx][k][iA][iB];
+	 m_dSavedBetaMassFlux[k][iA][iB] = 
+	                dJacobian[k][iA][iB]
+	              * dConUbIx
+	              * dataInitialNode[RIx][k][iA][iB];
+
+  }
+  }
+  }
+}			     
+
 
 ///////////////////////////////////////////////////////////////////////////////
 
