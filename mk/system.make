@@ -19,6 +19,9 @@ else ifeq ($(UNAME),Linux)
   else ifeq ($(HOSTNAME),faraday)
     SYSTEM= FARADAY
     SYSTEM_MAKEFILE= faraday.make
+  else ifeq ($(HOSTNAME),turing)
+    SYSTEM= TURING
+    SYSTEM_MAKEFILE= turing.make
   else ifeq ($(HOSTNAME),davros)
     SYSTEM= DAVROS
     SYSTEM_MAKEFILE= davros.make
