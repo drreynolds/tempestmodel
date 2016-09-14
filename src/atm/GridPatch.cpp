@@ -2172,6 +2172,138 @@ double GridPatch::MaximumNormData(
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void GridPatch::AssignComponentWiseTolerances(
+	int it
+) {
+        // define the indices of the variables
+        const int UIx = 0;
+	const int VIx = 1;
+	const int PIx = 2;
+	const int WIx = 3;
+	const int RIx = 4;
+
+	// initialize reusable local variables 
+	int i, j, k, c;
+  	
+        // determine state node/edge variables
+        std::vector<int> nodeVarsState;
+        std::vector<int> redgeVarsState;
+	int nComponents = m_grid.GetModel().GetEquationSet().GetComponents();
+	for (int c=0; c<nComponents; c++) {
+	  if (m_grid.GetVarLocation(c) == DataLocation_Node) {
+	    nodeVarsState.push_back(c);
+	  } else if (m_grid.GetVarLocation(c) == DataLocation_REdge) {
+	    redgeVarsState.push_back(c);
+	  } else {
+	    _EXCEPTIONT("DataLocation not implemented.");
+	  }
+	}
+
+	// set shortcuts to state variables
+	DataArray4D<double>  * pDataNodeTol  = &(m_datavecStateNode[it]);
+	DataArray4D<double>  * pDataREdgeTol = &(m_datavecStateREdge[it]);
+
+	// perform operation over state nodes
+	for (c=0; c<nodeVarsState.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		
+		//(*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-4; 
+
+		
+
+		// assign a tolerance for each of the variable types
+
+		switch (nodeVarsState[c]) { 
+		  
+		case UIx:
+		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-5; 
+		     break;
+		case VIx:
+		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-5; 
+		     break;
+		case PIx:
+		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-5; 
+		     break;
+		case WIx:
+		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-6; 
+		     break;
+		case RIx:
+		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-4; 
+		     break;
+
+		}
+
+	      }
+	    }
+	  }
+	}
+
+	// perform operation over state edges
+	for (c=0; c<redgeVarsState.size(); c++) {
+	  for (k=0; k<=m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		
+		//(*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-4; 
+
+
+
+		// assign a tolerance for each of the variable types
+		
+		switch (nodeVarsState[c]) { 
+		  
+		case UIx:
+		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-5; 
+		     break;
+		case VIx:
+		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-5; 
+		     break;
+		case PIx:
+		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-5; 
+		     break;
+		case WIx:
+		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-6; 
+		     break;
+		case RIx:
+		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-4; 
+		     break;
+
+		}
+
+	      }
+	    }
+	  }
+	}
+
+	// determine tracer node variables
+	std::vector<int> nodeVarsTracers;
+	int nTracers = m_grid.GetModel().GetEquationSet().GetTracers();
+	for (int c=0; c<nTracers; c++) {
+	  nodeVarsTracers.push_back(c);
+	}
+
+	// set shortcuts to tracer variables
+	DataArray4D<double>  * pDataTracersTol = &(m_datavecTracers[it]);
+
+	// perform operation over Tracer nodes
+	for (c=0; c<nodeVarsTracers.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+
+		(*pDataTracersTol)[nodeVarsTracers[c]][k][i][j] = 1e-4; 
+
+	      }
+	    }
+	  }
+	}
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 void GridPatch::InterpolateNodeToREdge(
 	int iVar,
 	int iDataIndex

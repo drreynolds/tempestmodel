@@ -758,11 +758,16 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						dataInitialNode[PIx][k][iA][iB]);
 #endif
 #if defined(FORMULATION_THETA) || defined(FORMULATION_THETA_FLUX)
+
+#if !defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
+
 				// Exner pressure
 				m_dAuxDataNode[ExnerIx][k][i][j] =
 					phys.ExnerPressureFromRhoTheta(
 						  dataInitialNode[RIx][k][iA][iB]
 						* dataInitialNode[PIx][k][iA][iB]);
+#endif
+
 #endif
 
 			}
@@ -779,7 +784,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 
 				int iElementA = a * m_nHorizontalOrder + box.GetHaloElements();
 				int iElementB = b * m_nHorizontalOrder + box.GetHaloElements();
-
+ 
 				// Derivatives of the covariant velocity field
 				double dCovDaUb = 0.0;
 				double dCovDaUx = 0.0;
@@ -1022,9 +1027,11 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					double dDaKE = 0.0;
 					double dDbKE = 0.0;
 
+#if !defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
 					// Derivatives of the pressure field
 					double dDaP = 0.0;
 					double dDbP = 0.0;
+#endif
 
 					// Gradient of the divergence
 					double dDaDiv = 0.0;
@@ -1039,9 +1046,9 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						// Update density: Differential formulation
 						dDaRhoFluxA +=
 							m_dAlphaMassFlux[s][j]
-							* dDxBasis1D[s][i];
+						  * dDxBasis1D[s][i];
 
-#pragma message "Only evaluate pressure flux for relevant formulations"
+						  //#pragma message "Only evaluate pressure flux for relevant formulations"
 						// Update pressure: Differential formulation
 						dDaPressureFluxA +=
 							m_dAlphaPressureFlux[s][j]
@@ -1069,10 +1076,14 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
  || defined(FORMULATION_RHOTHETA_P) \
  || defined(FORMULATION_THETA) \
  || defined(FORMULATION_THETA_FLUX)
+
+#if !defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
 						// Derivative of (Exner) pressure with respect to alpha
 						dDaP +=
 							m_dAuxDataNode[ExnerIx][k][s][j]
 							* dDxBasis1D[s][i];
+#endif
+
 #endif
 
 						// Derivative of specific kinetic energy wrt alpha
@@ -1125,10 +1136,14 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
  || defined(FORMULATION_RHOTHETA_P) \
  || defined(FORMULATION_THETA) \
  || defined(FORMULATION_THETA_FLUX)
+
+#if !defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
 						// Derivative of (Exner) pressure with respect to beta
 						dDbP +=
 							m_dAuxDataNode[ExnerIx][k][i][s]
 							* dDxBasis1D[s][j];
+#endif
+
 #endif
 
 						// Derivative of specific kinetic energy wrt beta
@@ -1150,8 +1165,12 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					dDaPressureFluxA *= dInvElementDeltaA;
 					dDbPressureFluxB *= dInvElementDeltaB;
 
+#if !defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
+
 					dDaP *= dInvElementDeltaA;
 					dDbP *= dInvElementDeltaB;
+
+#endif
 
 					dDaKE *= dInvElementDeltaA;
 					dDbKE *= dInvElementDeltaB;
@@ -1196,10 +1215,16 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						/ dataInitialNode[RIx][k][iA][iB];
 #endif
 #if defined(FORMULATION_THETA) || defined(FORMULATION_THETA_FLUX)
+
+#if !defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
+
 					double dPressureGradientForceUa =
 						dDaP * dataInitialNode[PIx][k][iA][iB];
 					double dPressureGradientForceUb =
 						dDbP * dataInitialNode[PIx][k][iA][iB];
+#endif
+
+
 #endif
 
 					// Gravity
@@ -1207,11 +1232,19 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					double dDbPhi = phys.GetG() * m_dLocalDerivR[k][i][j][1];
 
 					// Horizontal updates due to gradient terms
+#if defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
 					double dDaUpdate =
-						dPressureGradientForceUa + dDaKE + dDaPhi;
-
+					        dDaKE + dDaPhi;
+					
+					double dDbUpdate =
+						dDbKE + dDbPhi;
+#else
+					double dDaUpdate =
+					        dPressureGradientForceUa + dDaKE + dDaPhi;
+					
 					double dDbUpdate =
 						dPressureGradientForceUb + dDbKE + dDbPhi;
+#endif
 
 					// Apply gradient term update to total update
 					dLocalUpdateUa -= dDaUpdate;
@@ -1237,11 +1270,14 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					}
 #endif
 
+#if !defined(FULLY_IMPLICIT_DENSITY)
+
 					// Update density on model levels
 					dataUpdateNode[RIx][k][iA][iB] -=
 						dDeltaT * dInvJacobian * (
 							  dDaRhoFluxA
 							+ dDbRhoFluxB);
+#endif 
 
 #ifdef FORMULATION_PRESSURE
 					// Update pressure on model levels
@@ -1289,6 +1325,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					}
 
 #ifdef FORMULATION_THETA
+#ifndef FULLY_IMPLICIT_THERMO
 					// Update thermodynamic variable on nodes
 					if (pGrid->GetVarLocation(PIx) == DataLocation_Node) {
 
@@ -1313,6 +1350,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						dataUpdateNode[PIx][k][iA][iB] -=
 							dDeltaT * (dConUa * dDaTheta + dConUb * dDbTheta);
 					}
+#endif
 #endif
 #ifdef FORMULATION_THETA_FLUX
 					// Update thermodynamic variable on nodes
@@ -1395,6 +1433,8 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 				}
 			}
 
+#if !defined(FULLY_IMPLICIT_VERTICAL_VELOCITY)
+
 			// Update vertical velocity on interfaces
 			if (pGrid->GetVarLocation(WIx) == DataLocation_REdge) {
 
@@ -1449,6 +1489,8 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 				}
 				}
 			}
+
+#endif
 
 #if defined(FORMULATION_THETA) || defined(FORMULATION_THETA_FLUX)
 			// Update thermodynamic variable on interfaces
@@ -1630,6 +1672,7 @@ void HorizontalDynamicsFEM::StepExplicit(
 
 		if (eqn.GetType() == EquationSet::PrimitiveNonhydrostaticEquations) {
 
+		  //#ifndef FULLY_IMPLICIT_THERMO
 			// Uniform diffusion of Theta with scalar diffusion coeff
 			ApplyScalarHyperdiffusion(
 				iDataInitial,
@@ -1639,7 +1682,7 @@ void HorizontalDynamicsFEM::StepExplicit(
 				false,
 				2,
 				true);
-
+			//#endif
 			// Uniform diffusion of W with vector diffusion coeff
 			ApplyScalarHyperdiffusion(
 				iDataInitial,

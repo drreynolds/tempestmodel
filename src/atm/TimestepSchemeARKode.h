@@ -51,6 +51,7 @@ struct ARKodeCommandLineVariables {
   int    ARKodeButcherTable;
   std::string ButcherTable;
   bool   WriteDiagnostics;
+  bool   FullyImplicit;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -114,6 +115,12 @@ protected:
 		double dDeltaT
 	);
 
+	///     <summary>
+	///             Assign component-wise tolerances used in the function ARKodeSVTolerances
+	///     </summary>
+	void AssignComponentWiseTolerances();
+						
+
 private:
 	///	<summary>
 	///		ARKode memory structure.
@@ -124,6 +131,11 @@ private:
 	///		Tempest NVector state vector.
 	///	</summary>
 	N_Vector m_Y;
+	
+	///	<summary>
+	///		Tempest NVector of tolerances
+	///	</summary>
+	N_Vector m_T;
 
 	///	<summary>
 	///		Number of NVectors (default is 50).

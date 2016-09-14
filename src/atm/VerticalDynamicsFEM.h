@@ -78,17 +78,33 @@ protected:
 	///		Component indices into the F vector.
 	///	</summary>
 	typedef int FComp;
+#if defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
+	static const FComp FUIx = 0;
+	static const FComp FVIx = 1;
+	static const FComp FPIx = 2;
+	static const FComp FWIx = 3;
+	static const FComp FRIx = 4;
+
+	static const FComp FTot = 5;
+#else
 	static const FComp FPIx = 0;
 	static const FComp FWIx = 1;
 	static const FComp FRIx = 2;
 
 	static const FComp FTot = 3;
+#endif
+
+
 
 	///	<summary>
 	///		Convert from standard state indices to component indices.
 	///	</summary>
 	FComp FIxFromCIx(int iC) {
+#if defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
+	        return iC;
+#else
 		return (iC - 2);
+#endif
 	}
 
 	///	<summary>
@@ -104,6 +120,25 @@ protected:
 	}
 
 	///	<summary>
+	///		Get the index of the component and level of the F vector.
+	///	</summary>
+	inline int ReducedVecFIx(FComp c, int k) {
+#if defined(USE_JACOBIAN_DEBUG)
+		int nREdges = m_model.GetGrid()->GetRElements() + 1;
+		return (nREdges * c + k);
+#else
+
+#if defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
+		return ((FTot-2)*k + (c-2));
+#else
+		return (FTot*k + c);
+#endif 
+
+#endif
+	}
+
+
+	///	<summary>
 	///		Get the index of for the component / level pair of the F Jacobian.
 	///		Note:  Is composed using Fortran ordering.
 	///	</summary>
@@ -114,8 +149,15 @@ protected:
 #elif defined(USE_JACOBIAN_GENERAL)
 		return (m_nColumnStateSize * (FTot*k0 + c0) + (FTot*k1 + c1));
 #elif defined(USE_JACOBIAN_DIAGONAL)
+
+#if defined(IMPLICIT_HORIZONTAL_EXNER_PRESSURE)
+		return (2 * m_nJacobianFOffD + ((FTot-2)*k1 + (c1-2)) - ((FTot-2)*k0 + (c0-2)))
+		        + m_nJacobianFWidth * ((FTot-2)*k0 + (c0-2));				
+#else
 		return (2 * m_nJacobianFOffD + (FTot*k1 + c1) - (FTot*k0 + c0))
 			+ m_nJacobianFWidth * (FTot*k0 + c0);
+#endif
+
 #else
 		_EXCEPTION();
 #endif
@@ -191,6 +233,10 @@ public:
 		GridPatch * pPatch,
 		int iA,
 		int iB,
+		int iLocalA,
+		int iLocalB,
+		int iElementA,
+		int iElementB,
 		const DataArray4D<double> & dataRefNode,
 		const DataArray4D<double> & dataInitialNode,
 		const DataArray4D<double> & dataRefREdge,
@@ -211,7 +257,8 @@ public:
 	///	</summary>
 	void BuildF(
 		const double * dX,
-		double * dF
+		double * dF,
+		bool bUpdatedF
 	);
 
 	///	<summary>
@@ -264,6 +311,43 @@ protected:
 		DataArray4D<double> & dataUpdateTracer
 	);
 
+	///     <summary>
+	///             Save the initial data before the columwise-computation of the implicit right-hand side
+	///             This is needed when some horizontal terms are treated explicitly, and others implicitly
+	///     <summary>
+        void SaveInitialDataInPatch(
+ 		const DataArray4D<double> & dataInitialNode,
+		const DataArray4D<double> & dataInitialREdge
+        );
+
+
+	///    <summary>
+	///             Save the mass flux computed with the initial data before the columwise-computation of the implicit right-hand side
+	///             This is needed to compute the horizontal update of rho implicitly
+	///    <summary>
+	void SaveMassFluxDataInPatch(
+	        const DataArray4D<double> & dataInitialNode
+	);		
+
+	///    <summary>
+	///             Save the Exner pressure computed with the initial data before the columwise-computation 
+	///             of the implicit right-hand side 
+	///             This is needed to compute the horizontal Exner pressure update implicitly
+	///    <summary>
+	void SaveExnerPressureDataInPatch(
+	       const DataArray4D<double> & dataInitialNode
+	);
+
+
+	///    <summary>
+	///             Copy the current state into the vector vec
+	///    <summary>
+	void CopyCurrentData(
+	       const DataArray4D<double> & dataNode,
+	       const DataArray4D<double> & dataREdge,
+	       double * vec
+     	);
+ 
 public:
 	///	<summary>
 	///		Apply a positive definite filter to tracers in each column.
@@ -359,6 +443,31 @@ protected:
 	///	</summary>
 	DataArray2D<double> m_dDiffDiffStateUniform;
 
+	///     <summary>
+	///         	Auxiliary storage for the initial data before the columwise-computation of the implicit right-hand side
+	///             Needed when some horizontal terms are treated explicitly, and others implicitly
+	///     <summary>
+	DataArray4D<double> m_dSavedDataNode;
+
+	///     <summary>
+	///         	Auxiliary storage for the mass flux (alpha - direction) 
+	///                 before the columwise-computation of the implicit right-hand side
+	///             Needed when some horizontal terms are treated explicitly, and others implicitly
+	///     <summary>
+	DataArray3D<double> m_dSavedAlphaMassFlux;
+	  
+	///     <summary>
+	///         	Auxiliary storage for the mass flux (beta - direction)
+	///                 before the columwise-computation of the implicit right-hand side
+	///             Needed when some horizontal terms are treated explicitly, and others implicitly
+	///     <summary>
+	DataArray3D<double> m_dSavedBetaMassFlux;
+
+
+	DataArray3D<double> m_dSavedExnerPressure;
+
+
+
 protected:
 	///	<summary>
 	///		Timestep size.
@@ -380,6 +489,27 @@ protected:
 	///	</summary>
 	int m_iB;
 
+	///     <summary>
+	///             Local alpha index in element
+	///     </summary>
+	int m_iLocalA;
+
+	///     <summary> 
+	///             Local beta index in element
+	///     </summary>
+	int m_iLocalB;
+	
+	///     <summary>
+	///             First alpha index in element
+	///     </summary>
+	int m_iElementA;
+
+	///     <summary>
+	///             First beta index in element
+	///     </summary>
+	int m_iElementB;
+
+
 	///	<summary>
 	///		Number of radial elements in the vertical column.
 	///	</summary>
@@ -389,6 +519,11 @@ protected:
 	///		Number of degrees of freedom in vertical solution vector.
 	///	</summary>
 	int m_nColumnStateSize;
+
+	///	<summary>
+	///		Number of degrees of freedom in vertical solution vector.
+	///	</summary>
+	int m_nReducedColumnStateSize;
 
 protected:
 	///	<summary>
@@ -615,6 +750,11 @@ protected:
 	///		Solution vector from the implicit solve.
 	///	</summary>
 	DataArray1D<double> m_dSoln;
+
+	///	<summary>
+	///		Solution vector from the implicit solve.
+	///	</summary>
+	DataArray1D<double> m_dReducedSoln;
 
 private:
 	///	<summary>

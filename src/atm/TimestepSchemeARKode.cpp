@@ -21,7 +21,7 @@
 #ifdef USE_SUNDIALS
 
 //#define DEBUG_OUTPUT
-//#define STATISTICS_OUTPUT
+#define STATISTICS_OUTPUT
 
 //#define DSS_INPUT
 #define DSS_OUTPUT
@@ -50,7 +50,7 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_dRelTol(ARKodeVars.rtol),
 	m_dAbsTol(ARKodeVars.atol),
 	m_fFullyExplicit(ARKodeVars.FullyExplicit),
-	m_fFullyImplicit(false),
+	m_fFullyImplicit(ARKodeVars.FullyImplicit),
 	m_fDynamicStepSize(ARKodeVars.DynamicStepSize),
 	m_dDynamicDeltaT(0.0),
 	m_fAAFP(ARKodeVars.AAFP),
@@ -117,10 +117,13 @@ void TimestepSchemeARKode::Initialize() {
 
   // Initialize ARKode
   if (m_fFullyExplicit) {
+    Announce("Running ARKode fully explicit");
     ierr = ARKodeInit(arkode_mem, ARKodeFullRHS, NULL, dCurrentT, m_Y);
   } else if (m_fFullyImplicit) {
+    Announce("Running ARKode fully implicit");
     ierr = ARKodeInit(arkode_mem, NULL, ARKodeFullRHS, dCurrentT, m_Y);
   } else {
+    Announce("Running ARKode IMEX");
     ierr = ARKodeInit(arkode_mem, ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
   }
 
@@ -159,8 +162,21 @@ void TimestepSchemeARKode::Initialize() {
   }  
   
   // Specify tolerances
+  
+#if !defined(USE_COMPONENT_WISE_TOLERANCES)
   ierr = ARKodeSStolerances(arkode_mem, m_dRelTol, m_dAbsTol);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSStolerances, ierr = %i",ierr);
+
+#else
+  m_T = N_VNew_Tempest(*pGrid,m_model);
+  
+  AssignComponentWiseTolerances();
+
+  ierr = ARKodeSVtolerances(arkode_mem, m_dRelTol, m_T);
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSVtolerances, ierr = %i",ierr);
+
+  Announce("Component-wise tolerances will be assigned");
+#endif
 
   // Nonlinear Solver Settings
   if (!m_fFullyExplicit) {
@@ -219,6 +235,9 @@ void TimestepSchemeARKode::Initialize() {
       
       ierr = ARKodeSetMaxNonlinIters(arkode_mem, m_iNonlinIters);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetMaxNonlinIters, ierr = %i",ierr);
+      
+      //ierr = ARKodeSetNonlinConvCoef(arkode_mem, 0.001);
+      //if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetNonlinConvCoef, ierr = %i",ierr);
     }
   }
 
@@ -2121,6 +2140,21 @@ void TimestepSchemeARKode::SetButcherTable()
 
   if (ierr < 0) _EXCEPTION1("ERROR: SetButcherTable, ierr = %i",ierr);
  
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void TimestepSchemeARKode::AssignComponentWiseTolerances() {
+  
+      // index of various N_Vector arguments in registry
+      int iT = NV_INDEX_TEMPEST(m_T);
+
+      // Get a copy of the grid
+      Grid * pGrid = NV_GRID_TEMPEST(m_T);
+
+      // Tolerances are assigned in Tempest (objects Grid and GridPatch)
+      pGrid->AssignComponentWiseTolerances(iT);
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
