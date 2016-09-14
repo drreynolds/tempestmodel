@@ -836,6 +836,7 @@ void VerticalDynamicsFEM::StepExplicit(
          	       m_pPatch = NULL;
 		}
 
+
 #endif
 
 
@@ -2990,6 +2991,7 @@ void VerticalDynamicsFEM::BuildF(
 #endif
 #endif
 
+
 	if (bUpdate_dF) {
 
 	// Change in density on model levels
@@ -3057,13 +3059,11 @@ void VerticalDynamicsFEM::BuildF(
 	      dDaRhoFluxA *= dInvElementDeltaA;
 	      dDbRhoFluxB *= dInvElementDeltaB;
 
-		  	
 	      dF[VecFIx(FRIx, k)] += 
 		dInvJacobian * ( 
 				dDaRhoFluxA 
 				+ dDbRhoFluxB
 				 );
-	      
 
 	}
 
@@ -4803,6 +4803,7 @@ void VerticalDynamicsFEM::BuildJacobianF(
 			               m_dColumnContraMetricA[k][1] * dCovUa 
                                        + m_dColumnContraMetricB[k][1] * dCovUb 
                   		       + m_dColumnContraMetricB[k][2] * dCovUx;
+
 			
 #ifdef DIFFERENTIAL_FORM
 
@@ -5755,6 +5756,7 @@ void VerticalDynamicsFEM::SaveExnerPressureDataInPatch(
   }
   }
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////
 

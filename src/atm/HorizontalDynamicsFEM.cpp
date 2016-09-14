@@ -1818,6 +1818,11 @@ void HorizontalDynamicsFEM::ApplyScalarHyperdiffusion(
 			// Loop over all components
 			for (int c = nComponentStart; c < nComponentEnd; c++) {
 
+			  //#ifdef FULLY_IMPLICIT_THERMO
+			  //			  if (c == 2) 
+			  //         continue;
+		        	//#endif
+
 				int nElementCountR;
 
 				const DataArray4D<double> * pDataInitial;

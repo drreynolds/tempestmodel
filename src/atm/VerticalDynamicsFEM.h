@@ -324,6 +324,7 @@ protected:
 	///    <summary>
 	///             Save the mass flux computed with the initial data before the columwise-computation of the implicit right-hand side
 	///             This is needed to compute the horizontal update of rho implicitly
+
 	///    <summary>
 	void SaveMassFluxDataInPatch(
 	        const DataArray4D<double> & dataInitialNode
@@ -347,6 +348,7 @@ protected:
 	       const DataArray4D<double> & dataREdge,
 	       double * vec
      	);
+
  
 public:
 	///	<summary>
@@ -463,10 +465,7 @@ protected:
 	///     <summary>
 	DataArray3D<double> m_dSavedBetaMassFlux;
 
-
 	DataArray3D<double> m_dSavedExnerPressure;
-
-
 
 protected:
 	///	<summary>
