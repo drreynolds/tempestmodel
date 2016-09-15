@@ -1334,15 +1334,34 @@ void TimestepSchemeARKode::SetButcherTable()
       pAe  = new double [iStages * iStages];
       pbi  = new double [iStages];
       pbe  = new double [iStages];
-      
-      double gamma = 0.4358665215;
-      double b1    = 1.208496649;
-      double b2    = -0.644363171;
-      double a31   = 0.3212788860;
-      double a32   = 0.3966543747;
-      double a41   = -0.105858296;
-      double a42   = 0.5529291479;
-      double a43   = 0.5529291479;
+     
+      double gamma  = 0.4358665215084590;
+      double gamma2 = gamma * gamma;
+
+      double b1 = -1.5 * gamma2 + 4.0 * gamma - 0.25;
+      double b2 =  1.5 * gamma2 - 5.0 * gamma + 1.25;
+
+      double a42 = 0.5529291480359398; // double check value 
+      double a43 = 0.5529291480359398;
+
+      double a31 = (1.0 - 4.5 * gamma + 1.5 * gamma2) * a42 
+	+ (2.75 - 10.5 * gamma + 3.75 * gamma2) * a43 
+	- 3.5 + 13 * gamma - 4.5 * gamma2;
+
+      double a32 = (-1.0 + 4.5 * gamma - 1.5 * gamma2) * a42
+	+ (-2.75 + 10.5 * gamma - 3.75 * gamma2) * a43
+	+ 4.0 - 12.5 * gamma + 4.5 * gamma2;
+
+      double a41 = 1.0 - a42 - a43;
+
+      // double gamma = 0.4358665215;
+      // double b1    = 1.208496649;
+      // double b2    = -0.644363171;
+      // double a31   = 0.3212788860;
+      // double a32   = 0.3966543747;
+      // double a41   = -0.105858296;
+      // double a42   = 0.5529291479;
+      // double a43   = 0.5529291479;
       
       // Implicit table
       pci[0] = 0.0;
