@@ -682,6 +682,14 @@ public:
 		int ix
 	) const;
 
+	///     <summary>
+	///             Assign component-wise tolerance used in the nonlinear/linear convergence checks in ARKode
+	///     </summary>
+	void AssignComponentWiseTolerances(
+         	int it
+	) const;
+
+
 public:
 	///	<summary>
 	///		Get the DataContainer storing Grid parameters.
