@@ -853,7 +853,7 @@ int ARKodeColumnLSolve(
 ///////////////////////////////////////////////////////////////////////////////
 
 // this function does nothing since no persistent linear solver memory is used
-void ARKodeColumnLFree(ARKodeMem ark_mem)
+int ARKodeColumnLFree(ARKodeMem ark_mem)
 {
 
 #ifdef DEBUG_OUTPUT

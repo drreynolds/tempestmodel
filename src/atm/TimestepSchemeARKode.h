@@ -292,7 +292,7 @@ int ARKodeColumnLSolve(
         N_Vector ycur,
         N_Vector fcur
 );
-void ARKodeColumnLFree(ARKodeMem ark_mem);
+int ARKodeColumnLFree(ARKodeMem ark_mem);
 
 ///////////////////////////////////////////////////////////////////////////////
 
