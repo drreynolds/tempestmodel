@@ -97,6 +97,7 @@ void N_VTest_Tempest(N_Vector);
 
 ///// Part IV -- Required vector operations on a TempestNVector /////
 
+N_Vector_ID N_VGetVectorID_Tempest(N_Vector);
 N_Vector N_VClone_Tempest(N_Vector);
 void N_VDestroy_Tempest(N_Vector);
 void N_VConst_Tempest(realtype, N_Vector);

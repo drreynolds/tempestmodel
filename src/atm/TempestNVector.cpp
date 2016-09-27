@@ -78,6 +78,11 @@ int ReserveNextTempestNVectorRegistryIdx() {
   return -1;
 }
 
+// Function to return the NVector ID "type"
+N_Vector_ID N_VGetVectorID_Tempest(N_Vector v) {
+  return SUNDIALS_NVEC_CUSTOM;
+}
+
 // Function to create a new TempestNVector
 N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
 
@@ -99,20 +104,21 @@ N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
   if (ops == NULL) {free(v); return(NULL); }
 
   // Attach implemented vector routines to N_Vector_Ops structure
-  ops->nvclone     = N_VClone_Tempest;
-  ops->nvdestroy   = N_VDestroy_Tempest;
-  ops->nvconst     = N_VConst_Tempest;
-  ops->nvabs       = N_VAbs_Tempest;
-  ops->nvscale     = N_VScale_Tempest;
-  ops->nvaddconst  = N_VAddConst_Tempest;
-  ops->nvlinearsum = N_VLinearSum_Tempest;
-  ops->nvprod      = N_VProd_Tempest;
-  ops->nvdiv       = N_VDiv_Tempest;
-  ops->nvinv       = N_VInv_Tempest;
-  ops->nvdotprod   = N_VDotProd_Tempest;
-  ops->nvmin       = N_VMin_Tempest;
-  ops->nvwrmsnorm  = N_VWrmsNorm_Tempest;
-  ops->nvmaxnorm   = N_VMaxNorm_Tempest;
+  ops->nvgetvectorid = N_VGetVectorID_Tempest;
+  ops->nvclone       = N_VClone_Tempest;
+  ops->nvdestroy     = N_VDestroy_Tempest;
+  ops->nvconst       = N_VConst_Tempest;
+  ops->nvabs         = N_VAbs_Tempest;
+  ops->nvscale       = N_VScale_Tempest;
+  ops->nvaddconst    = N_VAddConst_Tempest;
+  ops->nvlinearsum   = N_VLinearSum_Tempest;
+  ops->nvprod        = N_VProd_Tempest;
+  ops->nvdiv         = N_VDiv_Tempest;
+  ops->nvinv         = N_VInv_Tempest;
+  ops->nvdotprod     = N_VDotProd_Tempest;
+  ops->nvmin         = N_VMin_Tempest;
+  ops->nvwrmsnorm    = N_VWrmsNorm_Tempest;
+  ops->nvmaxnorm     = N_VMaxNorm_Tempest;
 
   // Signal that remaining vector routines are not implemented
   ops->nvspace           = NULL;
