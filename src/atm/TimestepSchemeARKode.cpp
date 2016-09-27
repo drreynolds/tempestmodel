@@ -864,6 +864,7 @@ int ARKodeColumnLFree(ARKodeMem ark_mem)
   AnnounceEndBlock("Done");
 #endif
 
+  return(0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
