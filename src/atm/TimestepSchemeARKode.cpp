@@ -358,54 +358,56 @@ void TimestepSchemeARKode::Step(
   // }
 
 #ifdef STATISTICS_OUTPUT
-  int iRank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
+  if (fLastStep) {
     
-  if (iRank == 0 && !m_fFullyExplicit) {
-    long int nsteps, expsteps, accsteps, step_attempts, nfe_evals, nfi_evals, nlinsetups, 
-      netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
-    realtype hinused, hlast, hcur, tcur;
-    ierr = ARKodeGetIntegratorStats(arkode_mem, &nsteps, &expsteps, &accsteps, &step_attempts, 
-				    &nfe_evals, &nfi_evals, &nlinsetups, &netfails, &hinused, 
-				    &hlast, &hcur, &tcur);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetIntegratorStats, ierr = %i",ierr);
+    int iRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
+    
+    if (iRank == 0 && !m_fFullyExplicit) {
+      long int nsteps, expsteps, accsteps, step_attempts, nfe_evals, nfi_evals, nlinsetups, 
+	netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
+      realtype hinused, hlast, hcur, tcur;
+      ierr = ARKodeGetIntegratorStats(arkode_mem, &nsteps, &expsteps, &accsteps, &step_attempts, 
+				      &nfe_evals, &nfi_evals, &nlinsetups, &netfails, &hinused, 
+				      &hlast, &hcur, &tcur);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetIntegratorStats, ierr = %i",ierr);
+      
+      ierr = ARKodeGetNonlinSolvStats(arkode_mem, &nniters, &nncfails);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNonlinSolvStats, ierr = %i",ierr);
+      
+      if (m_fColumnSolver) {
+	
+	std::cout << std::endl
+		  << "TimestepSchemeARKode::Step cumulative stats:\n"
+		  << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
+		  << "  step size: " << hlast << " previous, " << hcur << " next\n"
+		  << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp\n" 
+		  << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
+		  << std::endl;
 
-    ierr = ARKodeGetNonlinSolvStats(arkode_mem, &nniters, &nncfails);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNonlinSolvStats, ierr = %i",ierr);
-
-    if (m_fColumnSolver) {
-
-      std::cout << std::endl
-                << "TimestepSchemeARKode::Step cumulative stats:\n"
-                << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
-                << "  step size: " << hlast << " previous, " << hcur << " next\n"
-                << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp\n" 
-                << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
-                << std::endl;
-
-    } else {
-
-      ierr = ARKSpilsGetNumPrecSolves(arkode_mem, &npsolves);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNumPrecSolves, ierr = %i",ierr);
-
-      ierr = ARKSpilsGetNumLinIters(arkode_mem, &nliters);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumLinIters, ierr = %i",ierr);
-
-      ierr = ARKSpilsGetNumConvFails(arkode_mem, &nlcfails);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumConvFails, ierr = %i",ierr);
-
-      ierr = ARKSpilsGetNumRhsEvals(arkode_mem, &nfevalsLS);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumRhsEvals, ierr = %i",ierr);
-
-      std::cout << std::endl
-                << "TimestepSchemeARKode::Step cumulative stats:\n"
-                << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
-                << "  step size: " << hlast << " previous, " << hcur << " next\n"
-                << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp, " << nfevalsLS << " lin solve\n" 
-                << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
-                << "  linear: " << nliters << " iters, " << nlcfails << " fails, " << npsolves << " prec solves\n"
-                << std::endl;
-
+      } else {
+	
+	ierr = ARKSpilsGetNumPrecSolves(arkode_mem, &npsolves);
+	if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNumPrecSolves, ierr = %i",ierr);
+	
+	ierr = ARKSpilsGetNumLinIters(arkode_mem, &nliters);
+	if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumLinIters, ierr = %i",ierr);
+	
+	ierr = ARKSpilsGetNumConvFails(arkode_mem, &nlcfails);
+	if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumConvFails, ierr = %i",ierr);
+	
+	ierr = ARKSpilsGetNumRhsEvals(arkode_mem, &nfevalsLS);
+	if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumRhsEvals, ierr = %i",ierr);
+	
+	std::cout << std::endl
+		  << "TimestepSchemeARKode::Step cumulative stats:\n"
+		  << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
+		  << "  step size: " << hlast << " previous, " << hcur << " next\n"
+		  << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp, " << nfevalsLS << " lin solve\n" 
+		  << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
+		  << "  linear: " << nliters << " iters, " << nlcfails << " fails, " << npsolves << " prec solves\n"
+		  << std::endl;
+      }
     }
 
   }
@@ -869,7 +871,7 @@ int ARKodeColumnLSolve(
 ///////////////////////////////////////////////////////////////////////////////
 
 // this function does nothing since no persistent linear solver memory is used
-void ARKodeColumnLFree(ARKodeMem ark_mem)
+int ARKodeColumnLFree(ARKodeMem ark_mem)
 {
 
 #ifdef DEBUG_OUTPUT
