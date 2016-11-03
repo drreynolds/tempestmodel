@@ -35,6 +35,10 @@ else ifeq ($(UNAME),Linux)
   #   SYSTEM= AGRI
   #   SYSTEM_MAKEFILE= agri.make
   endif
+  ifeq ($(NERSC_HOST),cori)
+    SYSTEM= CORI
+    SYSTEM_MAKEFILE= cori.make
+  endif
   ifeq ($(HOSTNAME),yslogin1)
     SYSTEM= YELLOWSTONE
     SYSTEM_MAKEFILE= yellowstone.make

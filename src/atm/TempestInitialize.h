@@ -35,6 +35,7 @@
 #include "VerticalDynamicsStub.h"
 #include "VerticalDynamicsFEM.h"
 #include "VerticalDynamicsSchur.h"
+#include "VerticalDynamicsFLL.h"
 #include "OutputManagerComposite.h"
 #include "OutputManagerReference.h"
 #include "OutputManagerChecksum.h"
@@ -146,7 +147,7 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.nVerticalHyperdiffOrder, "vhypervisorder", 0); \
 	CommandLineString(_tempestvars.strTimestepScheme, "timescheme", "strang"); \
 	CommandLineStringD(_tempestvars.strHorizontalDynamics, "method", "SE", "(SE | DG)"); \
-	CommandLineStringD(_tempestvars.strVerticalDynamics, "vmethod", "DEFAULT", "(DEFAULT | SCHUR)"); \
+	CommandLineStringD(_tempestvars.strVerticalDynamics, "vmethod", "DEFAULT", "(DEFAULT | SCHUR | FLL)");
 	CommandLineInt(_tempestvars.iARKode_nvectors, "arkode_nvectors", 50); \
 	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-6); \
 	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-11); \
@@ -161,7 +162,6 @@ struct _TempestCommandLineVariables {
 	CommandLineBool(_tempestvars.fARKode_UsePreconditioning, "arkode_usepreconditioning"); \
 	CommandLineBool(_tempestvars.fARKode_ColumnSolver, "arkode_columnsolver"); \
 	CommandLineBool(_tempestvars.fFullyImplicit, "fullyimplicit");
-
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -375,6 +375,17 @@ void _TempestSetupMethodOfLines(
 	} else if (vars.strVerticalDynamics == "schur") {
 		model.SetVerticalDynamics(
 			new VerticalDynamicsSchur(
+				model,
+				vars.nHorizontalOrder,
+				vars.nVerticalOrder,
+				vars.nVerticalHyperdiffOrder,
+				vars.fExplicitVertical,
+				!vars.fNoReferenceState,
+				vars.fForceMassFluxOnLevels));
+
+	} else if (vars.strVerticalDynamics == "fll") {
+		model.SetVerticalDynamics(
+			new VerticalDynamicsFLL(
 				model,
 				vars.nHorizontalOrder,
 				vars.nVerticalOrder,
