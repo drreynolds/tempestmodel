@@ -16,24 +16,22 @@ else ifeq ($(UNAME),Linux)
   ifeq ($(NERSC_HOST),babbage)
     SYSTEM= BABBAGE
     SYSTEM_MAKEFILE= babbage.make
-  else ifeq ($(HOSTNAME),faraday)
+  endif
+  ifeq ($(HOSTNAME),faraday)
     SYSTEM= FARADAY
     SYSTEM_MAKEFILE= faraday.make
-  else ifeq ($(HOSTNAME),turing)
+  endif
+  ifeq ($(HOSTNAME),turing)
     SYSTEM= TURING
     SYSTEM_MAKEFILE= turing.make
-  else ifeq ($(HOSTNAME),davros)
+  endif
+  ifeq ($(HOSTNAME),davros)
     SYSTEM= DAVROS
     SYSTEM_MAKEFILE= davros.make
-  else ifeq ($(HOSTNAME),stella)
+  endif
+  ifeq ($(HOSTNAME),stella)
     SYSTEM= STELLA
     SYSTEM_MAKEFILE= stella.make
-  else # FIXME: Add a test condition
-    SYSTEM= CAB
-    SYSTEM_MAKEFILE= cab.make
-  # else # FIXME: Add a test condition
-  #   SYSTEM= AGRI
-  #   SYSTEM_MAKEFILE= agri.make
   endif
   ifeq ($(NERSC_HOST),cori)
     SYSTEM= CORI
@@ -63,10 +61,39 @@ else ifeq ($(UNAME),Linux)
     SYSTEM= YELLOWSTONE
     SYSTEM_MAKEFILE= yellowstone.make
   endif
-  # ifeq ($(SYSTEM),)
-  #   SYSTEM= AGRI
-  #   SYSTEM_MAKEFILE= agri.make
-  # endif   
+  ifeq ($(HOSTNAME),cab668)
+    SYSTEM= CAB
+    SYSTEM_MAKEFILE= cab.make
+  endif   
+  ifeq ($(HOSTNAME),cab669)
+    SYSTEM= CAB
+    SYSTEM_MAKEFILE= cab.make
+  endif   
+  ifeq ($(HOSTNAME),cab670)
+    SYSTEM= CAB
+    SYSTEM_MAKEFILE= cab.make
+  endif   
+  ifeq ($(HOSTNAME),cab687)
+    SYSTEM= CAB
+    SYSTEM_MAKEFILE= cab.make
+  endif   
+  ifeq ($(HOSTNAME),cab688)
+    SYSTEM= CAB
+    SYSTEM_MAKEFILE= cab.make
+  endif   
+  ifeq ($(HOSTNAME),cab689)
+    SYSTEM= CAB
+    SYSTEM_MAKEFILE= cab.make
+  endif   
+  ifeq ($(HOSTNAME),cab690)
+    SYSTEM= CAB
+    SYSTEM_MAKEFILE= cab.make
+  endif
+  ifeq ($(SYSTEM),)
+    SYSTEM= AGRI
+    SYSTEM_MAKEFILE= agri.make
+  endif   
+
 endif
 
 include $(TEMPESTBASEDIR)/mk/system/$(SYSTEM_MAKEFILE)
