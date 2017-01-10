@@ -12,10 +12,10 @@ MPICXX= mpicxx
 MPIF90= mpif90
 
 # SUNDIALS
-SUNDIALS_INCLUDEDIR= /g/g14/dgardner/arkode/install_gnu_opt/include
-SUNDIALS_LIBDIR= /g/g14/dgardner/arkode/install_gnu_opt/lib
-#SUNDIALS_INCLUDEDIR= /g/g14/dgardner/arkode/install_gnu_dbg/include
-#SUNDIALS_LIBDIR= /g/g14/dgardner/arkode/install_gnu_dbg/lib
+SUNDIALS_INCLUDEDIR= /g/g14/dgardner/SUNDIALS/arkode/install_gnu_opt/include
+SUNDIALS_LIBDIR= /g/g14/dgardner/SUNDIALS/arkode/install_gnu_opt/lib
+#SUNDIALS_INCLUDEDIR= /g/g14/dgardner/SUNDIALS/arkode/install_gnu_dbg/include
+#SUNDIALS_LIBDIR= /g/g14/dgardner/SUNDIALS/arkode/install_gnu_dbg/lib
 
 # NetCDF
 NETCDF_ROOT=      /usr/local/tools/netcdf-gnu-4.1.3
