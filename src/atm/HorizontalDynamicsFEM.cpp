@@ -33,7 +33,7 @@
 
 //#define INSTEP_DIVERGENCE_DAMPING
 
-#define FIX_ELEMENT_MASS_NONHYDRO
+//#define FIX_ELEMENT_MASS_NONHYDRO
 
 ///////////////////////////////////////////////////////////////////////////////
 
