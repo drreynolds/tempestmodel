@@ -18,6 +18,15 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
+//#define PERTURB_STATE
+
+#ifdef PERTURB_STATE
+#pragma message "Building with epsilon perturbed initial state"
+#include <limits>
+#endif
+
+///////////////////////////////////////////////////////////////////////////////
+
 ///	<summary>
 ///		Ullrich, Melvin, Jablonowski and Staniforth (2013) Baroclinic wave test
 ///	</summary>
@@ -533,6 +542,17 @@ public:
 		dState[2] = phys.RhoThetaFromPressure(dPressure) / dRho;
 		dState[3] = 0.0;
 		dState[4] = dRho;
+
+#ifdef PERTURB_STATE
+                double dEps = std::numeric_limits<double>::epsilon();
+
+		// Perturb the state by scaled machine epsilon
+		dState[0] += std::max(dEps * abs(dState[0]), dEps);
+		dState[1] += std::max(dEps * abs(dState[1]), dEps);
+		dState[2] += std::max(dEps * abs(dState[2]), dEps);
+		dState[3] += std::max(dEps * abs(dState[3]), dEps);
+		dState[4] += std::max(dEps * abs(dState[4]), dEps);
+#endif                
 
 	}
 };
