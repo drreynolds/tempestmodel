@@ -251,7 +251,7 @@ void _TempestSetupMethodOfLines(
 		model.SetTimestepScheme(
 			new TimestepSchemeARK232(model));
 
-		} else if (vars.strTimestepScheme == "gark2") {
+	} else if (vars.strTimestepScheme == "gark2") {
 		model.SetTimestepScheme(
 			new TimestepSchemeGARK2(model));
 
