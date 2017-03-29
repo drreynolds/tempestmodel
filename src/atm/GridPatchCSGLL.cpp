@@ -19,6 +19,7 @@
 #include "Model.h"
 #include "TestCase.h"
 #include "GridSpacing.h"
+#include "HorizontalDynamicsDG.h"
 #include "VerticalStretch.h"
 #include "Defines.h"
 
@@ -1012,8 +1013,16 @@ void GridPatchCSGLL::ComputeCurlAndDiv(
 	// Parent grid
 	const GridCSGLL & gridCSGLL = dynamic_cast<const GridCSGLL &>(m_grid);
 
+	// Get the pointer to the HorizontalDynamics object
+	const HorizontalDynamicsDG * pHorizontalDynamicsDG =
+		dynamic_cast<const HorizontalDynamicsDG *>(
+			m_grid.GetModel().GetHorizontalDynamics());
+
 	// If SpectralElement dynamics are used, apply direct stiffness summation
 	bool fDiscontinuous = false;
+	if (pHorizontalDynamicsDG != NULL) {
+		fDiscontinuous = true;
+	}
 
 	// Get derivatives of the basis functions
 	const DataArray2D<double> & dDxBasis1D = gridCSGLL.GetDxBasis1D();

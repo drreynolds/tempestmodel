@@ -17,6 +17,7 @@
 #include "GridGLL.h"
 #include "Model.h"
 #include "GridSpacing.h"
+#include "HorizontalDynamicsDG.h"
 
 #include "Direction.h"
 #include "FluxCorrectionFunction.h"
@@ -577,8 +578,15 @@ void GridGLL::PostProcessSubstage(
 		return;
 	}
 
-	// Apply Direct Stiffness Summation
-	ApplyDSS(iDataUpdate, eDataType);
+	// Get the pointer to the HorizontalDynamics object
+	const HorizontalDynamicsDG * pHorizontalDynamics =
+		dynamic_cast<const HorizontalDynamicsDG *>(
+			m_model.GetHorizontalDynamics());
+
+	// If SpectralElement dynamics are used, apply direct stiffness summation
+	if (pHorizontalDynamics == NULL) {
+		ApplyDSS(iDataUpdate, eDataType);
+	}
 
 }
 

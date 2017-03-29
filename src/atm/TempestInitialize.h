@@ -31,6 +31,7 @@
 #include "TimestepSchemeARKode.h"
 #include "HorizontalDynamicsStub.h"
 #include "HorizontalDynamicsFEM.h"
+#include "HorizontalDynamicsDG.h"
 #include "VerticalDynamicsStub.h"
 #include "VerticalDynamicsFEM.h"
 #include "VerticalDynamicsSchur.h"
@@ -97,7 +98,7 @@ struct _TempestCommandLineVariables {
 	int nLevels;
 	int nHorizontalOrder;
 	int nVerticalOrder;
-    int iARKode_nvectors;
+        int iARKode_nvectors;
 	double dARKode_rtol;
 	double dARKode_atol;
 	bool fARKode_DynamicStepSize;
@@ -106,11 +107,11 @@ struct _TempestCommandLineVariables {
 	int iARKode_NonlinIters;
 	int iARKode_LinIters;
 	int iARKode_Predictor; 
-    std::string strARKode_ButcherTable;
+        std::string strARKode_ButcherTable;
 	bool fARKode_Diagnostics;
-    bool fARKode_UsePreconditioning;
-    bool fARKode_ColumnSolver;
-    bool fFullyImplicit; 
+        bool fARKode_UsePreconditioning;
+        bool fARKode_ColumnSolver;
+        bool fFullyImplicit; 
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -145,6 +146,7 @@ struct _TempestCommandLineVariables {
 	CommandLineString(_tempestvars.strVerticalStretch, "vstretch", "uniform"); \
 	CommandLineInt(_tempestvars.nVerticalHyperdiffOrder, "vhypervisorder", 0); \
 	CommandLineString(_tempestvars.strTimestepScheme, "timescheme", "strang"); \
+	CommandLineStringD(_tempestvars.strHorizontalDynamics, "method", "SE", "(SE | DG)"); \
 	CommandLineStringD(_tempestvars.strVerticalDynamics, "vmethod", "DEFAULT", "(DEFAULT | SCHUR | FLL)"); \
 	CommandLineInt(_tempestvars.iARKode_nvectors, "arkode_nvectors", 50); \
 	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-6); \
@@ -319,16 +321,32 @@ void _TempestSetupMethodOfLines(
 		vars.dNuVort = 0.0;
 	}
 
-	model.SetHorizontalDynamics(
-		new HorizontalDynamicsFEM(
-			model,
-			vars.nHorizontalOrder,
-			vars.nHyperviscosityOrder,
-			vars.dNuScalar,
-			vars.dNuDiv,
-			vars.dNuVort,
-			vars.dInstepNuDiv));
+	STLStringHelper::ToLower(vars.strHorizontalDynamics);
+	if (vars.strHorizontalDynamics == "se") {
+		model.SetHorizontalDynamics(
+			new HorizontalDynamicsFEM(
+				model,
+				vars.nHorizontalOrder,
+				vars.nHyperviscosityOrder,
+				vars.dNuScalar,
+				vars.dNuDiv,
+				vars.dNuVort,
+				vars.dInstepNuDiv));
 
+	} else if (vars.strHorizontalDynamics == "dg") {
+		model.SetHorizontalDynamics(
+			new HorizontalDynamicsDG(
+				model,
+				vars.nHorizontalOrder,
+				vars.nHyperviscosityOrder,
+				vars.dNuScalar,
+				vars.dNuDiv,
+				vars.dNuVort,
+				vars.dInstepNuDiv));
+
+	} else {
+		_EXCEPTIONT("Invalid method: Expected \"SE\" or \"DG\"");
+	}
 	AnnounceEndBlock("Done");
 
 	// Vertical staggering
