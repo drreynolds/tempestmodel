@@ -123,6 +123,11 @@ protected:
 	double m_dAlpha;
 
 	///	<summary>
+	///		Rayleigh layer flag.
+	///	</summary>
+	bool m_fRayleighFriction;
+
+	///	<summary>
 	///		Deep atmosphere flag.
 	///	</summary>
 	bool m_fDeepAtmosphere;
@@ -150,7 +155,8 @@ public:
 		double dAlpha,
 		bool fDeepAtmosphere,
 		double dZtop,
-		PerturbationType ePerturbationType = PerturbationType_None
+		PerturbationType ePerturbationType = PerturbationType_None,
+		bool fRayleighFriction = false
 	) :
 		ParamEarthRadiusScaling(1.0),
 		ParamHeightLimit(30000.0),
@@ -171,7 +177,8 @@ public:
 		m_fDeepAtmosphere(fDeepAtmosphere),
 		m_fTracerOn(false),
 		m_dZtop(dZtop),
-		m_ePerturbationType(ePerturbationType)
+		m_ePerturbationType(ePerturbationType),
+		m_fRayleighFriction(fRayleighFriction)
 	{ }
 
 public:
@@ -194,6 +201,34 @@ public:
 	///	</summary>
 	virtual bool HasReferenceState() const {
 		return true;
+	}
+
+	///	<summary>
+	///		Flag indicating whether or not Rayleigh friction strength is given.
+	///	</summary>
+	virtual bool HasRayleighFriction() const {
+		return m_fRayleighFriction;
+	}
+
+	///	<summary>
+	///		Evaluate the Rayleigh friction strength at the given point.
+	///	</summary>
+	virtual double EvaluateRayleighStrength(
+		double dZ,
+		double dLon,
+		double dLat
+	) const {
+		const double dRayleighStrengthZ = 5.0E-1;
+		const double dRayleighDepth = 8000.0;
+
+		double dNuDepth = 0.0;
+
+		if (dZ > m_dZtop - dRayleighDepth) {
+			double dNormZ = (m_dZtop - dZ) / dRayleighDepth;
+			dNuDepth = 0.5 * dRayleighStrengthZ * (1.0 + cos(M_PI * dNormZ));
+		}
+		
+		return dNuDepth;
 	}
 
 	///	<summary>
@@ -585,6 +620,9 @@ try {
 	// Include tracer field
 	bool fTracersOn;
 
+	// Rayleigh layer
+	bool fRayleighFriction;
+
 	// Deep atmosphere flag
 	bool fDeepAtmosphere;
 
@@ -604,6 +642,7 @@ try {
 		CommandLineDouble(dZtop, "ztop", 10000.0);
 		CommandLineDouble(dAlpha, "alpha", 0.0);
 		CommandLineBool(fDeepAtmosphere, "deep_atmosphere");
+		CommandLineBool(fRayleighFriction, "rayleigh");
 		CommandLineStringD(strPerturbationType, "pert",
 			"None", "(None | Exp | Sfn)");
 
@@ -638,7 +677,8 @@ try {
 			dAlpha,
 			fDeepAtmosphere,
 			dZtop,
-			ePerturbationType));
+			ePerturbationType,
+			fRayleighFriction));
 
 	AnnounceEndBlock("Done");
 
