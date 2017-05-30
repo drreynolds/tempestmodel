@@ -365,54 +365,54 @@ void TimestepSchemeARKode::Step(
     
     if (iRank == 0 && !m_fFullyExplicit) {
       long int nsteps, expsteps, accsteps, step_attempts, nfe_evals, nfi_evals, nlinsetups, 
-	netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
+        netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
       realtype hinused, hlast, hcur, tcur;
       ierr = ARKodeGetIntegratorStats(arkode_mem, &nsteps, &expsteps, &accsteps, &step_attempts, 
-				      &nfe_evals, &nfi_evals, &nlinsetups, &netfails, &hinused, 
-				      &hlast, &hcur, &tcur);
+                                      &nfe_evals, &nfi_evals, &nlinsetups, &netfails, &hinused, 
+                                      &hlast, &hcur, &tcur);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetIntegratorStats, ierr = %i",ierr);
-      
+
       ierr = ARKodeGetNonlinSolvStats(arkode_mem, &nniters, &nncfails);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNonlinSolvStats, ierr = %i",ierr);
       
       if (m_fColumnSolver) {
-	
-	std::cout << std::endl
-		  << "TimestepSchemeARKode::Step cumulative stats:\n"
-		  << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
-		  << "  step size: " << hlast << " previous, " << hcur << " next\n"
-		  << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp\n" 
-		  << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
-		  << std::endl;
-
+        
+        std::cout << std::endl
+                  << "TimestepSchemeARKode::Step cumulative stats:\n"
+                  << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
+                  << "  step size: " << hlast << " previous, " << hcur << " next\n"
+                  << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp\n" 
+                  << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
+                  << std::endl;
+        
       } else {
-	
-	ierr = ARKSpilsGetNumPrecSolves(arkode_mem, &npsolves);
-	if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNumPrecSolves, ierr = %i",ierr);
-	
-	ierr = ARKSpilsGetNumLinIters(arkode_mem, &nliters);
-	if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumLinIters, ierr = %i",ierr);
-	
-	ierr = ARKSpilsGetNumConvFails(arkode_mem, &nlcfails);
-	if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumConvFails, ierr = %i",ierr);
-	
-	ierr = ARKSpilsGetNumRhsEvals(arkode_mem, &nfevalsLS);
-	if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumRhsEvals, ierr = %i",ierr);
-	
-	std::cout << std::endl
-		  << "TimestepSchemeARKode::Step cumulative stats:\n"
-		  << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
-		  << "  step size: " << hlast << " previous, " << hcur << " next\n"
-		  << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp, " << nfevalsLS << " lin solve\n" 
-		  << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
-		  << "  linear: " << nliters << " iters, " << nlcfails << " fails, " << npsolves << " prec solves\n"
-		  << std::endl;
-      }
-    }
-
-  }
+        
+        ierr = ARKSpilsGetNumPrecSolves(arkode_mem, &npsolves);
+        if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNumPrecSolves, ierr = %i",ierr);
+        
+        ierr = ARKSpilsGetNumLinIters(arkode_mem, &nliters);
+        if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumLinIters, ierr = %i",ierr);
+        
+        ierr = ARKSpilsGetNumConvFails(arkode_mem, &nlcfails);
+        if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumConvFails, ierr = %i",ierr);
+        
+        ierr = ARKSpilsGetNumRhsEvals(arkode_mem, &nfevalsLS);
+        if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumRhsEvals, ierr = %i",ierr);
+        
+        std::cout << std::endl
+                  << "TimestepSchemeARKode::Step cumulative stats:\n"
+                  << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
+                  << "  step size: " << hlast << " previous, " << hcur << " next\n"
+                  << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp, " << nfevalsLS << " lin solve\n" 
+                  << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
+                  << "  linear: " << nliters << " iters, " << nlcfails << " fails, " << npsolves << " prec solves\n"
+                  << std::endl;
+        
+      } // column solver
+    } // root proc
+  } // last step
 #endif
-
+  
 #ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");
 
@@ -882,6 +882,7 @@ int ARKodeColumnLFree(ARKodeMem ark_mem)
   AnnounceEndBlock("Done");
 #endif
 
+  return(0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1352,15 +1353,34 @@ void TimestepSchemeARKode::SetButcherTable()
       pAe  = new double [iStages * iStages];
       pbi  = new double [iStages];
       pbe  = new double [iStages];
-      
-      double gamma = 0.4358665215;
-      double b1    = 1.208496649;
-      double b2    = -0.644363171;
-      double a31   = 0.3212788860;
-      double a32   = 0.3966543747;
-      double a41   = -0.105858296;
-      double a42   = 0.5529291479;
-      double a43   = 0.5529291479;
+     
+      double gamma  = 0.4358665215084590;
+      double gamma2 = gamma * gamma;
+
+      double b1 = -1.5 * gamma2 + 4.0 * gamma - 0.25;
+      double b2 =  1.5 * gamma2 - 5.0 * gamma + 1.25;
+
+      double a42 = 0.5529291480359398; // double check value 
+      double a43 = 0.5529291480359398;
+
+      double a31 = (1.0 - 4.5 * gamma + 1.5 * gamma2) * a42 
+	+ (2.75 - 10.5 * gamma + 3.75 * gamma2) * a43 
+	- 3.5 + 13 * gamma - 4.5 * gamma2;
+
+      double a32 = (-1.0 + 4.5 * gamma - 1.5 * gamma2) * a42
+	+ (-2.75 + 10.5 * gamma - 3.75 * gamma2) * a43
+	+ 4.0 - 12.5 * gamma + 4.5 * gamma2;
+
+      double a41 = 1.0 - a42 - a43;
+
+      // double gamma = 0.4358665215;
+      // double b1    = 1.208496649;
+      // double b2    = -0.644363171;
+      // double a31   = 0.3212788860;
+      // double a32   = 0.3966543747;
+      // double a41   = -0.105858296;
+      // double a42   = 0.5529291479;
+      // double a43   = 0.5529291479;
       
       // Implicit table
       pci[0] = 0.0;

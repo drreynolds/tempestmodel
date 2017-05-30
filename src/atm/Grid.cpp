@@ -15,11 +15,13 @@
 ///	</remarks>
 
 #include "Grid.h"
+#include "GridPatchGLL.h"
 #include "Model.h"
 #include "TestCase.h"
 #include "GridSpacing.h"
 #include "VerticalStretch.h"
 #include "ConsolidationStatus.h"
+#include "FunctionTimer.h"
 
 #include "Exception.h"
 
@@ -631,6 +633,8 @@ void Grid::Exchange(
 		return;
 	}
 
+	FunctionTimer timer("Communicate");
+
 #ifdef TEMPEST_MPIOMP
 	// Verify all processors are prepared to exchange
 	MPI_Barrier(MPI_COMM_WORLD);
@@ -853,6 +857,24 @@ void Grid::ComputeSurfacePressure(
 	// Loop over all grid patches
 	for (int n = 0; n < m_vecActiveGridPatches.size(); n++) {
 		m_vecActiveGridPatches[n]->ComputeSurfacePressure(iDataIndex);
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void Grid::ComputeRichardson(
+	int iDataIndex
+) {
+	// Loop over all grid patches
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++) {
+
+		GridPatchGLL * pGLLGrid = 
+					dynamic_cast<GridPatchGLL*>(m_vecActiveGridPatches[n]);
+			if (pGLLGrid == NULL) {
+				_EXCEPTIONT("Logic error");
+			}
+		pGLLGrid->ComputeRichardson(iDataIndex);
+		//m_vecActiveGridPatches[n]->ComputeRichardson(iDataIndex);
 	}
 }
 

@@ -33,6 +33,8 @@
 
 //#define INSTEP_DIVERGENCE_DAMPING
 
+//#define FIX_ELEMENT_MASS_NONHYDRO
+
 ///////////////////////////////////////////////////////////////////////////////
 
 HorizontalDynamicsFEM::HorizontalDynamicsFEM(
@@ -76,6 +78,15 @@ void HorizontalDynamicsFEM::Initialize() {
 		m_nHorizontalOrder);
 
 	m_dBetaMassFlux.Allocate(
+		m_nHorizontalOrder,
+		m_nHorizontalOrder);
+
+	// Initialize the alpha and beta mass fluxes for mass fix
+	m_dAlphaElMassFlux.Allocate(
+		m_nHorizontalOrder,
+		m_nHorizontalOrder);
+
+	m_dBetaElMassFlux.Allocate(
 		m_nHorizontalOrder,
 		m_nHorizontalOrder);
 
@@ -605,7 +616,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 			pPatch->GetTopography();
 
 		const double dZtop = pGrid->GetZtop();
-		
+
 		// Get the coordinates to check force balance externally
 		const DataArray2D<double> & dLongitude  = pPatch->GetLongitude();
 		const DataArray2D<double> & dLatitude   = pPatch->GetLatitude();
@@ -644,7 +655,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 			// Interpolate W to model levels
 			if (pGrid->GetVarLocation(WIx) == DataLocation_REdge) {
 				pPatch->InterpolateREdgeToNode(WIx, iDataInitial);
-	
+
 				pPatch->InterpolateNodeToREdge(UIx, iDataInitial);
 				pPatch->InterpolateNodeToREdge(VIx, iDataInitial);
 			}
@@ -784,7 +795,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 
 				int iElementA = a * m_nHorizontalOrder + box.GetHaloElements();
 				int iElementB = b * m_nHorizontalOrder + box.GetHaloElements();
- 
+
 				// Derivatives of the covariant velocity field
 				double dCovDaUb = 0.0;
 				double dCovDaUx = 0.0;
@@ -984,7 +995,7 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						dDaJUa +=
 							m_dLocalJacobian[k][s][j]
 							* m_dAuxDataNode[ConUaIx][k][s][j]
-							* dDxBasis1D[s][i]; 
+							* dDxBasis1D[s][i];
 
 						// Beta derivative of J U^b
 						dDbJUb +=
@@ -1003,6 +1014,9 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 				}
 
 				// Pointwise update of quantities on model levels
+				double dElementMassFluxA = 0.0;
+				double dElementMassFluxB = 0.0;
+				double dElTotalArea = 0.0;
 				for (int i = 0; i < m_nHorizontalOrder; i++) {
 				for (int j = 0; j < m_nHorizontalOrder; j++) {
 
@@ -1046,9 +1060,9 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 						// Update density: Differential formulation
 						dDaRhoFluxA +=
 							m_dAlphaMassFlux[s][j]
-						  * dDxBasis1D[s][i];
+						    * dDxBasis1D[s][i];
 
-						  //#pragma message "Only evaluate pressure flux for relevant formulations"
+#pragma message "Only evaluate pressure flux for relevant formulations"
 						// Update pressure: Differential formulation
 						dDaPressureFluxA +=
 							m_dAlphaPressureFlux[s][j]
@@ -1270,14 +1284,30 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					}
 #endif
 
+
 #if !defined(FULLY_IMPLICIT_DENSITY)
+
+#ifdef FIX_ELEMENT_MASS_NONHYDRO
+					// Integrate element mass fluxes
+					dElementMassFluxA += dInvJacobian *
+									dDaRhoFluxA * dElementArea[k][iA][iB];
+					dElementMassFluxB += dInvJacobian *
+									dDbRhoFluxB * dElementArea[k][iA][iB];
+					dElTotalArea += dElementArea[k][iA][iB];
+
+					// Store the local element fluxes
+					m_dAlphaElMassFlux[i][j] = dDaRhoFluxA;
+					m_dBetaElMassFlux[i][j] = dDbRhoFluxB;
+#else
 
 					// Update density on model levels
 					dataUpdateNode[RIx][k][iA][iB] -=
 						dDeltaT * dInvJacobian * (
 							  dDaRhoFluxA
 							+ dDbRhoFluxB);
-#endif 
+#endif
+
+#endif
 
 #ifdef FORMULATION_PRESSURE
 					// Update pressure on model levels
@@ -1431,6 +1461,38 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					}
 				}
 				}
+				#ifdef FIX_ELEMENT_MASS_NONHYDRO
+								double dMassFluxPerNodeA = dElementMassFluxA / dElTotalArea;
+								double dMassFluxPerNodeB = dElementMassFluxB / dElTotalArea;
+
+								// Compute the total element area
+								for (int i = 0; i < m_nHorizontalOrder; i++) {
+								for (int j = 0; j < m_nHorizontalOrder; j++) {
+
+									// Inverse Jacobian
+									const double dInvJacobian =
+										1.0 / m_dLocalJacobian[k][i][j];
+									const double dJacobian = m_dLocalJacobian[k][i][j];
+
+									int iA = a * m_nHorizontalOrder + i + box.GetHaloElements();
+									int iB = b * m_nHorizontalOrder + j + box.GetHaloElements();
+
+									m_dAlphaElMassFlux[i][j] -= dJacobian * dMassFluxPerNodeA;
+									m_dBetaElMassFlux[i][j] -= dJacobian * dMassFluxPerNodeB;
+
+									// Update density on model levels
+									dataUpdateNode[RIx][k][iA][iB] -=
+										dDeltaT * dInvJacobian * (
+											  m_dAlphaElMassFlux[i][j]
+											+ m_dBetaElMassFlux[i][j]);
+								}
+								}
+				/*
+								Announce("%i %i %i %1.16e %1.16e %1.16e %1.16e",
+								k, a, b,
+								dElMassInitial, dElMassUpdate, dMassPerNode, dMassPerElement);
+				*/
+				#endif
 			}
 
 #if !defined(FULLY_IMPLICIT_VERTICAL_VELOCITY)
@@ -1446,13 +1508,13 @@ void HorizontalDynamicsFEM::StepNonhydrostaticPrimitive(
 					int iB = b * m_nHorizontalOrder + j + box.GetHaloElements();
 
 					// Interpolate horizontal velocity to bottom boundary
-					double dU0 = 
+					double dU0 =
 						pGrid->InterpolateNodeToREdge(
 							&(dataUpdateNode[UIx][0][iA][iB]),
 							NULL, 0, 0.0,
 							nVerticalStateStride);
 
-					double dV0 = 
+					double dV0 =
 						pGrid->InterpolateNodeToREdge(
 							&(dataUpdateNode[VIx][0][iA][iB]),
 							NULL, 0, 0.0,
@@ -1710,6 +1772,13 @@ void HorizontalDynamicsFEM::ApplyScalarHyperdiffusion(
 	int iComponent,
 	bool fRemoveRefState
 ) {
+	// Indices of EquationSet variables
+	const int UIx = 0;
+	const int VIx = 1;
+	const int PIx = 2;
+	const int WIx = 3;
+	const int RIx = 4;
+
 	// Get a copy of the GLL grid
 	GridGLL * pGrid = dynamic_cast<GridGLL*>(m_model.GetGrid());
 
@@ -1728,6 +1797,8 @@ void HorizontalDynamicsFEM::ApplyScalarHyperdiffusion(
 
 		const PatchBox & box = pPatch->GetPatchBox();
 
+		const DataArray3D<double> & dElementArea =
+			pPatch->GetElementArea();
 		const DataArray3D<double> & dJacobianNode =
 			pPatch->GetJacobian();
 		const DataArray3D<double> & dJacobianREdge =
@@ -1736,6 +1807,9 @@ void HorizontalDynamicsFEM::ApplyScalarHyperdiffusion(
 			pPatch->GetContraMetric2DA();
 		const DataArray3D<double> & dContraMetricB =
 			pPatch->GetContraMetric2DB();
+
+		const DataArray4D<double> & dDerivRNode =
+			pPatch->GetDerivRNode();
 
 		// Grid data
 		DataArray4D<double> & dataInitialNode =
@@ -1921,12 +1995,18 @@ void HorizontalDynamicsFEM::ApplyScalarHyperdiffusion(
 					}
 
 					// Pointwise updates
+					double dElementMassFluxA = 0.0;
+					double dElementMassFluxB = 0.0;
+					double dMassFluxPerNodeA = 0.0;
+					double dMassFluxPerNodeB = 0.0;
+					double dElTotalArea = 0.0;
 					for (int i = 0; i < m_nHorizontalOrder; i++) {
 					for (int j = 0; j < m_nHorizontalOrder; j++) {
 						int iA = iElementA + i;
 						int iB = iElementB + j;
 
-						double dInvJacobian = 1.0 / (*pJacobian)[k][iA][iB];
+						// Inverse Jacobian and Jacobian
+						const double dInvJacobian = 1.0 / (*pJacobian)[k][iA][iB];
 
 						// Compute integral term
 						double dUpdateA = 0.0;
@@ -1945,12 +2025,60 @@ void HorizontalDynamicsFEM::ApplyScalarHyperdiffusion(
 						dUpdateA *= dInvElementDeltaA;
 						dUpdateB *= dInvElementDeltaB;
 
+#ifdef FIX_ELEMENT_MASS_NONHYDRO
+							if (c == RIx) {
+		 						double dInvJacobian = 1.0 / (*pJacobian)[k][iA][iB];
+								// Integrate element mass fluxes
+								dElementMassFluxA += dInvJacobian *
+												dUpdateA * dElementArea[k][iA][iB];
+								dElementMassFluxB += dInvJacobian *
+												dUpdateB * dElementArea[k][iA][iB];
+								dElTotalArea += dElementArea[k][iA][iB];
+
+								// Store the local element fluxes
+								m_dAlphaElMassFlux[i][j] = dUpdateA;
+								m_dBetaElMassFlux[i][j] = dUpdateB;
+							} else {
+								// Apply update
+								(*pDataUpdate)[c][k][iA][iB] -=
+									dDeltaT * dInvJacobian * dLocalNu
+										* (dUpdateA + dUpdateB);
+							}
+#else
 						// Apply update
 						(*pDataUpdate)[c][k][iA][iB] -=
 							dDeltaT * dInvJacobian * dLocalNu
 								* (dUpdateA + dUpdateB);
+#endif
 					}
 					}
+#ifdef FIX_ELEMENT_MASS_NONHYDRO
+					if (c == RIx) {
+						double dMassFluxPerNodeA = dElementMassFluxA / dElTotalArea;
+						double dMassFluxPerNodeB = dElementMassFluxB / dElTotalArea;
+
+						// Compute the fixed mass update
+						for (int i = 0; i < m_nHorizontalOrder; i++) {
+						for (int j = 0; j < m_nHorizontalOrder; j++) {
+
+							int iA = iElementA + i;
+							int iB = iElementB + j;
+
+							// Inverse Jacobian
+							const double dInvJacobian = 1.0 / (*pJacobian)[k][iA][iB];
+							const double dJacobian = (*pJacobian)[k][iA][iB];
+
+							m_dAlphaElMassFlux[i][j] -= dJacobian * dMassFluxPerNodeA;
+							m_dBetaElMassFlux[i][j] -= dJacobian * dMassFluxPerNodeB;
+
+							// Update fixed density on model levels
+							(*pDataUpdate)[c][k][iA][iB] -=
+								dDeltaT * dInvJacobian * dLocalNu *
+									(m_dAlphaElMassFlux[i][j] + m_dBetaElMassFlux[i][j]);
+						}
+						}
+					}
+#endif
 				}
 				}
 				}
@@ -2169,7 +2297,7 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 	int nEffectiveC[nComponents];
 	// 3D primitive nonhydro models with no density treatment
 	if ((nEqSet == EquationSet::PrimitiveNonhydrostaticEquations) && !fCartXZ) {
-		nEffectiveC[0] = 0; nEffectiveC[1] = 1; 
+		nEffectiveC[0] = 0; nEffectiveC[1] = 1;
 		nEffectiveC[2] = 2; nEffectiveC[3] = 3;
 		nEffectiveC[nComponents - 1] = 0;
 		nComponents = nComponents - 1;
@@ -2177,7 +2305,7 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 	// 2D Cartesian XZ primitive nonhydro models with no density treatment
 	else if ((nEqSet == EquationSet::PrimitiveNonhydrostaticEquations) && fCartXZ) {
 		nEffectiveC[0] = 0;
-		nEffectiveC[1] = 2; 
+		nEffectiveC[1] = 2;
 		nEffectiveC[2] = 3;
 		nEffectiveC[nComponents - 2] = 0;
 		nEffectiveC[nComponents - 1] = 0;
@@ -2189,7 +2317,7 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 			nEffectiveC[nc] = nc;
 		}
 	}
- 
+
 	// Subcycle the rayleigh update
 	int nRayleighCycles = 10;
 	double dRayleighFactor = 1.0 / nRayleighCycles;
@@ -2240,11 +2368,11 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 
 				// Loop over all effective components
 				for (int c = 0; c < nComponents; c++) {
-					if (pGrid->GetVarLocation(nEffectiveC[c]) == 
+					if (pGrid->GetVarLocation(nEffectiveC[c]) ==
 						DataLocation_Node) {
-						for (int si = 0; si < nRayleighCycles; si++) { 
+						for (int si = 0; si < nRayleighCycles; si++) {
 							dNuNode = 1.0 / (1.0 + dRayleighFactor * dDeltaT * dNu);
-							dataUpdateNode[nEffectiveC[c]][k][i][j] = 
+							dataUpdateNode[nEffectiveC[c]][k][i][j] =
 								dNuNode * dataUpdateNode[nEffectiveC[c]][k][i][j]
 								+ (1.0 - dNuNode)
 								* dataReferenceNode[nEffectiveC[c]][k][i][j];
@@ -2267,11 +2395,11 @@ void HorizontalDynamicsFEM::ApplyRayleighFriction(
 
 				// Loop over all effective components
 				for (int c = 0; c < nComponents; c++) {
-					if (pGrid->GetVarLocation(nEffectiveC[c]) == 
+					if (pGrid->GetVarLocation(nEffectiveC[c]) ==
 						DataLocation_REdge) {
-						for (int si = 0; si < nRayleighCycles; si++) { 
+						for (int si = 0; si < nRayleighCycles; si++) {
 							dNuREdge = 1.0 / (1.0 + dRayleighFactor * dDeltaT * dNu);
-							dataUpdateREdge[nEffectiveC[c]][k][i][j] = 
+							dataUpdateREdge[nEffectiveC[c]][k][i][j] =
 							dNuREdge * dataUpdateREdge[nEffectiveC[c]][k][i][j]
 							+ (1.0 - dNuREdge)
 							* dataReferenceREdge[nEffectiveC[c]][k][i][j];
@@ -2302,7 +2430,6 @@ int HorizontalDynamicsFEM::SubStepAfterSubCycle(
 	double dDeltaT,
 	int iSubStep
 ) {
-
 	// Get the GLL grid
 	GridGLL * pGrid = dynamic_cast<GridGLL*>(m_model.GetGrid());
 
@@ -2357,6 +2484,9 @@ void HorizontalDynamicsFEM::StepAfterSubCycle(
 	const Time & time,
 	double dDeltaT
 ) {
+	// Start the function timer
+	FunctionTimer timer("StepAfterSubCycle");
+
 	// Check indices
 	if (iDataInitial == iDataWorking) {
 		_EXCEPTIONT("Invalid indices "
@@ -2380,7 +2510,7 @@ void HorizontalDynamicsFEM::StepAfterSubCycle(
 	// Apply hyperdiffusion
 	} else if (m_nHyperviscosityOrder == 0) {
 
-	// Apply viscosity 
+	// Apply viscosity
 	} else if (m_nHyperviscosityOrder == 2) {
 
 		// Apply scalar and vector viscosity
@@ -2439,4 +2569,3 @@ void HorizontalDynamicsFEM::StepAfterSubCycle(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-

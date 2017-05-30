@@ -356,8 +356,7 @@ void Model::Go() {
 
 	// Initial output
 	for (int om = 0; om < m_vecOutMan.size(); om++) {
-
-//* COMMENT IN FOR MASS, ENERGY, AND MOMENTUM OUTPUTS
+	  ///* COMMENT IN FOR MASS, ENERGY, AND MOMENTUM OUTPUTS
 		if (om == 0) {
 			Announce("%s %1.15e %1.15e %1.15e",
 			"Energy:",
@@ -419,7 +418,7 @@ void Model::Go() {
 		    fLastStep = true;		    
 		  } 
 		}
-
+/*
 		// Energy and enstrophy
 		{
 			if (m_eqn.GetDimensionality() == 3) {
@@ -436,12 +435,13 @@ void Model::Go() {
 					m_pGrid->InterpolateREdgeToNode(3, 0);
 				}
 			}
-/*
+
 			Announce("%1.15e %1.15e",
 				m_pGrid->ComputeTotalEnergy(0),
 				m_pGrid->ComputeTotalPotentialEnstrophy(0));
-*/
+
 		}
+*/
 /*
 		// L2 errors of the height field
 		{
@@ -483,7 +483,7 @@ void Model::Go() {
 		// Check for output
 		for (int om = 0; om < m_vecOutMan.size(); om++) {
 			if (fLastStep) {
-//* COMMENT IN FOR MASS, ENERGY, AND MOMENTUM OUTPUTS
+			  ///* COMMENT IN FOR MASS, ENERGY, AND MOMENTUM OUTPUTS
 				if (om == 0) {
 						Announce("%s %1.15e %1.15e %1.15e",
 						"Energy:",
@@ -495,7 +495,7 @@ void Model::Go() {
 				m_vecOutMan[om]->FinalOutput(m_time);
 
 			} else if (m_vecOutMan[om]->IsOutputNeeded(m_time)) {
-//* COMMENT IN FOR MASS, ENERGY, AND MOMENTUM OUTPUTS
+			  ///* COMMENT IN FOR MASS, ENERGY, AND MOMENTUM OUTPUTS
 				if (om == 0) {
 						Announce("%s %1.15e %1.15e %1.15e",
 						"Energy:",
@@ -503,7 +503,7 @@ void Model::Go() {
 						m_pGrid->ComputeTotalPotentialEnstrophy(0),
 						m_pGrid->ComputeTotalVerticalMomentum(0));
 				}
-//*/
+				//*/
 				m_vecOutMan[om]->ManageOutput(m_time);
 			}
 		}
@@ -537,10 +537,20 @@ void Model::Go() {
 			FunctionTimer::GetAverageGroupTime(
 				"VerticalStepImplicit");
 
+		long lTimeSaSc =
+			FunctionTimer::GetAverageGroupTime(
+				"StepAfterSubCycle");
+
+		long lTimeComm =
+			FunctionTimer::GetAverageGroupTime(
+				"Communicate");
+
 		long lGlobalTimeLoop[3];
 		long lGlobalTimeHNHP[3];
 		long lGlobalTimeVSEx[3];
 		long lGlobalTimeVSIm[3];
+		long lGlobalTimeSaSc[3];
+		long lGlobalTimeComm[3];
 
 		MPI_Reduce(&lTimeLoop, &lGlobalTimeLoop[0],
 			1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -570,6 +580,20 @@ void Model::Go() {
 		MPI_Reduce(&lTimeVSIm, &lGlobalTimeVSIm[2],
 			1, MPI_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
 
+		MPI_Reduce(&lTimeSaSc, &lGlobalTimeSaSc[0],
+			1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Reduce(&lTimeSaSc, &lGlobalTimeSaSc[1],
+			1, MPI_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
+		MPI_Reduce(&lTimeSaSc, &lGlobalTimeSaSc[2],
+			1, MPI_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+
+		MPI_Reduce(&lTimeComm, &lGlobalTimeComm[0],
+			1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+		MPI_Reduce(&lTimeComm, &lGlobalTimeComm[1],
+			1, MPI_LONG, MPI_MIN, 0, MPI_COMM_WORLD);
+		MPI_Reduce(&lTimeComm, &lGlobalTimeComm[2],
+			1, MPI_LONG, MPI_MAX, 0, MPI_COMM_WORLD);
+
 		int nCommSize;
 		MPI_Comm_size(MPI_COMM_WORLD, &nCommSize);
 
@@ -577,6 +601,8 @@ void Model::Go() {
 		lGlobalTimeHNHP[0] /= static_cast<long>(nCommSize);
 		lGlobalTimeVSEx[0] /= static_cast<long>(nCommSize);
 		lGlobalTimeVSIm[0] /= static_cast<long>(nCommSize);
+		lGlobalTimeSaSc[0] /= static_cast<long>(nCommSize);
+		lGlobalTimeComm[0] /= static_cast<long>(nCommSize);
 
 		Announce("Time [Loop]: %li [%li, %li]",
 			lGlobalTimeLoop[0], lGlobalTimeLoop[1], lGlobalTimeLoop[2]);
@@ -586,6 +612,10 @@ void Model::Go() {
 			lGlobalTimeVSEx[0], lGlobalTimeVSEx[1], lGlobalTimeVSEx[2]);
 		Announce("Time [VSIm]: %li [%li, %li]",
 			lGlobalTimeVSIm[0], lGlobalTimeVSIm[1], lGlobalTimeVSIm[2]);
+		Announce("Time [SaSc]: %li [%li, %li]",
+			lGlobalTimeSaSc[0], lGlobalTimeSaSc[1], lGlobalTimeSaSc[2]);
+		Announce("Time [Comm]: %li [%li, %li]",
+			lGlobalTimeComm[0], lGlobalTimeComm[1], lGlobalTimeComm[2]);
 	}
 #endif
 }

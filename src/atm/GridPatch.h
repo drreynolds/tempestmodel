@@ -184,7 +184,15 @@ public:
 	virtual void ComputeSurfacePressure(
 		int iDataIndex
 	);
-
+/*
+	///	<summary>
+	///		Compute Richardson number on the GridPatch.
+	///	</summary>
+	virtual void ComputeRichardson(
+		int iDataIndex,
+		DataLocation loc = DataLocation_Node
+	);
+*/
 public:
 	///	<summary>
 	///		Add local masses to checksum total.
@@ -907,12 +915,34 @@ public:
 	///	<summary>
 	///		Get the radial coordinate matrix on model levels.
 	///	</summary>
+	DataArray3D<double> & GetZLevels() {
+		if (!m_fContainsData) {
+			_EXCEPTIONT("Stub patch does not store data.");
+		}
+
+		return m_dataZLevels;
+	}
+
+	///	<summary>
+	///		Get the radial coordinate matrix on model levels.
+	///	</summary>
 	const DataArray3D<double> & GetZLevels() const {
 		if (!m_fContainsData) {
 			_EXCEPTIONT("Stub patch does not store data.");
 		}
 
 		return m_dataZLevels;
+	}
+
+	///	<summary>
+	///		Get the radial coordinate matrix on model interfaces.
+	///	</summary>
+	DataArray3D<double> & GetZInterfaces() {
+		if (!m_fContainsData) {
+			_EXCEPTIONT("Stub patch does not store data.");
+		}
+
+		return m_dataZInterfaces;
 	}
 
 	///	<summary>
@@ -1507,6 +1537,11 @@ public:
 	///		Computed temperature (Auxiliary).
 	///	</summary>
 	DataArray3D<double> m_dataTemperature;
+
+	///	<summary>
+	///		Computed Richardson number (Auxiliary).
+	///	</summary>
+	DataArray3D<double> m_dataRichardson;
 
 	///	<summary>
 	///		Computed surface pressure (Auxiliary).

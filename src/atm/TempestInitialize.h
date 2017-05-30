@@ -26,6 +26,7 @@
 #include "TimestepSchemeGARK2.h"
 #include "TimestepSchemeARS343.h"
 #include "TimestepSchemeARS443.h"
+#include "TimestepSchemeSSP3332.h"
 #include "TimestepSchemeSplitExp.h"
 #include "TimestepSchemeARKode.h"
 #include "HorizontalDynamicsStub.h"
@@ -34,6 +35,7 @@
 #include "VerticalDynamicsStub.h"
 #include "VerticalDynamicsFEM.h"
 #include "VerticalDynamicsSchur.h"
+#include "VerticalDynamicsFLL.h"
 #include "OutputManagerComposite.h"
 #include "OutputManagerReference.h"
 #include "OutputManagerChecksum.h"
@@ -73,6 +75,7 @@ struct _TempestCommandLineVariables {
 	bool fOutputDivergence;
 	bool fOutputTemperature;
 	bool fOutputSurfacePressure;
+	bool fOutputRichardson;
 	bool fNoReferenceState;
 	bool fNoTracers;
 	bool fNoHyperviscosity;
@@ -127,6 +130,7 @@ struct _TempestCommandLineVariables {
 	CommandLineBool(_tempestvars.fOutputDivergence, "output_div"); \
 	CommandLineBool(_tempestvars.fOutputTemperature, "output_temp"); \
 	CommandLineBool(_tempestvars.fOutputSurfacePressure, "output_ps"); \
+	CommandLineBool(_tempestvars.fOutputRichardson, "output_Ri"); \
 	CommandLineBool(_tempestvars.fNoReferenceState, "norefstate"); \
 	CommandLineBool(_tempestvars.fNoTracers, "notracers"); \
 	CommandLineBool(_tempestvars.fNoHyperviscosity, "nohypervis"); \
@@ -143,7 +147,7 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.nVerticalHyperdiffOrder, "vhypervisorder", 0); \
 	CommandLineString(_tempestvars.strTimestepScheme, "timescheme", "strang"); \
 	CommandLineStringD(_tempestvars.strHorizontalDynamics, "method", "SE", "(SE | DG)"); \
-	CommandLineStringD(_tempestvars.strVerticalDynamics, "vmethod", "DEFAULT", "(DEFAULT | SCHUR)"); \
+	CommandLineStringD(_tempestvars.strVerticalDynamics, "vmethod", "DEFAULT", "(DEFAULT | SCHUR | FLL)"); \
 	CommandLineInt(_tempestvars.iARKode_nvectors, "arkode_nvectors", 50); \
 	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-6); \
 	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-11); \
@@ -158,7 +162,6 @@ struct _TempestCommandLineVariables {
 	CommandLineBool(_tempestvars.fARKode_UsePreconditioning, "arkode_usepreconditioning"); \
 	CommandLineBool(_tempestvars.fARKode_ColumnSolver, "arkode_columnsolver"); \
 	CommandLineBool(_tempestvars.fFullyImplicit, "fullyimplicit");
-
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -248,7 +251,7 @@ void _TempestSetupMethodOfLines(
 		model.SetTimestepScheme(
 			new TimestepSchemeARK232(model));
 
-        } else if (vars.strTimestepScheme == "gark2") {
+	} else if (vars.strTimestepScheme == "gark2") {
 		model.SetTimestepScheme(
 			new TimestepSchemeGARK2(model));
 
@@ -260,7 +263,11 @@ void _TempestSetupMethodOfLines(
 		model.SetTimestepScheme(
 			new TimestepSchemeARS443(model));
 
-        } else if (vars.strTimestepScheme == "spex") {
+	} else if (vars.strTimestepScheme == "ssp3_332") {
+		model.SetTimestepScheme(
+			new TimestepSchemeSSP3332(model));
+
+	} else if (vars.strTimestepScheme == "spex") {
 		model.SetTimestepScheme(
 			new TimestepSchemeSplitExp(model));
 
@@ -270,13 +277,13 @@ void _TempestSetupMethodOfLines(
 
 		STLStringHelper::ToLower(vars.strARKode_ButcherTable);
 
-       		if (vars.fFullyImplicit) {
-      		          vars.fExplicitVertical   = true;
-		          ARKodeVars.FullyExplicit = false;
-		          ARKodeVars.FullyImplicit = vars.fFullyImplicit;
+		if (vars.fFullyImplicit) {
+		  vars.fExplicitVertical   = true;
+		  ARKodeVars.FullyExplicit = false;
+		  ARKodeVars.FullyImplicit = vars.fFullyImplicit;
 		} else {
-           		  ARKodeVars.FullyExplicit = vars.fExplicitVertical;
-		          ARKodeVars.FullyImplicit = false;
+		  ARKodeVars.FullyExplicit = vars.fExplicitVertical;
+		  ARKodeVars.FullyImplicit = false;
 		}
 		
 		ARKodeVars.nvectors        = vars.iARKode_nvectors;
@@ -301,7 +308,7 @@ void _TempestSetupMethodOfLines(
 	} else {
 		_EXCEPTIONT("Invalid timescheme: Expected "
 			"\"Strang\", \"ARS222\", \"ARS232\", \"ARK232\", "
-                        "\"ARS343\", \"ARS443\"");
+			"\"ARS343\", \"ARS443\", \"SSP3_332\"");
 	}
 	AnnounceEndBlock("Done");
 
@@ -376,6 +383,17 @@ void _TempestSetupMethodOfLines(
 				!vars.fNoReferenceState,
 				vars.fForceMassFluxOnLevels));
 
+	} else if (vars.strVerticalDynamics == "fll") {
+		model.SetVerticalDynamics(
+			new VerticalDynamicsFLL(
+				model,
+				vars.nHorizontalOrder,
+				vars.nVerticalOrder,
+				vars.nVerticalHyperdiffOrder,
+				vars.fExplicitVertical,
+				!vars.fNoReferenceState,
+				vars.fForceMassFluxOnLevels));
+
 	} else {
 		_EXCEPTIONT("Invalid --vmethod");
 	}
@@ -416,6 +434,9 @@ void _TempestSetupOutputManagers(
 		}
 		if (vars.fOutputSurfacePressure) {
 			pOutmanRef->OutputSurfacePressure();
+		}
+		if (vars.fOutputRichardson) {
+			pOutmanRef->OutputRichardson();
 		}
 
 		model.AttachOutputManager(pOutmanRef);

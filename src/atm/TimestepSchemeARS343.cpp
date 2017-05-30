@@ -23,7 +23,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 // COEFFICIENTS COMPUTED FROM THE ORIGINAL TABLEAUX
 // IMPLEMENTS ARS(3,4,3) FROM ASCHER ET AL. 1997 PG. 9
-/*
+//
 const double TimestepSchemeARS343::m_dgamma = 0.4358665215084590;
 const double TimestepSchemeARS343::m_db1 = -1.5 * m_dgamma * m_dgamma + 
 											4.0 * m_dgamma - 0.25;
@@ -42,7 +42,7 @@ const double TimestepSchemeARS343::m_dExpCf[4][4] = {
 	{0.3212788860286278, 0.3966543747256017, 0., 0.},
 	{-0.1058582960718797, 0.5529291480359398, 0.5529291480359398, 0.},
 	{0., 1.208496649176010, -0.6443631706844690, m_dgamma}};
-*/
+/*
 // MODIFIED ARS343 COEFFICIENTS COMPUTED BY (Boscarino, 2009)
 const double TimestepSchemeARS343::m_dgamma = 0.4358665215084590;
 const double TimestepSchemeARS343::m_db1 = -1.5 * m_dgamma * m_dgamma + 
@@ -63,7 +63,7 @@ const double TimestepSchemeARS343::m_dExpCf[4][4] = {
 	{0.5353965403073543, 0.1825367204468752, 0., 0.},
 	{0.6304125581528727, -0.8319339010630845, 1.201521342910212, 0.},
 	{0., 1.208496649176010, -0.6443631706844690, m_dgamma}};
-
+*/
 TimestepSchemeARS343::TimestepSchemeARS343(
 	Model & model
 ) :
@@ -143,7 +143,7 @@ void TimestepSchemeARS343::Step(
 
 	// Compute u1 into index 2
 	pGrid->CopyData(1, 2, DataType_State);
-	pGrid->CopyData(1, 2, DataType_State);
+	pGrid->CopyData(1, 2, DataType_Tracers);
 	pVerticalDynamics->StepImplicit(
 		2, 2, time, m_dImpCf[0][0] * dDeltaT);
 	pGrid->PostProcessSubstage(2, DataType_State);
@@ -164,7 +164,7 @@ void TimestepSchemeARS343::Step(
 
 	// Compute u2 from uf2 (index 3) into index 4
 	pGrid->CopyData(3, 4, DataType_State);
-	pGrid->CopyData(3, 4, DataType_State);
+	pGrid->CopyData(3, 4, DataType_Tracers);
 	pVerticalDynamics->StepImplicit(
 		4, 4, time, m_dImpCf[1][1] * dDeltaT);
 	pGrid->PostProcessSubstage(4, DataType_State);
@@ -185,7 +185,7 @@ void TimestepSchemeARS343::Step(
 
 	// Compute u3 from uf3 (index 3) into index 6
 	pGrid->CopyData(5, 6, DataType_State);
-	pGrid->CopyData(5, 6, DataType_State);
+	pGrid->CopyData(5, 6, DataType_Tracers);
 	pVerticalDynamics->StepImplicit(
 		6, 6, time, m_dImpCf[2][2] * dDeltaT);
 	pGrid->PostProcessSubstage(6, DataType_State);
