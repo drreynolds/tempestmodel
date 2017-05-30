@@ -23,6 +23,8 @@
 #ifdef PERTURB_STATE
 #pragma message "Building with epsilon perturbed initial state"
 #include <limits>
+#include <chrono>
+#include <random>
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -544,14 +546,23 @@ public:
 		dState[4] = dRho;
 
 #ifdef PERTURB_STATE
+                // machine epsilon
                 double dEps = std::numeric_limits<double>::epsilon();
 
-		// Perturb the state by scaled machine epsilon
-		dState[0] += std::max(dEps * abs(dState[0]), dEps);
-		dState[1] += std::max(dEps * abs(dState[1]), dEps);
-		dState[2] += std::max(dEps * abs(dState[2]), dEps);
-		dState[3] += std::max(dEps * abs(dState[3]), dEps);
-		dState[4] += std::max(dEps * abs(dState[4]), dEps);
+                // random number generator seed value
+                unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+
+                // normally distributed random numbers (mean, std dev)              
+                std::default_random_engine generator(seed);
+                std::normal_distribution<double> distribution(0.0, 1.0);
+                double dScale = 1.0E11 * dEps * distribution(generator);
+
+		// Perturb the state
+		dState[0] += std::max(dScale * abs(dState[0]), dScale);
+		dState[1] += std::max(dScale * abs(dState[1]), dScale);
+		dState[2] += std::max(dScale * abs(dState[2]), dScale);
+		dState[3] += std::max(dScale * abs(dState[3]), dScale);
+		dState[4] += std::max(dScale * abs(dState[4]), dScale);
 #endif                
 
 	}
