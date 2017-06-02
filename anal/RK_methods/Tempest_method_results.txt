@@ -1,0 +1,189 @@
+test_Tempest_methods; diary off
+
+
+Checking KGU(6,3) via check_erk:
+  Overall results:
+    order = 3,  linear order = 3
+    5-stage Kinnmark & Gray stability condition:      T T T T T
+    6-stage Kinnmark & Gray stability condition:      T T T F F F
+  stage order = 1
+  max stable step on imaginary axis = 3.87298
+
+
+Checking SSPRK(5,4) via check_erk:
+  Overall results:
+    order = 4,  linear order = 4
+    5-stage Kinnmark & Gray stability condition:      T T T F F
+  stage order = 1
+  max stable step on imaginary axis = 3.27836
+
+
+Checking ARS233 via check_ark2:
+  Overall results:
+    ERK:  order = 3,  B/A/L stability = 0/0/0
+    DIRK: order = 4,  B/A/L stability = 1/1/0
+    ARK:  order = 3
+  stage order: ERK = 1, DIRK = 1, ARK = 1
+  max stable explicit step on imaginary axis = 1.73205
+
+
+Checking ARS232 via check_ark2:
+  Overall results:
+    ERK:  order = 2,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 0/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 1, ARK = 1
+  max stable explicit step on imaginary axis = 1.73205
+
+
+Checking ARS222 via check_ark2:
+  Overall results:
+    ERK:  order = 2,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 0/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 1, ARK = 1
+  max stable explicit step on imaginary axis = 0.000243187
+
+
+Checking ARS343 via check_ark2:
+  Overall results:
+    ERK:  order = 3,  B/A/L stability = 0/0/0
+    DIRK: order = 3,  B/A/L stability = 0/1/1
+    ARK:  order = 3
+  stage order: ERK = 1, DIRK = 1, ARK = 1
+  max stable explicit step on imaginary axis = 2.82843
+
+
+Checking ARS443 via check_ark2:
+  Overall results:
+    ERK:  order = 3,  B/A/L stability = 0/0/0
+    DIRK: order = 3,  B/A/L stability = 0/1/1
+    ARK:  order = 3
+  stage order: ERK = 1, DIRK = 1, ARK = 1
+  max stable explicit step on imaginary axis = 1.56986
+
+
+Checking ARK232 via check_ark2:
+  Overall results:
+    ERK:  order = 2,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 0/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 2, ARK = 1
+  max stable explicit step on imaginary axis = 1.73205
+
+
+Checking SSP2(2,2,2) via check_ark2:
+  Overall results:
+    ERK:  order = 2,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 1/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 1, ARK = 0
+  max stable explicit step on imaginary axis = 0.000243187
+
+
+Checking SSP2(3,3,2)a via check_ark2:
+  Overall results:
+    ERK:  order = 2,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 0/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 1, ARK = 0
+  max stable explicit step on imaginary axis = 0.000487328
+
+
+Checking SSP3(3,3,2) via check_ark2:
+  Overall results:
+    ERK:  order = 3,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 0/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 1, ARK = 0
+  max stable explicit step on imaginary axis = 1.73205
+
+
+Checking SSP3(4,3,3) via check_ark2:
+  Overall results:
+    ERK:  order = 3,  B/A/L stability = 0/0/0
+    DIRK: order = 3,  B/A/L stability = 0/1/1
+    ARK:  order = 3
+  stage order: ERK = 1, DIRK = 1, ARK = 0
+  max stable explicit step on imaginary axis = 1.73205
+
+
+Checking SSP2(3,3,2)b via check_ark2:
+  Overall results:
+    ERK:  order = 2,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 0/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 1, ARK = 0
+  max stable explicit step on imaginary axis = 0.000487328
+
+
+Checking SSP3(3,3,3) via check_ark2:
+  Overall results:
+    ERK:  order = 3,  B/A/L stability = 0/0/0
+    DIRK: order = 3,  B/A/L stability = 0/0/0
+    ARK:  order = 3
+  stage order: ERK = 1, DIRK = 1, ARK = 1
+  max stable explicit step on imaginary axis = 1.73205
+
+
+Checking SSP2(3,3,2)-LSPUM via check_ark2:
+  Overall results:
+    ERK:  order = 2,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 0/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 1, ARK = 0
+  max stable explicit step on imaginary axis = 1.2
+
+
+Checking SSP2(3,3,2)-LPUM via check_ark2:
+  Overall results:
+    ERK:  order = 2,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 0/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 1, ARK = 0
+  max stable explicit step on imaginary axis = 0.000487328
+
+
+Checking SSP2(3,3,2)-LPM1 via check_ark2:
+  Overall results:
+    ERK:  order = 2,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 0/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 1, ARK = 0
+  max stable explicit step on imaginary axis = 0.000487328
+
+
+Checking SSP2(3,3,2)-LPM2 via check_ark2:
+  Overall results:
+    ERK:  order = 2,  B/A/L stability = 0/0/0
+    DIRK: order = 2,  B/A/L stability = 0/1/1
+    ARK:  order = 2
+  stage order: ERK = 1, DIRK = 1, ARK = 0
+  max stable explicit step on imaginary axis = 0.000487328
+
+
+Checking ARK3(2)4L[2]SA via check_ark_embedded2:
+  Overall results:
+    ERK:   order = 3,  embed order = 2,  B/A/L stability = 0/0/0
+    DIRK:  order = 3,  embed order = 2,  B/A/L stability = 0/1/1
+    ARK:   order = 3,  embed order = 2
+  stage order: ERK = 1, DIRK = 2, ARK = 1
+  max stable explicit step on imaginary axis = 2.48418
+
+
+Checking ARK4(3)6L[2]SA via check_ark_embedded2:
+  Overall results:
+    ERK:   order = 4,  embed order = 3,  B/A/L stability = 0/0/0
+    DIRK:  order = 4,  embed order = 3,  B/A/L stability = 0/1/1
+    ARK:   order = 4,  embed order = 3
+  stage order: ERK = 1, DIRK = 2, ARK = 1
+  max stable explicit step on imaginary axis = 4.00073
+
+
+Checking ARK5(4)8L[2]SA via check_ark_embedded2:
+  Overall results:
+    ERK:   order = 5,  embed order = 4,  B/A/L stability = 0/0/0
+    DIRK:  order = 5,  embed order = 4,  B/A/L stability = 0/1/1
+    ARK:   order = 5,  embed order = 4
+  stage order: ERK = 1, DIRK = 2, ARK = 1
+  max stable explicit step on imaginary axis = 0.794843

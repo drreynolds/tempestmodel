@@ -2141,6 +2141,84 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbi;
       delete[] pbe;
 
+    } else if (m_strButcherTable == "ark453") {
+
+      // ------------------------------------------------------------------------
+      // ARK543 - 4 implicit stages, 5 explicit stages, 3rd order
+      //          A-, I-, L-stable
+      //
+      // Candidate method (Reynolds, Ullrich, Gardner, Woodward, Guerra, 2017)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with ARK453");
+      
+      iStages = 5;
+      iQorder = 3;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+            
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = 0.1030620881159184;
+      pci[2] = 0.72139131281753662;
+      pci[3] = 1.28181117351981733;
+      pci[4] = 1.0;
+      
+      pAi[0] = 0.0;  pAi[1]  = 0.0;  pAi[2] = 0.0;  pAi[3] = 0.0;  pAi[4] = 0.0;
+      pAi[5] = -0.22284985318525410;  pAi[6] = 0.32591194130117247;  
+         pAi[7] = 0.0;  pAi[8] = 0.0;  pAi[9] = 0.0;
+      pAi[10] = -0.46801347074080545;  pAi[11] = 0.86349284225716961;  
+         pAi[12] = 0.32591194130117247;  pAi[13] = 0.0;  pAi[14] = 0.0;
+      pAi[15] = -0.46509906651927421;  pAi[16] = 0.81063103116959553;  
+         pAi[17] = 0.61036726756832357;  pAi[18] = 0.32591194130117247;  pAi[19] = 0.0;
+      pAi[20] = 0.87795339639076675;  pAi[21] = -0.72692641526151547;  
+         pAi[22] = 0.75204137157372720;  pAi[23] = -0.22898029400415088;  
+         pAi[24] = 0.32591194130117247;
+      
+      pbi[0] = 0.87795339639076672;
+      pbi[1] = -0.72692641526151549;
+      pbi[2] = 0.7520413715737272;
+      pbi[3] = -0.22898029400415090;
+      pbi[4] = 0.32591194130117246;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 0.1030620881159184;
+      pce[2] = 0.72139131281753662;
+      pce[3] = 1.28181117351981733;
+      pce[4] = 1.0;
+
+      pAe[0] = 0.0;  pAe[1] = 0.0;  pAe[2] = 0.0;  pAe[3] = 0.0;  pAe[4] = 0.0;
+      pAe[5] = 0.10306208811591838;  pAe[6] = 0.0;  pAe[7] = 0.0;  pAe[8] = 0.0;  pAe[9] = 0.0;
+      pAe[10] = -0.94124866143519894;  pAe[11] = 1.6626399742527356;  
+         pAe[12] = 0.0;  pAe[13] = 0.0;  pAe[14] = 0.0;
+      pAe[15] = -1.3670975201437765;   pAe[16] = 1.3815852911016873;  
+         pAe[17] = 1.2673234025619065;  pAe[18] = 0.0;  pAe[19] = 0.0;
+      pAe[20] = -0.81287582068772448;  pAe[21] = 0.81223739060505738;  
+         pAe[22] = 0.90644429603699305;  pAe[23] = 0.094194134045674111;  pAe[24] = 0.0;
+      
+      pbe[0] = 0.87795339639076672;
+      pbe[1] = -0.72692641526151549;
+      pbe[2] = 0.7520413715737272;
+      pbe[3] = -0.22898029400415090;
+      pbe[4] = 0.32591194130117246;
+            
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;     
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
     } else {
       _EXCEPTIONT("ERROR: Invalid IMEX Butcher table name");
     }   
