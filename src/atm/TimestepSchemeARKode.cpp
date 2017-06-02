@@ -349,16 +349,9 @@ void TimestepSchemeARKode::Step(
 
   // ARKode timestep
   ierr = ARKode(arkode_mem, dNextT, m_Y, &dCurrentT, stepmode);
-  if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
-
-  // // With dynamic stepping, get the last step size to update model time
-  // if (m_fDynamicStepSize) {
-  //   ierr = ARKodeGetLastStep(arkode_mem, &m_dDynamicDeltaT);
-  //   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
-  // }
 
 #ifdef STATISTICS_OUTPUT
-  if (fLastStep) {
+  if (fLastStep || ierr < 0) {
     
     int iRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
@@ -412,6 +405,15 @@ void TimestepSchemeARKode::Step(
     } // root proc
   } // last step
 #endif
+
+  // check ARKode return flag
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
+
+  // // With dynamic stepping, get the last step size to update model time
+  // if (m_fDynamicStepSize) {
+  //   ierr = ARKodeGetLastStep(arkode_mem, &m_dDynamicDeltaT);
+  //   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
+  // }
   
 #ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");
