@@ -13,6 +13,7 @@
 *.tgz
 *.mod
 *.orig
+*.pyc
 include/*
 test/nonhydro_xz/HydrostaticMountainCartesianTest
 test/nonhydro_xz/InertialGravityCartesianXZTest
