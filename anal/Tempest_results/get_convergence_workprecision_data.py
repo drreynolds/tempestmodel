@@ -90,6 +90,9 @@ def main():
     # Input Checking
     # -------------------------------------------------------------------------------
 
+    if (args.Debug):
+        print args
+
     # does reference file exist?
     if (not os.path.isfile(args.RefFile)):
         print "ERROR:",args.RefFile,"does not exist"
@@ -301,28 +304,69 @@ def main():
         #
 
         # sort data by step size and write data to file(s)
-        X, Y, Z = (list(d) for d in zip(*sorted(zip(stepsize, ErrS, runtime))))    
-        X = np.array(X)
-        Y = np.array(Y)
-        Z = np.array(Z)
+        if (args.Components):
 
-        ErrData = np.column_stack((X, Y, Z))
+            A,B,C,D,E,F,G,H = (list(d) for d in zip(*sorted(zip(stepsize,
+                                                                ErrS,
+                                                                runtime,
+                                                                ErrU,
+                                                                ErrV,
+                                                                ErrW,
+                                                                ErrT,
+                                                                ErrR ))))
+            A = np.array(A)
+            B = np.array(B)
+            C = np.array(C)
 
-        fname = args.Label+"_"+TestParent.split('/')[-1]+"_errors.txt"
+            D = np.array(D)
+            E = np.array(E)
+            F = np.array(F)
+            G = np.array(G)
+            H = np.array(H)
 
-        np.savetxt(fname, ErrData)
-        
-        if (args.Table):
+            fname = args.Label+"_"+TestParent.split('/')[-2]\
+                +"_"+TestParent.split('/')[-1]+"_"+args.Norm+"errors_components.txt"
 
-            fmt = '{0:<10s} {1:<10s} {2:<10f} {3:>22.16f} {4:>10f} {5:>14f}'            
-            for i in range(0,len(X)):
-                if (i < len(X)-1):
-                    cord = np.log10(Y[i+1]/Y[i])/np.log10(X[i+1]/X[i])
-                else:
-                    cord = 0.0                          
-                print >> fout, fmt.format(integrator[0], method[0], 
-                                          X[i], Y[i], cord, Z[i])
-            print >> fout, '-'*80
+            ErrData = np.column_stack((A,B,C,D,E,F,G,H))
+            np.savetxt(fname, ErrData)
+
+            if (args.Table):
+
+                fmt = '{0:<10s} {1:<10s} {2:<10f} {3:>22.16f} {4:>10f} {5:>14f} {6:>22.16f} {7:>22.16f} {8:>22.16f} {9:>22.16f} {10:>22.16f}'
+                for i in range(0,len(A)):
+                    if (i < len(A)-1):
+                        cord = np.log10(B[i+1]/B[i])/np.log10(A[i+1]/A[i])
+                    else:
+                        cord = 0.0
+                    print >> fout, fmt.format(integrator[0], method[0],
+                                              A[i], B[i], cord, C[i],
+                                              D[i], E[i], F[i], G[i], H[i],)
+                print >> fout, '-'*200
+
+        else:
+
+            A, B, C = (list(d) for d in zip(*sorted(zip(stepsize, ErrS, runtime))))
+            A = np.array(X)
+            B = np.array(Y)
+            C = np.array(Z)
+
+            fname = args.Label+"_"+TestParent.split('/')[-2]\
+                +"_"+TestParent.split('/')[-1]+"_"+args.Norm+"errors.txt"
+
+            ErrData = np.column_stack((A, B, C))
+            np.savetxt(fname, ErrData)
+
+            if (args.Table):
+
+                fmt = '{0:<10s} {1:<10s} {2:<10f} {3:>22.16f} {4:>10f} {5:>14f}'
+                for i in range(0,len(A)):
+                    if (i < len(A)-1):
+                        cord = np.log10(B[i+1]/B[i])/np.log10(A[i+1]/A[i])
+                    else:
+                        cord = 0.0
+                    print >> fout, fmt.format(integrator[0], method[0],
+                                              A[i], B[i], cord, C[i])
+                print >> fout, '-'*80
 
     # 
     # end parent directory loop

@@ -31,13 +31,17 @@ def main():
     
     parser.add_argument('Label', type=str,
                         help='label used in plot title and figure file name')
-
-    parser.add_argument('--LegendLoc', dest='LegendLoc', type=float, nargs=2,
-                        default=[0.58, 0.13],
-                        help='adjust legend location')
         
     parser.add_argument('DataFiles', type=str, nargs='+',
                         help='data files to plot')
+
+    parser.add_argument('--Components', dest='Components',
+                        action='store_true',
+                        help='data file also contains errors for individual errors')
+
+    parser.add_argument('--PrecisionOff', dest='PrecisionPlot',
+                        action='store_false',
+                        help='do not plot work-precision')
 
     parser.add_argument('--Norm', dest='Norm', choices=['RMS','L2','L1','Max'],
                         default='RMS',
@@ -46,18 +50,20 @@ def main():
     parser.add_argument('--Legend', type=str, nargs='+', dest='Legend',
                         help='set plot labels in legend')
 
+    parser.add_argument('--LegendLoc', dest='LegendLoc', type=float, nargs=2,
+                        default=[0.58, 0.13],
+                        help='adjust legend location')
+
     parser.add_argument('--Order', dest='Order', type=int, nargs='+',
                         help='add reference order slope to convergence plot')
 
-    parser.add_argument('--OrderHShift', dest='OrderHShift', type=float,
-                        default=0.0,
+    parser.add_argument('--OrderHShift', dest='OrderHShift', type=float, nargs='+',
                         help='adjust horizontal position of reference line')
 
-    parser.add_argument('--OrderVShift', dest='OrderVShift', type=float,
-                        default=1.0,
+    parser.add_argument('--OrderVShift', dest='OrderVShift', type=float, nargs='+',
                         help='adjust vertical position of reference line')
 
-    parser.add_argument('--OrderRange', dest='OrderRange', type=int, nargs=2,
+    parser.add_argument('--OrderRange', dest='OrderRange', type=int, nargs='+',
                         help='limit step sizes used to plot reference line')
 
     parser.add_argument('--SetColors', type=int, nargs='+', dest='SetColors',
@@ -160,8 +166,15 @@ def main():
         if (len(args.Legend) != len(args.DataFiles)):
             print "ERROR: len(Legend) != len(Tests)"
             sys.exit()
+
+        Leg = []
+        for i in range(0,len(args.DataFiles)):
+            if (args.Legend[i] == 'None'):
+                Leg.append(None)
+            else:
+                Leg.append(args.Legend[i])
     else:
-        args.Legend = [None] * nplots
+        Leg = [None] * nplots
 
     # line width
     Lwidth = 1.0
@@ -174,8 +187,13 @@ def main():
     counter = 0
 
     # create plot figure
-    plt.figure("Convergence and Work-Precision")
-    fig1, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+    if (args.PrecisionPlot):
+        plt.figure("Convergence and Work-Precision")
+        fig1, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+
+    else:
+        plt.figure("Convergence")
+        fig1, ax1 = plt.subplots()
 
     # loop over data files, assume one plot per data file
     for dfile in args.DataFiles:
@@ -191,6 +209,13 @@ def main():
         stepsizes = RunData[:,0]
         errors    = RunData[:,1]
         runtimes  = RunData[:,2]
+
+        if (args.Components):
+            errorsU = RunData[:,3]
+            errorsV = RunData[:,4]
+            errorsW = RunData[:,5]
+            errorsR = RunData[:,6]
+            errorsT = RunData[:,7]
 
         # assumes smallest to largest dt in data file
         if (counter == 0):
@@ -226,15 +251,53 @@ def main():
                    color=Cvalue[counter], 
                    marker=Mstyle[counter], 
                    linewidth = Lwidth, 
-                   label=args.Legend[counter])
-        
-        # plot work-precision
-        ax2.loglog(runtimes, errors,
-                   linestyle=Lstyle[counter], 
-                   color=Cvalue[counter], 
-                   marker=Mstyle[counter], 
-                   linewidth = Lwidth, 
-                   label=args.Legend[counter])
+                   label=Leg[counter])
+
+        if (args.Components):
+            ax1.loglog(stepsizes, errorsU,
+                       linestyle=Lstyle[counter],
+                       color=Cvalue[counter],
+                       marker=MarkerStyles[1],
+                       linewidth = Lwidth,
+                       label=Leg[counter]+' U')
+
+            ax1.loglog(stepsizes, errorsV,
+                       linestyle=Lstyle[counter],
+                       color=Cvalue[counter],
+                       marker=MarkerStyles[6],
+                       linewidth = Lwidth,
+                       label=Leg[counter]+' V')
+
+            ax1.loglog(stepsizes, errorsW,
+                       linestyle=Lstyle[counter],
+                       color=Cvalue[counter],
+                       marker=MarkerStyles[8],
+                       linewidth = Lwidth,
+                       label=Leg[counter]+' W')
+
+            ax1.loglog(stepsizes, errorsR,
+                       linestyle=Lstyle[counter],
+                       color=Cvalue[counter],
+                       marker=MarkerStyles[9],
+                       linewidth = Lwidth,
+                       label=Leg[counter]+' R')
+
+            ax1.loglog(stepsizes, errorsT,
+                       linestyle=Lstyle[counter],
+                       color=Cvalue[counter],
+                       marker=MarkerStyles[10],
+                       linewidth = Lwidth,
+                       label=Leg[counter]+' T')
+
+        if (args.PrecisionPlot):
+
+            # plot work-precision
+            ax2.loglog(runtimes, errors,
+                       linestyle=Lstyle[counter],
+                       color=Cvalue[counter],
+                       marker=Mstyle[counter],
+                       linewidth = Lwidth,
+                       label=Leg[counter])
 
         # update plot counter
         counter += 1
@@ -244,10 +307,31 @@ def main():
     # -------------------------------------------------------------------------------
     if (args.Order):
 
+        if (args.OrderHShift):
+            if (len(args.OrderHShift) != len(args.Order)):
+                print "ERROR: --OrderHShift and --Order are different lengths"
+                sys.exit()
+        else:
+            args.OrderHShift = len(args.Order)*[0.0]
+
+        if (args.OrderVShift):
+            if (len(args.OrderVShift) != len(args.Order)):
+                print "ERROR: --OrderVShift and --Order are different lengths"
+                sys.exit()
+        else:
+            args.OrderVShift = len(args.Order)*[1.0]
+
+        if (args.OrderRange):
+            if (len(args.OrderRange) != 2*len(args.Order)):
+                print "ERROR: --OrderRange is not twice the length of --Order"
+                sys.exit()
+
+        LineStyles = ['--','-.',':']
+
         # initialize counter
         counter = 0
         
-        for ordpow in args.Order:
+        for p in range(0,len(args.Order)):
 
             if (ordsteps[-1] != maxstep):
                 np.append(ordsteps, [maxstep])
@@ -256,32 +340,32 @@ def main():
                 ordsteps = np.insert(ordsteps, 0, minstep)
 
             X = ordsteps
-            Y = minerr * (X / X[0])**ordpow
+            Y = minerr * (X / X[0])**args.Order[p]
 
             # horizontal shift
-            if (args.OrderHShift < 0): 
+            if (args.OrderHShift[p] < 0):
                 # left shift
                 X = X/np.log10(10 + abs(args.OrderHShift))
-            elif (args.OrderHShift > 0):
+            elif (args.OrderHShift[p] > 0):
                 # right shift
                 X = X*np.log10(10 + args.OrderHShift)
                 
             # vertical shift
-            Y = args.OrderVShift * Y
+            Y = args.OrderVShift[p] * Y
 
             # truncate order line
             if (args.OrderRange):
-                a = args.OrderRange[0]
-                b = np.shape(ordsteps)[0] + args.OrderRange[1] + 1
+                a = args.OrderRange[2*p]
+                b = np.shape(ordsteps)[0] + args.OrderRange[2*p+1] + 1
                 X = X[a:b]
                 Y = Y[a:b]
 
             # plot order line
             ax1.loglog(X, Y,
-                       linestyle='--', 
+                       linestyle=LineStyles[p],
                        color='black', 
                        linewidth = Lwidth,
-                       label=None)
+                       label='Order '+str(args.Order[p]))
             
             # update counter
             counter += 1
@@ -298,8 +382,9 @@ def main():
 
     handles, labels = ax1.get_legend_handles_labels()
 
-    ax2.set_xlabel('Run Time (s)')
-    ax2.grid(True)
+    if (args.PrecisionPlot):
+        ax2.set_xlabel('Run Time (s)')
+        ax2.grid(True)
 
     # shift upper right corner (0 = no shift)
     x = args.LegendLoc[0] 
