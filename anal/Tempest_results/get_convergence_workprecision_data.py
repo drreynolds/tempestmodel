@@ -62,7 +62,7 @@ def main():
 
     parser.add_argument('TestDirs', type=str, nargs='+',
                         help='path to test parent directories')
-    
+   
     parser.add_argument('--Norm', dest='Norm', 
                         choices=['RMS','L2','L1','Max'],
                         default='RMS',
@@ -78,6 +78,10 @@ def main():
 
     parser.add_argument('--Table', dest='Table', type=str,
                         help='file name for table of output')
+
+    parser.add_argument('--SkipErr', dest='SkipErr', 
+                        action='store_true',
+                        help='skip check for .err files')   
 
     parser.add_argument('--Debug', dest='Debug', 
                         action='store_true',
@@ -132,12 +136,14 @@ def main():
                 print outfiles
                 sys.exit()
 
-            errfiles = FileHelper.get_files_with_extension(t,'.err')
+            if (not args.SkipErr):
 
-            if (len(errfiles) != 1):
-                print "ERROR:",len(errfiles),".out files found in",t
-                print errfiles
-                sys.exit()
+                errfiles = FileHelper.get_files_with_extension(t,'.err')
+
+                if (len(errfiles) != 1):
+                    print "ERROR:",len(errfiles),".err files found in",t
+                    print errfiles
+                    sys.exit()
     
     # -------------------------------------------------------------------------------
     # Load Reference Data
@@ -147,24 +153,85 @@ def main():
 
     RefData = Dataset(args.RefFile, mode="r")
 
-    Uref = np.ravel(RefData.variables['U'][...])
-    Vref = np.ravel(RefData.variables['V'][...])
-    Wref = np.ravel(RefData.variables['W'][...])
-    Rref = np.ravel(RefData.variables['Rho'][...])
-    if (args.RhoTheta):
-        Tref = np.ravel(RefData.variables['RhoTheta'][...])
-    else:
-        Tref = np.ravel(RefData.variables['Theta'][...])
+    reflev  = RefData.variables['lev'][...]
+    refilev = RefData.variables['ilev'][...]
 
-    Sref = np.concatenate((Uref, Vref, Wref, Tref, Rref))
+    Uref = RefData.variables['U'][...]
+    Vref = RefData.variables['V'][...]
+    Wref = RefData.variables['W'][...]
+    Rref = RefData.variables['Rho'][...]
+    if (args.RhoTheta):
+        Tref = RefData.variables['RhoTheta'][...]
+    else:
+        Tref = RefData.variables['Theta'][...]
                 
     RefData.close()
+    
+    # interpolate reference data if necessary
+    # assumes all tests use the same discretization settings
+
+    ncfile  = os.path.join(Tests[0], 'outTempest', RefName)
+    OutData = Dataset(ncfile, mode="r")
+
+    testlev  = OutData.variables['lev'][...]
+    testilev = OutData.variables['ilev'][...]
+
+    OutData.close()
+
+    if (not np.array_equal(reflev,testlev)):
+
+        print "Interpolating Reference Solution..."
+        
+        Utmp = np.empty([1,len(testlev),180,360])
+        Vtmp = np.empty([1,len(testlev),180,360])
+        Rtmp = np.empty([1,len(testlev),180,360])
+        Ttmp = np.empty([1,len(testlev),180,360])
+
+        Wtmp = np.empty([1,len(testilev),180,360])
+
+        # level variables
+        for i in range(len(testlev)):
+            for j in range(len(reflev)):
+                if (testlev[i] < reflev[j]):
+                    print i,reflev[j-1], testlev[i], reflev[j]
+                    Utmp[0,i,:,:] = (Uref[0,j-1,:,:] + Uref[0,j,:,:])*0.5
+                    Vtmp[0,i,:,:] = (Vref[0,j-1,:,:] + Vref[0,j,:,:])*0.5
+                    Rtmp[0,i,:,:] = (Rref[0,j-1,:,:] + Rref[0,j,:,:])*0.5
+                    Ttmp[0,i,:,:] = (Tref[0,j-1,:,:] + Tref[0,j,:,:])*0.5
+                    break
+    
+        # interface variables
+        for i in range(len(testilev)):
+            for j in range(len(refilev)):
+                if (testilev[i] == refilev[j]):
+                    print i, testilev[i], refilev[j]
+                    Wtmp[0,i,:,:] = Wref[0,j,:,:]
+                    break
+                
+        # rename interpolated solutions
+        Uref = Utmp
+        Vref = Vtmp
+        Wref = Wtmp
+        Rref = Rtmp
+        Tref = Ttmp
+
+    # unravel arrays to 1D arrays
+    Uref = np.ravel(Uref)
+    Vref = np.ravel(Vref)
+    Wref = np.ravel(Wref)
+    Rref = np.ravel(Rref)
+    Tref = np.ravel(Tref)
+
+    Sref = np.concatenate((Uref, Vref, Wref, Tref, Rref))
 
     # -------------------------------------------------------------------------------
     # Load Test Data
     # -------------------------------------------------------------------------------
     if (args.Table):
-        fout = open(args.Table,'w')
+        if (os.path.isfile(args.Table)):
+            fout = open(args.Table,'a')
+        else:
+            fout = open(args.Table,'w')
         
     for TestParent in args.TestDirs:
 
@@ -195,7 +262,9 @@ def main():
 
             ncfile  = os.path.join(t, 'outTempest', RefName)
             outfile = FileHelper.get_files_with_extension(t,'.out')[0]
-            errfile = FileHelper.get_files_with_extension(t,'.err')[0]
+
+            if (not args.SkipErr):
+                errfile = FileHelper.get_files_with_extension(t,'.err')[0]
 
             # check that run finished
             RunFinished = False
@@ -219,27 +288,33 @@ def main():
             # get run time
             FoundTime = False
 
-            with open(errfile) as fn:
+            # initialize in case skipping
+            minutes = 0.0
+            seconds = 0.0
 
-                for line in fn:
-                    split_line = shlex.split(line)
+            if (not args.SkipErr):
 
-                    if ("real" in split_line):
-                        FoundTime = True
+                with open(errfile) as fn:
 
-                        time = split_line[1]
+                    for line in fn:
+                        split_line = shlex.split(line)
 
-                        j = 0
-                        for c in time:
-                            if (c == 'm'):
-                                minutes = float(time[:j])
-                                seconds = float(time[j+1:-1])
-                                break
-                            j += 1
+                        if ("real" in split_line):
+                            FoundTime = True
 
-            if (not FoundTime):
-                print "WARNING: Run time not found for",t
-                continue
+                            time = split_line[1]
+
+                            j = 0
+                            for c in time:
+                                if (c == 'm'):
+                                    minutes = float(time[:j])
+                                    seconds = float(time[j+1:-1])
+                                    break
+                                j += 1
+
+                if (not FoundTime):
+                    print "WARNING: Run time not found for",t
+                    continue
 
             runtime.append(60.0 * minutes + seconds)
 
@@ -284,10 +359,10 @@ def main():
                 Tout = np.ravel(OutData.variables['RhoTheta'][...])
             else:
                 Tout = np.ravel(OutData.variables['Theta'][...])
-
-            Sout = np.concatenate((Uout, Vout, Wout, Tout, Rout))
         
             OutData.close()
+
+            Sout = np.concatenate((Uout, Vout, Wout, Tout, Rout))
 
             # compute error
             ErrS.append(err_norm(Sout, Sref, args.Norm))
