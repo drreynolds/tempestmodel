@@ -125,7 +125,7 @@ def main():
 
             if (not os.path.isfile(fname)):
                 print "WARNING:",t,"does not contain",RefName
-                continue 
+                continue
 
             # is there only one .out and .err file? if not then this test was likely
             # restarted and needs some post-processing to combine .out and .err files
@@ -261,6 +261,11 @@ def main():
             print "\t",t.split('/')[-1]
 
             ncfile  = os.path.join(t, 'outTempest', RefName)
+
+            if (not os.path.isfile(ncfile)):
+                print "WARNING:",t,"does not contain",ncfile
+                continue 
+
             outfile = FileHelper.get_files_with_extension(t,'.out')[0]
 
             if (not args.SkipErr):
@@ -421,11 +426,13 @@ def main():
         else:
 
             A, B, C = (list(d) for d in zip(*sorted(zip(stepsize, ErrS, runtime))))
-            A = np.array(X)
-            B = np.array(Y)
-            C = np.array(Z)
+            A = np.array(A)
+            B = np.array(B)
+            C = np.array(C)
 
-            fname = args.Label+"_"+TestParent.split('/')[-2]\
+            fname = args.Label\
+                +"_"+TestParent.split('/')[-3]\
+                +"_"+TestParent.split('/')[-2]\
                 +"_"+TestParent.split('/')[-1]+"_"+args.Norm+"errors.txt"
 
             ErrData = np.column_stack((A, B, C))
