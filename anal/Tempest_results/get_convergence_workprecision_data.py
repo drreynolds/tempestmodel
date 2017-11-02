@@ -170,50 +170,51 @@ def main():
     # interpolate reference data if necessary
     # assumes all tests use the same discretization settings
 
-    ncfile  = os.path.join(Tests[0], 'outTempest', RefName)
-    OutData = Dataset(ncfile, mode="r")
+    # ncfile  = os.path.join(Tests[0], 'outTempest', RefName)
+    # print ncfile
+    # OutData = Dataset(ncfile, mode="r")
 
-    testlev  = OutData.variables['lev'][...]
-    testilev = OutData.variables['ilev'][...]
+    # testlev  = OutData.variables['lev'][...]
+    # testilev = OutData.variables['ilev'][...]
 
-    OutData.close()
+    # OutData.close()
 
-    if (not np.array_equal(reflev,testlev)):
+    # if (not np.array_equal(reflev,testlev)):
 
-        print "Interpolating Reference Solution..."
+    #     print "Interpolating Reference Solution..."
         
-        Utmp = np.empty([1,len(testlev),180,360])
-        Vtmp = np.empty([1,len(testlev),180,360])
-        Rtmp = np.empty([1,len(testlev),180,360])
-        Ttmp = np.empty([1,len(testlev),180,360])
+    #     Utmp = np.empty([1,len(testlev),180,360])
+    #     Vtmp = np.empty([1,len(testlev),180,360])
+    #     Rtmp = np.empty([1,len(testlev),180,360])
+    #     Ttmp = np.empty([1,len(testlev),180,360])
 
-        Wtmp = np.empty([1,len(testilev),180,360])
+    #     Wtmp = np.empty([1,len(testilev),180,360])
 
-        # level variables
-        for i in range(len(testlev)):
-            for j in range(len(reflev)):
-                if (testlev[i] < reflev[j]):
-                    print i,reflev[j-1], testlev[i], reflev[j]
-                    Utmp[0,i,:,:] = (Uref[0,j-1,:,:] + Uref[0,j,:,:])*0.5
-                    Vtmp[0,i,:,:] = (Vref[0,j-1,:,:] + Vref[0,j,:,:])*0.5
-                    Rtmp[0,i,:,:] = (Rref[0,j-1,:,:] + Rref[0,j,:,:])*0.5
-                    Ttmp[0,i,:,:] = (Tref[0,j-1,:,:] + Tref[0,j,:,:])*0.5
-                    break
+    #     # level variables
+    #     for i in range(len(testlev)):
+    #         for j in range(len(reflev)):
+    #             if (testlev[i] < reflev[j]):
+    #                 print i,reflev[j-1], testlev[i], reflev[j]
+    #                 Utmp[0,i,:,:] = (Uref[0,j-1,:,:] + Uref[0,j,:,:])*0.5
+    #                 Vtmp[0,i,:,:] = (Vref[0,j-1,:,:] + Vref[0,j,:,:])*0.5
+    #                 Rtmp[0,i,:,:] = (Rref[0,j-1,:,:] + Rref[0,j,:,:])*0.5
+    #                 Ttmp[0,i,:,:] = (Tref[0,j-1,:,:] + Tref[0,j,:,:])*0.5
+    #                 break
     
-        # interface variables
-        for i in range(len(testilev)):
-            for j in range(len(refilev)):
-                if (testilev[i] == refilev[j]):
-                    print i, testilev[i], refilev[j]
-                    Wtmp[0,i,:,:] = Wref[0,j,:,:]
-                    break
+    #     # interface variables
+    #     for i in range(len(testilev)):
+    #         for j in range(len(refilev)):
+    #             if (testilev[i] == refilev[j]):
+    #                 print i, testilev[i], refilev[j]
+    #                 Wtmp[0,i,:,:] = Wref[0,j,:,:]
+    #                 break
                 
-        # rename interpolated solutions
-        Uref = Utmp
-        Vref = Vtmp
-        Wref = Wtmp
-        Rref = Rtmp
-        Tref = Ttmp
+    #     # rename interpolated solutions
+    #     Uref = Utmp
+    #     Vref = Vtmp
+    #     Wref = Wtmp
+    #     Rref = Rtmp
+    #     Tref = Ttmp
 
     # unravel arrays to 1D arrays
     Uref = np.ravel(Uref)
