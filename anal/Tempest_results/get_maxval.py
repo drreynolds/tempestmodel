@@ -58,14 +58,16 @@ def main():
 
     if (not args.SingleTest):
         # get individual test directories in test parent and sort
-        Tests = FileHelper.get_immediate_subdirectories(args.TestDir)
-        Tests = sorted(Tests, key=FileHelper.numerical_sort)    
+        tmp_Tests = FileHelper.get_immediate_subdirectories(args.TestDir)
+        tmp_Tests = sorted(tmp_Tests, key=FileHelper.numerical_sort)    
     else:
         # create list with single test
-        Tests = [args.TestDir]
+        tmp_Tests = [args.TestDir]
 
-    # iterate over individual tests
-    for t in Tests:
+    # iterate over individual tests and remove those withoutis a .out file or
+    # with multiple .out files
+    Tests = []
+    for t in tmp_Tests:
     
         # is there only one .out and .err file? if not then this test was likely
         # restarted and needs some post-processing to combine .out and .err files
@@ -74,14 +76,16 @@ def main():
         if (len(outfiles) != 1):
             print "ERROR:",len(outfiles),".out files found in",t
             print outfiles
-            sys.exit()
+            continue
 
         errfiles = FileHelper.get_files_with_extension(t,'.err')
 
         if (len(errfiles) != 1):
             print "ERROR:",len(errfiles),".out files found in",t
             print errfiles
-            sys.exit()
+            continue
+
+        Tests.append(t)
 
     # -------------------------------------------------------------------------------
     # Extract Data
