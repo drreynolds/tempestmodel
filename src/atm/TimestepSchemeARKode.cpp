@@ -2157,6 +2157,127 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbi;
       delete[] pbe;
 
+    } else if (m_strButcherTable == "ssp3_333a") {
+
+      // ------------------------------------------------------------------------
+      // ssp3(3,3,3)a - 3 implicit stages, 3 explicit stages, 3rd order
+      //
+      // Conde, Gottlieb, Grant, and Shadid, Implicit and Implicit-Explicit
+      // Strong Stability Preserving Runge-Kutta Methods with High Linear Order,
+      // 2017. (section 3.2.3, beta = 2/3)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP3(3,3,3)a");
+
+      iStages = 3;
+      iQorder = 3;
+      iPorder = 0;
+
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = 1.0;
+      pci[2] = 0.5;
+
+      pAi[0] = 0.0;      pAi[1] = 0.0;       pAi[2] = 0.0;
+      pAi[3] = 0.0;      pAi[4] = 1.0;       pAi[5] = 0.0;
+      pAi[6] = 1.0/6.0;  pAi[7] = -1.0/3.0;  pAi[8] = 2.0/3.0;
+
+      pbi[0] = 1.0/6.0;
+      pbi[1] = 1.0/6.0;
+      pbi[2] = 2.0/3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 1.0;
+      pce[2] = 0.5;
+
+      pAe[0] = 0.0;   pAe[1] = 0.0;   pAe[2] = 0.0;
+      pAe[3] = 1.0;   pAe[4] = 0.0;   pAe[5] = 0.0;
+      pAe[6] = 0.25;  pAe[7] = 0.25;  pAe[8] = 0.0;
+
+      pbe[0] = 1.0/6.0;
+      pbe[1] = 1.0/6.0;
+      pbe[2] = 2.0/3.0;
+
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder,
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ssp3_333b") {
+
+      // ------------------------------------------------------------------------
+      // ssp3(3,3,3)a - 3 implicit stages, 3 explicit stages, 3rd order
+      //
+      // Conde, Gottlieb, Grant, and Shadid, Implicit and Implicit-Explicit
+      // Strong Stability Preserving Runge-Kutta Methods with High Linear Order,
+      // 2017. (section 3.2.3, beta = sqrt(3)/6 + 1/2)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP3(3,3,3)b");
+
+      iStages = 3;
+      iQorder = 3;
+      iPorder = 0;
+
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+
+      double beta  = std::sqrt(3.0)/6.0 + 0.5;
+      double gamma = (-1.0/8.0)*(std::sqrt(3.0) + 1);
+
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = 1.0;
+      pci[2] = 0.5;
+
+      pAi[0] = 0.0;                 pAi[1] = 0.0;                     pAi[2] = 0.0;
+      pAi[3] = 4.0*gamma+2.0*beta;  pAi[4] = 1.0-4.0*gamma-2.0*beta;  pAi[5] = 0.0;
+      pAi[6] = 0.5-beta-gamma;      pAi[7] = gamma;                   pAi[8] = beta;
+
+      pbi[0] = 1.0/6.0;
+      pbi[1] = 1.0/6.0;
+      pbi[2] = 2.0/3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 1.0;
+      pce[2] = 0.5;
+
+      pAe[0] = 0.0;   pAe[1] = 0.0;   pAe[2] = 0.0;
+      pAe[3] = 1.0;   pAe[4] = 0.0;   pAe[5] = 0.0;
+      pAe[6] = 0.25;  pAe[7] = 0.25;  pAe[8] = 0.0;
+
+      pbe[0] = 1.0/6.0;
+      pbe[1] = 1.0/6.0;
+      pbe[2] = 2.0/3.0;
+
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder,
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
     } else {
       _EXCEPTIONT("ERROR: Invalid IMEX Butcher table name");
     }   
