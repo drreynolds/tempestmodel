@@ -1863,7 +1863,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbi;
       delete[] pbe;
 
-    } else if (m_strButcherTable == "ssp3_333") {
+    } else if (m_strButcherTable == "ssp3_333a") {
 
       // ------------------------------------------------------------------------
       // ssp3(3,3,3) - 3 implicit stages, 3 explicit stages, 3rd order
@@ -1871,7 +1871,7 @@ void TimestepSchemeARKode::SetButcherTable()
       // Higueras, Characterizing strong stability preserving additive 
       // Runge-Kutta methos, 2009.
       // ------------------------------------------------------------------------
-      Announce("Timestepping with SSP3(3,3,3)");
+      Announce("Timestepping with SSP3(3,3,3)a");
       
       iStages = 3;
       iQorder = 3;
@@ -2157,7 +2157,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbi;
       delete[] pbe;
 
-    } else if (m_strButcherTable == "ssp3_333a") {
+    } else if (m_strButcherTable == "ssp3_333b") {
 
       // ------------------------------------------------------------------------
       // ssp3(3,3,3)a - 3 implicit stages, 3 explicit stages, 3rd order
@@ -2166,7 +2166,7 @@ void TimestepSchemeARKode::SetButcherTable()
       // Strong Stability Preserving Runge-Kutta Methods with High Linear Order,
       // 2017. (section 3.2.3, beta = 2/3)
       // ------------------------------------------------------------------------
-      Announce("Timestepping with SSP3(3,3,3)a");
+      Announce("Timestepping with SSP3(3,3,3)b");
 
       iStages = 3;
       iQorder = 3;
@@ -2216,7 +2216,7 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbi;
       delete[] pbe;
 
-    } else if (m_strButcherTable == "ssp3_333b") {
+    } else if (m_strButcherTable == "ssp3_333c") {
 
       // ------------------------------------------------------------------------
       // ssp3(3,3,3)a - 3 implicit stages, 3 explicit stages, 3rd order
@@ -2225,7 +2225,7 @@ void TimestepSchemeARKode::SetButcherTable()
       // Strong Stability Preserving Runge-Kutta Methods with High Linear Order,
       // 2017. (section 3.2.3, beta = sqrt(3)/6 + 1/2)
       // ------------------------------------------------------------------------
-      Announce("Timestepping with SSP3(3,3,3)b");
+      Announce("Timestepping with SSP3(3,3,3)c");
 
       iStages = 3;
       iQorder = 3;
