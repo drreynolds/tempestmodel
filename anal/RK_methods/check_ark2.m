@@ -59,8 +59,8 @@ failC = false;
 q = -1;
 
 % convert bE and bI to column vectors for these tests
-bE = bE';
-bI = bI';
+bE = reshape(bE,length(bE),1);
+bI = reshape(bI,length(bI),1);
 
 % create cell arrays to streamline pairwise testing
 bs = {bE,bI};

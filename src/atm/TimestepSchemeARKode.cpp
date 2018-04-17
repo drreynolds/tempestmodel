@@ -21,7 +21,7 @@
 #ifdef USE_SUNDIALS
 
 //#define DEBUG_OUTPUT
-//#define STATISTICS_OUTPUT
+#define STATISTICS_OUTPUT
 
 //#define DSS_INPUT
 #define DSS_OUTPUT
@@ -333,6 +333,64 @@ void TimestepSchemeARKode::Step(
 
   // ARKode timestep
   ierr = ARKode(arkode_mem, dNextT, m_Y, &dCurrentT, stepmode);
+
+#ifdef STATISTICS_OUTPUT
+  if (fLastStep || ierr < 0) {
+    
+    int iRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
+    
+    if (iRank == 0 && !m_fFullyExplicit) {
+      long int nsteps, expsteps, accsteps, step_attempts, nfe_evals, nfi_evals, nlinsetups, 
+        netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
+      realtype hinused, hlast, hcur, tcur;
+      ierr = ARKodeGetIntegratorStats(arkode_mem, &nsteps, &expsteps, &accsteps, &step_attempts, 
+                                      &nfe_evals, &nfi_evals, &nlinsetups, &netfails, &hinused, 
+                                      &hlast, &hcur, &tcur);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetIntegratorStats, ierr = %i",ierr);
+
+      ierr = ARKodeGetNonlinSolvStats(arkode_mem, &nniters, &nncfails);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNonlinSolvStats, ierr = %i",ierr);
+      
+      if (m_fColumnSolver) {
+        
+        std::cout << std::endl
+                  << "TimestepSchemeARKode::Step cumulative stats:\n"
+                  << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
+                  << "  step size: " << hlast << " previous, " << hcur << " next\n"
+                  << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp\n" 
+                  << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
+                  << std::endl;
+        
+      } else {
+        
+        ierr = ARKSpilsGetNumPrecSolves(arkode_mem, &npsolves);
+        if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNumPrecSolves, ierr = %i",ierr);
+        
+        ierr = ARKSpilsGetNumLinIters(arkode_mem, &nliters);
+        if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumLinIters, ierr = %i",ierr);
+        
+        ierr = ARKSpilsGetNumConvFails(arkode_mem, &nlcfails);
+        if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumConvFails, ierr = %i",ierr);
+        
+        ierr = ARKSpilsGetNumRhsEvals(arkode_mem, &nfevalsLS);
+        if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumRhsEvals, ierr = %i",ierr);
+        
+        std::cout << std::endl
+                  << "TimestepSchemeARKode::Step cumulative stats:\n"
+                  << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
+                  << "  step size: " << hlast << " previous, " << hcur << " next\n"
+                  << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp, " << nfevalsLS << " lin solve\n" 
+                  << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
+                  << "  linear: " << nliters << " iters, " << nlcfails << " fails, " << npsolves << " prec solves\n"
+                  << std::endl;
+        
+      } // column solver
+    } // root proc
+  } // last step
+#endif
+
+  // check ARKode return flag
   if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
 
   // // With dynamic stepping, get the last step size to update model time
@@ -340,61 +398,7 @@ void TimestepSchemeARKode::Step(
   //   ierr = ARKodeGetLastStep(arkode_mem, &m_dDynamicDeltaT);
   //   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
   // }
-
-#ifdef STATISTICS_OUTPUT
-  int iRank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
-    
-  if (iRank == 0 && !m_fFullyExplicit) {
-    long int nsteps, expsteps, accsteps, step_attempts, nfe_evals, nfi_evals, nlinsetups, 
-      netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
-    realtype hinused, hlast, hcur, tcur;
-    ierr = ARKodeGetIntegratorStats(arkode_mem, &nsteps, &expsteps, &accsteps, &step_attempts, 
-				    &nfe_evals, &nfi_evals, &nlinsetups, &netfails, &hinused, 
-				    &hlast, &hcur, &tcur);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetIntegratorStats, ierr = %i",ierr);
-
-    ierr = ARKodeGetNonlinSolvStats(arkode_mem, &nniters, &nncfails);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNonlinSolvStats, ierr = %i",ierr);
-
-    if (m_fColumnSolver) {
-
-      std::cout << std::endl
-                << "TimestepSchemeARKode::Step cumulative stats:\n"
-                << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
-                << "  step size: " << hlast << " previous, " << hcur << " next\n"
-                << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp\n" 
-                << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
-                << std::endl;
-
-    } else {
-
-      ierr = ARKSpilsGetNumPrecSolves(arkode_mem, &npsolves);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetNumPrecSolves, ierr = %i",ierr);
-
-      ierr = ARKSpilsGetNumLinIters(arkode_mem, &nliters);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumLinIters, ierr = %i",ierr);
-
-      ierr = ARKSpilsGetNumConvFails(arkode_mem, &nlcfails);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumConvFails, ierr = %i",ierr);
-
-      ierr = ARKSpilsGetNumRhsEvals(arkode_mem, &nfevalsLS);
-      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpilsGetNumRhsEvals, ierr = %i",ierr);
-
-      std::cout << std::endl
-                << "TimestepSchemeARKode::Step cumulative stats:\n"
-                << "  steps: " << nsteps << " (" << step_attempts << " attempted)\n"
-                << "  step size: " << hlast << " previous, " << hcur << " next\n"
-                << "  fevals: " << nfe_evals << " exp, " << nfi_evals << " imp, " << nfevalsLS << " lin solve\n" 
-                << "  nonlinear: " << nniters << " iters, " << nncfails << " failures\n"
-                << "  linear: " << nliters << " iters, " << nlcfails << " fails, " << npsolves << " prec solves\n"
-                << std::endl;
-
-    }
-
-  }
-#endif
-
+  
 #ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");
 
@@ -1843,15 +1847,15 @@ void TimestepSchemeARKode::SetButcherTable()
       delete[] pbi;
       delete[] pbe;
 
-    } else if (m_strButcherTable == "ssp3_333") {
+    } else if (m_strButcherTable == "ssp3_333a") {
 
       // ------------------------------------------------------------------------
-      // ssp3(3,3,3) - 3 implicit stages, 3 explicit stages, 3rd order
+      // ssp3(3,3,3)a - 3 implicit stages, 3 explicit stages, 3rd order
       //
       // Higueras, Characterizing strong stability preserving additive 
       // Runge-Kutta methos, 2009.
       // ------------------------------------------------------------------------
-      Announce("Timestepping with SSP3(3,3,3)");
+      Announce("Timestepping with SSP3(3,3,3)a");
       
       iStages = 3;
       iQorder = 3;
@@ -2131,6 +2135,205 @@ void TimestepSchemeARKode::SetButcherTable()
 				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
 
       delete[] pci;      
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ark453") {
+
+      // ------------------------------------------------------------------------
+      // ARK543 - 4 implicit stages, 5 explicit stages, 3rd order
+      //          A-, I-, L-stable
+      //
+      // Candidate method (Reynolds, Ullrich, Gardner, Woodward, Guerra, 2017)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with ARK453");
+      
+      iStages = 5;
+      iQorder = 3;
+      iPorder = 0;
+      
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+            
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = 0.1030620881159184;
+      pci[2] = 0.72139131281753662;
+      pci[3] = 1.28181117351981733;
+      pci[4] = 1.0;
+      
+      pAi[0] = 0.0;  pAi[1]  = 0.0;  pAi[2] = 0.0;  pAi[3] = 0.0;  pAi[4] = 0.0;
+      pAi[5] = -0.22284985318525410;  pAi[6] = 0.32591194130117247;  
+         pAi[7] = 0.0;  pAi[8] = 0.0;  pAi[9] = 0.0;
+      pAi[10] = -0.46801347074080545;  pAi[11] = 0.86349284225716961;  
+         pAi[12] = 0.32591194130117247;  pAi[13] = 0.0;  pAi[14] = 0.0;
+      pAi[15] = -0.46509906651927421;  pAi[16] = 0.81063103116959553;  
+         pAi[17] = 0.61036726756832357;  pAi[18] = 0.32591194130117247;  pAi[19] = 0.0;
+      pAi[20] = 0.87795339639076675;  pAi[21] = -0.72692641526151547;  
+         pAi[22] = 0.75204137157372720;  pAi[23] = -0.22898029400415088;  
+         pAi[24] = 0.32591194130117247;
+      
+      pbi[0] = 0.87795339639076672;
+      pbi[1] = -0.72692641526151549;
+      pbi[2] = 0.7520413715737272;
+      pbi[3] = -0.22898029400415090;
+      pbi[4] = 0.32591194130117246;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 0.1030620881159184;
+      pce[2] = 0.72139131281753662;
+      pce[3] = 1.28181117351981733;
+      pce[4] = 1.0;
+
+      pAe[0] = 0.0;  pAe[1] = 0.0;  pAe[2] = 0.0;  pAe[3] = 0.0;  pAe[4] = 0.0;
+      pAe[5] = 0.10306208811591838;  pAe[6] = 0.0;  pAe[7] = 0.0;  pAe[8] = 0.0;  pAe[9] = 0.0;
+      pAe[10] = -0.94124866143519894;  pAe[11] = 1.6626399742527356;  
+         pAe[12] = 0.0;  pAe[13] = 0.0;  pAe[14] = 0.0;
+      pAe[15] = -1.3670975201437765;   pAe[16] = 1.3815852911016873;  
+         pAe[17] = 1.2673234025619065;  pAe[18] = 0.0;  pAe[19] = 0.0;
+      pAe[20] = -0.81287582068772448;  pAe[21] = 0.81223739060505738;  
+         pAe[22] = 0.90644429603699305;  pAe[23] = 0.094194134045674111;  pAe[24] = 0.0;
+      
+      pbe[0] = 0.87795339639076672;
+      pbe[1] = -0.72692641526151549;
+      pbe[2] = 0.7520413715737272;
+      pbe[3] = -0.22898029400415090;
+      pbe[4] = 0.32591194130117246;
+            
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder, 
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;     
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ssp3_333b") {
+
+      // ------------------------------------------------------------------------
+      // ssp3(3,3,3)b - 3 implicit stages, 3 explicit stages, 3rd order
+      //
+      // Conde, Gottlieb, Grant, and Shadid, Implicit and Implicit-Explicit
+      // Strong Stability Preserving Runge-Kutta Methods with High Linear Order,
+      // 2017. (section 3.2.3, beta = 2/3)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP3(3,3,3)b");
+
+      iStages = 3;
+      iQorder = 3;
+      iPorder = 0;
+
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = 1.0;
+      pci[2] = 0.5;
+
+      pAi[0] = 0.0;      pAi[1] = 0.0;       pAi[2] = 0.0;
+      pAi[3] = 0.0;      pAi[4] = 1.0;       pAi[5] = 0.0;
+      pAi[6] = 1.0/6.0;  pAi[7] = -1.0/3.0;  pAi[8] = 2.0/3.0;
+
+      pbi[0] = 1.0/6.0;
+      pbi[1] = 1.0/6.0;
+      pbi[2] = 2.0/3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 1.0;
+      pce[2] = 0.5;
+
+      pAe[0] = 0.0;   pAe[1] = 0.0;   pAe[2] = 0.0;
+      pAe[3] = 1.0;   pAe[4] = 0.0;   pAe[5] = 0.0;
+      pAe[6] = 0.25;  pAe[7] = 0.25;  pAe[8] = 0.0;
+
+      pbe[0] = 1.0/6.0;
+      pbe[1] = 1.0/6.0;
+      pbe[2] = 2.0/3.0;
+
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder,
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;
+      delete[] pce;
+      delete[] pAi;
+      delete[] pAe;
+      delete[] pbi;
+      delete[] pbe;
+
+    } else if (m_strButcherTable == "ssp3_333c") {
+
+      // ------------------------------------------------------------------------
+      // ssp3(3,3,3)c - 3 implicit stages, 3 explicit stages, 3rd order
+      //
+      // Conde, Gottlieb, Grant, and Shadid, Implicit and Implicit-Explicit
+      // Strong Stability Preserving Runge-Kutta Methods with High Linear Order,
+      // 2017. (section 3.2.3, beta = sqrt(3)/6 + 1/2)
+      // ------------------------------------------------------------------------
+      Announce("Timestepping with SSP3(3,3,3)c");
+
+      iStages = 3;
+      iQorder = 3;
+      iPorder = 0;
+
+      pci  = new double [iStages];
+      pce  = new double [iStages];
+      pAi  = new double [iStages * iStages];
+      pAe  = new double [iStages * iStages];
+      pbi  = new double [iStages];
+      pbe  = new double [iStages];
+
+      double beta  = std::sqrt(3.0)/6.0 + 0.5;
+      double gamma = (-1.0/8.0)*(std::sqrt(3.0) + 1);
+
+      // Implicit table
+      pci[0] = 0.0;
+      pci[1] = 1.0;
+      pci[2] = 0.5;
+
+      pAi[0] = 0.0;                 pAi[1] = 0.0;                     pAi[2] = 0.0;
+      pAi[3] = 4.0*gamma+2.0*beta;  pAi[4] = 1.0-4.0*gamma-2.0*beta;  pAi[5] = 0.0;
+      pAi[6] = 0.5-beta-gamma;      pAi[7] = gamma;                   pAi[8] = beta;
+
+      pbi[0] = 1.0/6.0;
+      pbi[1] = 1.0/6.0;
+      pbi[2] = 2.0/3.0;
+
+      // Explicit table
+      pce[0] = 0.0;
+      pce[1] = 1.0;
+      pce[2] = 0.5;
+
+      pAe[0] = 0.0;   pAe[1] = 0.0;   pAe[2] = 0.0;
+      pAe[3] = 1.0;   pAe[4] = 0.0;   pAe[5] = 0.0;
+      pAe[6] = 0.25;  pAe[7] = 0.25;  pAe[8] = 0.0;
+
+      pbe[0] = 1.0/6.0;
+      pbe[1] = 1.0/6.0;
+      pbe[2] = 2.0/3.0;
+
+      // arkode memory, stages, order, emdedding order, ci, ce, Ai, Ae, bi, be, b2i, b2e
+      ierr = ARKodeSetARKTables(arkode_mem, iStages, iQorder, iPorder,
+				pci, pce, pAi, pAe, pbi, pbe, NULL, NULL);
+
+      delete[] pci;
       delete[] pce;
       delete[] pAi;
       delete[] pAe;

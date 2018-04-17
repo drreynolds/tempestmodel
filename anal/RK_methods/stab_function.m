@@ -38,8 +38,8 @@ Rsimp = simplifyFraction(R, 'Expand', true);
 [n,d] = numden(Rsimp);
 
 % extract coefficients of each polynomial
-alpha = coeffs(n,z);
-beta = coeffs(d,z);
+alpha = fliplr(coeffs(n,z,'All'));
+beta = fliplr(coeffs(d,z,'All'));
 
 % scale both so that constant terms are at most 1
 if (abs(alpha(1)) > abs(beta(1)))
