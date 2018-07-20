@@ -42,6 +42,7 @@ struct ARKodeCommandLineVariables {
   bool   FullyExplicit;
   bool   DynamicStepSize;
   bool   AAFP;
+  int    ErrController;
   int    AAFPAccelVec;
   int    NonlinIters;
   int    LinIters;
@@ -50,6 +51,7 @@ struct ARKodeCommandLineVariables {
   bool   ColumnSolver;
   int    ARKodeButcherTable;
   std::string ButcherTable;
+  std::string StepOut;
   bool   WriteDiagnostics;
   bool   FullyImplicit;
 };
@@ -142,6 +144,16 @@ private:
 	std::string m_strButcherTable;
 
 	///	<summary>
+	///		Name of file to output time step profile.
+	///	</summary>	
+	std::string m_strStepOut;
+
+	///     <summary>
+	///		File the time stepping profile is written to.
+	///	</summary>
+        FILE *m_fStep_Profile;
+
+	///	<summary>
 	///		ARKode absolute tolerance.
 	///	</summary>
 	double m_dAbsTol;
@@ -165,6 +177,11 @@ private:
 	///		ARKode flag to used adaptive step sizes.
 	///	</summary>
 	bool m_fDynamicStepSize;
+
+	///     <summary>
+	///             ARKode flag for which adapt method.
+	///     </summary>
+	int m_iErrController;
 
 	///	<summary>
 	///		Most recent step size in ARKode when using dynamic
@@ -212,6 +229,7 @@ private:
 	///             linear systems (instead of GMRES).
 	///	</summary>
 	bool m_fColumnSolver;
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -92,25 +92,27 @@ struct _TempestCommandLineVariables {
 	std::string strTimestepScheme;
 	std::string strHorizontalDynamics;
 	std::string strVerticalDynamics;
-	int nResolutionX;
+        int nResolutionX;
 	int nResolutionY;
 	int nLevels;
 	int nHorizontalOrder;
 	int nVerticalOrder;
-    int iARKode_nvectors;
+    	int iARKode_nvectors;
 	double dARKode_rtol;
 	double dARKode_atol;
 	bool fARKode_DynamicStepSize;
 	bool fARKode_aafp;       
+	int iARKode_ErrController;
 	int iARKode_AAFPAccelVec;
 	int iARKode_NonlinIters;
 	int iARKode_LinIters;
-	int iARKode_Predictor; 
-    std::string strARKode_ButcherTable;
-	bool fARKode_Diagnostics;
-    bool fARKode_UsePreconditioning;
-    bool fARKode_ColumnSolver;
-    bool fFullyImplicit; 
+	int iARKode_Predictor;
+	std::string strARKode_ButcherTable;
+	std::string strARKode_StepOut;
+        bool fARKode_Diagnostics;
+    	bool fARKode_UsePreconditioning;
+    	bool fARKode_ColumnSolver;
+    	bool fFullyImplicit;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -151,11 +153,13 @@ struct _TempestCommandLineVariables {
 	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-11); \
 	CommandLineBool(_tempestvars.fARKode_DynamicStepSize, "arkode_dynamicstepsize"); \
 	CommandLineBool(_tempestvars.fARKode_aafp, "arkode_aafp"); \
+	CommandLineInt(_tempestvars.iARKode_ErrController, "arkode_errcontrol", 0); \
 	CommandLineInt(_tempestvars.iARKode_AAFPAccelVec, "arkode_aafpaccelvec", 0); \
 	CommandLineInt(_tempestvars.iARKode_NonlinIters, "arkode_nonliniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_Predictor, "arkode_predictor", 0); \
 	CommandLineString(_tempestvars.strARKode_ButcherTable, "arkode_butchertable", ""); \
+	CommandLineString(_tempestvars.strARKode_StepOut, "timestep_out", "timestep_profile.out"); \
 	CommandLineBool(_tempestvars.fARKode_Diagnostics, "arkode_diagnostics"); \
 	CommandLineBool(_tempestvars.fARKode_UsePreconditioning, "arkode_usepreconditioning"); \
 	CommandLineBool(_tempestvars.fARKode_ColumnSolver, "arkode_columnsolver"); \
@@ -288,12 +292,13 @@ void _TempestSetupMethodOfLines(
 		ARKodeVars.rtol            = vars.dARKode_rtol;
 		ARKodeVars.atol            = vars.dARKode_atol;
 		ARKodeVars.DynamicStepSize = vars.fARKode_DynamicStepSize;
-		ARKodeVars.AAFP            = vars.fARKode_aafp;
+		ARKodeVars.ErrController   = vars.iARKode_ErrController;
+                ARKodeVars.AAFP            = vars.fARKode_aafp;
 		ARKodeVars.AAFPAccelVec    = vars.iARKode_AAFPAccelVec;
 		ARKodeVars.NonlinIters     = vars.iARKode_NonlinIters;
 		ARKodeVars.LinIters        = vars.iARKode_LinIters;
 		ARKodeVars.Predictor       = vars.iARKode_Predictor;
-
+		ARKodeVars.StepOut         = vars.strARKode_StepOut;
 		ARKodeVars.ButcherTable       = vars.strARKode_ButcherTable;
 		ARKodeVars.WriteDiagnostics   = vars.fARKode_Diagnostics;
 		ARKodeVars.UsePreconditioning = vars.fARKode_UsePreconditioning,
