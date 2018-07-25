@@ -166,8 +166,21 @@ void TimestepSchemeARKode::Initialize() {
   }  
   
   // Specify tolerances
+
+#if !defined(USE_COMPONENT_WISE_TOLERANCES)
   ierr = ARKodeSStolerances(arkode_mem, m_dRelTol, m_dAbsTol);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSStolerances, ierr = %i",ierr);
+
+#else
+  m_T = N_VNew_Tempest(*pGrid,m_model);
+
+  AssignComponentWiseTolerances();
+
+  ierr = ARKODESVtolerances(arkode_mem, m_dRelTol, m_T);
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSVtolerances, ierr = %i",ierr);
+
+  Announce("Component-wise tolerances will be assigned");
+#endif
 
   // Nonlinear Solver Settings
   if (!m_fFullyExplicit) {
@@ -2385,6 +2398,21 @@ void TimestepSchemeARKode::SetButcherTable()
 
   if (ierr < 0) _EXCEPTION1("ERROR: SetButcherTable, ierr = %i",ierr);
  
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void TimestepSchemeARKode::AssignComponentWiseTolerances() {
+
+	// index of various N_Vector arguments in registry
+	int iT = NV_INDEX_TEMPEST(m_T);
+
+	// Get a copy of the grid
+	Grid * pGrid = NV_GRID_TEMPEST(m_T);
+
+	// Tolerances are assigned in Tempest (objects Grid and GridPatch)
+	pGrid->AssignComponentWiseTolerances(iT);
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
