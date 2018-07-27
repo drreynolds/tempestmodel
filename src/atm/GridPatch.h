@@ -384,7 +384,7 @@ public:
 	///		Assign a component-wise tolerance used in the nonlinear/linear convergence checks in Arkode
 	///	</summary>
 	void AssignComponentWiseTolerances(
-		int it
+		int it, int vatol_vel, int vatol_rho, int vatol_theta
 	);
 public:
 	///	<summary>

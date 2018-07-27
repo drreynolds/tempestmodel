@@ -60,6 +60,9 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_iNonlinIters(ARKodeVars.NonlinIters),
 	m_iLinIters(ARKodeVars.LinIters),
 	m_iPredictor(ARKodeVars.Predictor),
+	m_iVAtol_vel(ARKodeVars.VAtol_vel),
+	m_iVAtol_rho(ARKodeVars.VAtol_rho),
+	m_iVAtol_theta(ARKodeVars.VAtol_theta),
 	m_fWriteDiagnostics(ARKodeVars.WriteDiagnostics),
 	m_fUsePreconditioning(ARKodeVars.UsePreconditioning),
 	m_fColumnSolver(ARKodeVars.ColumnSolver)
@@ -176,7 +179,7 @@ void TimestepSchemeARKode::Initialize() {
 
   AssignComponentWiseTolerances();
 
-  ierr = ARKODESVtolerances(arkode_mem, m_dRelTol, m_T);
+  ierr = ARKodeSVtolerances(arkode_mem, m_dRelTol, m_T);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSVtolerances, ierr = %i",ierr);
 
   Announce("Component-wise tolerances will be assigned");
@@ -432,10 +435,7 @@ void TimestepSchemeARKode::Step(
      int iRank;
      MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
      if (iRank == 0) {
-       //Announce("\nJimmy says hi and ddt is %f\n", m_dDynamicDeltaT);
        fprintf(m_fStep_Profile, "t = %f, dt = %f\n\n", dCurrentT - m_dDynamicDeltaT, m_dDynamicDeltaT);
-  //   Announce("\nJimmy says hi\n");
-  //   printf("\n\njimmy says ddt from last step is %f\n\n", m_dDynamicDeltaT);
      }
   
 #ifdef DEBUG_OUTPUT
@@ -2411,7 +2411,7 @@ void TimestepSchemeARKode::AssignComponentWiseTolerances() {
 	Grid * pGrid = NV_GRID_TEMPEST(m_T);
 
 	// Tolerances are assigned in Tempest (objects Grid and GridPatch)
-	pGrid->AssignComponentWiseTolerances(iT);
+	pGrid->AssignComponentWiseTolerances(iT, m_iVAtol_vel, m_iVAtol_rho, m_iVAtol_theta);
 
 }
 

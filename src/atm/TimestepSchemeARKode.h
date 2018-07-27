@@ -47,6 +47,9 @@ struct ARKodeCommandLineVariables {
   int    NonlinIters;
   int    LinIters;
   int    Predictor;
+  int    VAtol_vel;
+  int    VAtol_rho;
+  int    VAtol_theta;
   bool   UsePreconditioning;
   bool   ColumnSolver;
   int    ARKodeButcherTable;
@@ -223,6 +226,21 @@ private:
 	///		Specifies method for prediciting implicit solutions.
 	///	</summary>
 	int m_iPredictor;
+
+	///	<summary>
+	///		Vector component of Atol for velocity.	
+	///	</summary>
+	int m_iVAtol_vel;
+
+	///	<summary>
+	///		Vector component of Atol for theta.
+	///	</summary>
+	int m_iVAtol_theta;
+
+	///	<summary>
+	///		Vector component of Atol for rho (density).
+	///	</summary>
+	int m_iVAtol_rho;
 
 	///	<summary>
 	///		ARKode flag to write diagnostics file.

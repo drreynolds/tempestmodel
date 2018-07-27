@@ -107,6 +107,9 @@ struct _TempestCommandLineVariables {
 	int iARKode_NonlinIters;
 	int iARKode_LinIters;
 	int iARKode_Predictor;
+	int iARKode_VAtol_vel;
+	int iARKode_VAtol_rho;
+	int iARKode_VAtol_theta;
 	std::string strARKode_ButcherTable;
 	std::string strARKode_StepOut;
         bool fARKode_Diagnostics;
@@ -158,6 +161,9 @@ struct _TempestCommandLineVariables {
 	CommandLineInt(_tempestvars.iARKode_NonlinIters, "arkode_nonliniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_Predictor, "arkode_predictor", 0); \
+	CommandLineInt(_tempestvars.iARKode_VAtol_vel, "arkode_vatol_vel", 1.0e-3); \
+	CommandLineInt(_tempestvars.iARKode_VAtol_rho, "arkode_vatol_rho", 1.0e-4); \
+	CommandLineInt(_tempestvars.iARKode_VAtol_theta, "arkode_vatol_theta", 1.0e-2); \
 	CommandLineString(_tempestvars.strARKode_ButcherTable, "arkode_butchertable", ""); \
 	CommandLineString(_tempestvars.strARKode_StepOut, "timestep_out", "timestep_profile.out"); \
 	CommandLineBool(_tempestvars.fARKode_Diagnostics, "arkode_diagnostics"); \
@@ -298,6 +304,9 @@ void _TempestSetupMethodOfLines(
 		ARKodeVars.NonlinIters     = vars.iARKode_NonlinIters;
 		ARKodeVars.LinIters        = vars.iARKode_LinIters;
 		ARKodeVars.Predictor       = vars.iARKode_Predictor;
+		ARKodeVars.VAtol_vel	   = vars.iARKode_VAtol_vel;
+		ARKodeVars.VAtol_rho	   = vars.iARKode_VAtol_rho;
+		ARKodeVars.VAtol_theta	   = vars.iARKode_VAtol_theta;
 		ARKodeVars.StepOut         = vars.strARKode_StepOut;
 		ARKodeVars.ButcherTable       = vars.strARKode_ButcherTable;
 		ARKodeVars.WriteDiagnostics   = vars.fARKode_Diagnostics;

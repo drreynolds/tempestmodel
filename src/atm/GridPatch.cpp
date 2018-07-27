@@ -2152,7 +2152,7 @@ double GridPatch::MaximumNormData(
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridPatch::AssignComponentWiseTolerances(
-	int it
+	int it, int vatol_vel, int vatol_rho, int vatol_theta
 ) {
 	// define the indices of the variables
 	const int UIx = 0;
@@ -2167,7 +2167,7 @@ void GridPatch::AssignComponentWiseTolerances(
 	// determine state node/edge variables
 	std::vector<int> nodeVarsState;
 	std::vector<int> redgeVarsState;
-	int nComponents = m_grid.GetModel().GetEquationsSet().GetComponents();
+	int nComponents = m_grid.GetModel().GetEquationSet().GetComponents();
 	for (int c=0; c<nComponents; c++) {
 	  if (m_grid.GetVarLocation(c) == DataLocation_Node) {
 	    nodeVarsState.push_back(c);
@@ -2196,19 +2196,19 @@ void GridPatch::AssignComponentWiseTolerances(
 		switch (nodeVarsState[c]) {
 
 		case UIx:
-		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-5;
+		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = vatol_vel;
 		     break;
 		case VIx:
-		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-5;
+		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = vatol_vel;
 		     break;
 		case PIx:		     
-		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-5;
+		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = vatol_theta;
 		     break;
 		case WIx:	     
-		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-5;
+		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = vatol_vel;
 		     break;
 		case RIx:
-		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = 1e-5;
+		     (*pDataNodeTol)[nodeVarsState[c]][k][i][j] = vatol_rho;
 		     break;
 
 		}
@@ -2232,19 +2232,19 @@ void GridPatch::AssignComponentWiseTolerances(
 		
 		switch (nodeVarsState[c]) {
 		case UIx:
-		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-5;
+		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = vatol_vel;
 		     break;
 		case VIx:
-		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-5;
+		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = vatol_vel;
 		     break;
 		case PIx:
-		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-5;
+		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = vatol_theta;
 		     break;
 		case WIx:
-		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-5;
+		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = vatol_vel;
 		     break;
 		case RIx:
-		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = 1e-5;
+		     (*pDataREdgeTol)[redgeVarsState[c]][k][i][j] = vatol_rho;
 		     break;
 		}
 
@@ -2261,7 +2261,7 @@ void GridPatch::AssignComponentWiseTolerances(
 	}
 
 	// set shortcuts to tracer variables
-	DataArray4d<double> * pDataTracersTol = &(m_datavecTracers[it]);
+	DataArray4D<double> * pDataTracersTol = &(m_datavecTracers[it]);
 
 	// perform operation over Tracer nodes
 	for (c=0; c<nodeVarsTracers.size(); c++) {
