@@ -152,9 +152,11 @@ void TimestepSchemeARKode::Initialize() {
     
     // set dynamic timestepping flag to true
     m_model.SetDynamicTimestepping(m_fDynamicStepSize);
-   
+    //Time timeDeltaT = m_model.GetDeltaT();
     ierr = ARKodeSetAdaptivityMethod(arkode_mem, m_iErrController, 1, pq, NULL);
     if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetAadptivityMethod, ierr = %i",ierr);
+    ierr = ARKodeSetInitStep(arkode_mem, 1.0);
+    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetInitStep, ierr = %i",ierr);
   } else {
     // Set fixed step size in seconds
     Time timeDeltaT = m_model.GetDeltaT();
@@ -350,32 +352,32 @@ void TimestepSchemeARKode::Step(
 
   // set up call to ARKode to evolve to dNextT, using either a single step or adaptivity
   int stepmode = ARK_ONE_STEP;
-  if (m_fDynamicStepSize) {
+//  if (m_fDynamicStepSize) {
    // stepmode = ARK_NORMAL;
     //Time timeEndT = m_model.GetEndTime();
     //double dEndT  = timeEndT.GetSeconds();
     //if (dNextT > dEndT) dNextT = dEndT;
     //ierr = ARKodeSetStopTime(arkode_mem, dNextT);
     //if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetStopTime, ierr = %i",ierr);
-    ierr = ARKodeSetAdaptivityMethod(arkode_mem, m_iErrController, 1, pq, NULL);
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetAdaptivityMethod, ierr = %i",ierr);
-    ierr = ARKodeSetInitStep(arkode_mem, timeDeltaT.GetSeconds());
-    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetInitStep, ierr = %i",ierr);
-  } else {
-    stepmode = ARK_ONE_STEP;
-  }
+//    ierr = ARKodeSetAdaptivityMethod(arkode_mem, m_iErrController, 1, pq, NULL);
+//    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetAdaptivityMethod, ierr = %i",ierr);
+//  } else {
+ //   stepmode = ARK_ONE_STEP;
+ // }
 
   // ARKode timestep
   ierr = ARKode(arkode_mem, dNextT, m_Y, &dCurrentT, stepmode);
 
+  int iJRank; 
+  MPI_Comm_rank(MPI_COMM_WORLD, &iJRank);
+  if (iJRank == 0 && fLastStep) { fclose(m_fStep_Profile); }
+
 #ifdef STATISTICS_OUTPUT
-  if (fLastStep || ierr < 0) {
-        
+// if (fLastStep || ierr < 0) {
+  if (true) {      
     int iRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
     
-    if (iRank == 0) { fclose(m_fStep_Profile); }
-
     if (iRank == 0 && !m_fFullyExplicit) {
       long int nsteps, expsteps, accsteps, step_attempts, nfe_evals, nfi_evals, nlinsetups, 
         netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
