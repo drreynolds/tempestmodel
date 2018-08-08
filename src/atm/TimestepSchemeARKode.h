@@ -47,9 +47,9 @@ struct ARKodeCommandLineVariables {
   int    NonlinIters;
   int    LinIters;
   int    Predictor;
-  int    VAtol_vel;
-  int    VAtol_rho;
-  int    VAtol_theta;
+  double    VAtol_vel;
+  double    VAtol_rho;
+  double    VAtol_theta;
   bool   UsePreconditioning;
   bool   ColumnSolver;
   int    ARKodeButcherTable;
@@ -57,6 +57,7 @@ struct ARKodeCommandLineVariables {
   std::string StepOut;
   bool   WriteDiagnostics;
   bool   FullyImplicit;
+  Time OutputTime;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -230,17 +231,17 @@ private:
 	///	<summary>
 	///		Vector component of Atol for velocity.	
 	///	</summary>
-	int m_iVAtol_vel;
+	double m_dVAtol_vel;
 
 	///	<summary>
 	///		Vector component of Atol for theta.
 	///	</summary>
-	int m_iVAtol_theta;
+	double m_dVAtol_theta;
 
 	///	<summary>
 	///		Vector component of Atol for rho (density).
 	///	</summary>
-	int m_iVAtol_rho;
+	double m_dVAtol_rho;
 
 	///	<summary>
 	///		ARKode flag to write diagnostics file.
@@ -257,6 +258,21 @@ private:
 	///             linear systems (instead of GMRES).
 	///	</summary>
 	bool m_fColumnSolver;
+
+	///	<summary>
+	///		ARKode variable for frequency of output
+	///	</summary>
+	Time m_tOutT;
+
+	double dNextOut;
+
+	Time m_tNextOutT;
+
+	///	<summary>
+	///		Used to send dynamic dt from ARKode to 
+	///		hyperviscosity stepping.
+	///	</summary>
+	double m_iTemp_dt;
 
 };
 

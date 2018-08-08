@@ -1815,7 +1815,7 @@ double Grid::WRMSNormData(
 ///////////////////////////////////////////////////////////////////////////////
 
 void Grid::AssignComponentWiseTolerances(
-	int it, int vatol_vel, int vatol_rho, int vatol_theta
+	int it, double vatol_vel, double vatol_rho, double vatol_theta
 ) const {
 
 	// assign component-wise tolerances in each grid patch batstoi pout

@@ -182,6 +182,15 @@ public:
 		return (*this);
 	}
 
+	///	</summary>
+	///		Add a number of microseconds to the TIme.
+	///	</summary>
+	inline void AddMicroSeconds(int nMicroSeconds) {
+		m_iMicroSecond += nMicroSeconds;
+
+		NormalizeTime();
+	}
+
 	///	<summary>
 	///		Add a number of seconds to the Time.
 	///	</summary>

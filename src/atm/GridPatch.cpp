@@ -2152,7 +2152,7 @@ double GridPatch::MaximumNormData(
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridPatch::AssignComponentWiseTolerances(
-	int it, int vatol_vel, int vatol_rho, int vatol_theta
+	int it, double vatol_vel, double vatol_rho, double vatol_theta
 ) {
 	// define the indices of the variables
 	const int UIx = 0;

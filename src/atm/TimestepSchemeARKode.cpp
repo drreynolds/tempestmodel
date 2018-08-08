@@ -20,8 +20,8 @@
 // require SUNDIALS for compilation
 #ifdef USE_SUNDIALS
 
-//#define DEBUG_OUTPUT
-#define STATISTICS_OUTPUT
+// #define DEBUG_OUTPUT
+// #define STATISTICS_OUTPUT
 
 //#define DSS_INPUT
 #define DSS_OUTPUT
@@ -35,8 +35,9 @@
 #include "VerticalDynamicsFEM.h"
 #include "Announce.h"
 
+double tempdt;
+int numsteps;
 void * TimestepSchemeARKode::arkode_mem = NULL;
-
 ///////////////////////////////////////////////////////////////////////////////
 
 TimestepSchemeARKode::TimestepSchemeARKode(
@@ -60,12 +61,13 @@ TimestepSchemeARKode::TimestepSchemeARKode(
 	m_iNonlinIters(ARKodeVars.NonlinIters),
 	m_iLinIters(ARKodeVars.LinIters),
 	m_iPredictor(ARKodeVars.Predictor),
-	m_iVAtol_vel(ARKodeVars.VAtol_vel),
-	m_iVAtol_rho(ARKodeVars.VAtol_rho),
-	m_iVAtol_theta(ARKodeVars.VAtol_theta),
+	m_dVAtol_vel(ARKodeVars.VAtol_vel),
+	m_dVAtol_rho(ARKodeVars.VAtol_rho),
+	m_dVAtol_theta(ARKodeVars.VAtol_theta),
 	m_fWriteDiagnostics(ARKodeVars.WriteDiagnostics),
 	m_fUsePreconditioning(ARKodeVars.UsePreconditioning),
-	m_fColumnSolver(ARKodeVars.ColumnSolver)
+	m_fColumnSolver(ARKodeVars.ColumnSolver),
+	m_tOutT(ARKodeVars.OutputTime)
 {
         // error flag
         int ierr = 0;
@@ -97,6 +99,8 @@ void TimestepSchemeARKode::Initialize() {
   int ierr = 0;
 
   int pq = 0;
+
+  numsteps = 0;
 
   // Get a copy of the grid
   Grid * pGrid = m_model.GetGrid();
@@ -140,7 +144,11 @@ void TimestepSchemeARKode::Initialize() {
   Time timeEndT = m_model.GetEndTime();
   double dEndT  = timeEndT.GetSeconds();
 
-  ierr = ARKodeSetStopTime(arkode_mem, dEndT);
+  //m_tNextOutT = m_tOutT;
+  dNextOut = m_tOutT.GetSeconds();
+
+  ierr = ARKodeSetStopTime(arkode_mem, m_tNextOutT.GetSeconds());
+  //ierr = ARKodeSetStopTime(arkode_mem, dEndT);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetStopTime, ierr = %i",ierr);  
 
   // Set function to post process arkode steps
@@ -149,7 +157,7 @@ void TimestepSchemeARKode::Initialize() {
 
   // Set adaptive or fixed time stepping  
   if (m_fDynamicStepSize) {
-    
+
     // set dynamic timestepping flag to true
     m_model.SetDynamicTimestepping(m_fDynamicStepSize);
     //Time timeDeltaT = m_model.GetDeltaT();
@@ -279,6 +287,7 @@ void TimestepSchemeARKode::Initialize() {
 
 #ifdef DEBUG_OUTPUT
   // Get process rank
+  if (true) {
   int iRank;
   MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
 
@@ -289,6 +298,7 @@ void TimestepSchemeARKode::Initialize() {
 	      << " N_Vector Registry Length After Init: "
 	      << GetTempestNVectorRegistryLength()
 	      << std::endl;
+  }
   }
 #endif
 
@@ -340,44 +350,57 @@ void TimestepSchemeARKode::Step(
   double dCurrentT = time.GetSeconds();
 
   // Next time in seconds  
-  Time timeDeltaT = m_model.GetDeltaT();
-  Time timeNextT  = time;
+  //Time timeDeltaT = m_model.GetDeltaT();
+  //Time timeNextT  = time;
 
   // timeDeltaT is possibly too large on the last step because the value that 
   // GetDeltaT returns is not adjusted if necessary for the last step,
   // stop time in arkode will adjust time step to match end time
-  timeNextT += timeDeltaT; 
+  //timeNextT += timeDeltaT; 
 
-  double dNextT = timeNextT.GetSeconds();
-
-  // set up call to ARKode to evolve to dNextT, using either a single step or adaptivity
   int stepmode = ARK_ONE_STEP;
-//  if (m_fDynamicStepSize) {
-   // stepmode = ARK_NORMAL;
-    //Time timeEndT = m_model.GetEndTime();
-    //double dEndT  = timeEndT.GetSeconds();
-    //if (dNextT > dEndT) dNextT = dEndT;
-    //ierr = ARKodeSetStopTime(arkode_mem, dNextT);
-    //if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetStopTime, ierr = %i",ierr);
-//    ierr = ARKodeSetAdaptivityMethod(arkode_mem, m_iErrController, 1, pq, NULL);
-//    if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetAdaptivityMethod, ierr = %i",ierr);
-//  } else {
- //   stepmode = ARK_ONE_STEP;
- // }
 
-  // ARKode timestep
+  // max next time is where you need output from
+  double dNextT = dNextOut;
+
+  // If at the very end, cut it off
+  Time tEndT = m_model.GetEndTime();
+  double dEndT = tEndT.GetSeconds();
+  
+  // if we've gone past the final time
+  if (dNextT > dEndT) {
+    dNextT = dEndT;
+    //m_tNextOutT = tEndT;
+  }
+
+  ierr = ARKodeSetStopTime(arkode_mem, dNextT);
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetStopTime, ierr = %i",ierr);
+
+  // ARKode timestep 
   ierr = ARKode(arkode_mem, dNextT, m_Y, &dCurrentT, stepmode);
-
+  numsteps++;
+  Announce("\n numsteps is %d\n", numsteps);
   int iJRank; 
   MPI_Comm_rank(MPI_COMM_WORLD, &iJRank);
-  if (iJRank == 0 && fLastStep) { fclose(m_fStep_Profile); }
+  if (iJRank == 0 && fLastStep) { 
+    fprintf(m_fStep_Profile, "\n total num steps = %d\n", numsteps);
+    fclose(m_fStep_Profile); 
+  }
+  if (dCurrentT == dNextT) {
+	//Announce("\n jimmy went past time %g \n", m_tNextOutT.GetSeconds());
+	//m_tNextOutT += m_tOutT;
+	//Announce("\n jimmy set next time out to %g \n", m_tNextOutT.GetSeconds());
+	//ierr = ARKodeSetStopTime(arkode_mem, m_tNextOutT.GetSeconds());
+	//if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetStopTime, ierr = %i",ierr);
+    dNextOut += m_tOutT.GetSeconds(); 
+  }
 
 #ifdef STATISTICS_OUTPUT
 // if (fLastStep || ierr < 0) {
-  if (true) {      
+  if (true) {
     int iRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
-    
+
     if (iRank == 0 && !m_fFullyExplicit) {
       long int nsteps, expsteps, accsteps, step_attempts, nfe_evals, nfi_evals, nlinsetups, 
         netfails, nniters, nncfails, npsolves, nliters, nlcfails, nfevalsLS;
@@ -431,13 +454,13 @@ void TimestepSchemeARKode::Step(
   // check ARKode return flag
   if (ierr < 0) _EXCEPTION1("ERROR: ARKode, ierr = %i",ierr);
 
-//   if (m_fDynamicStepSize) {
      ierr = ARKodeGetLastStep(arkode_mem, &m_dDynamicDeltaT);
+     tempdt = m_dDynamicDeltaT;
      if (ierr < 0) _EXCEPTION1("ERROR: ARKodeGetLastStep, ierr = %i",ierr);
      int iRank;
      MPI_Comm_rank(MPI_COMM_WORLD, &iRank);
      if (iRank == 0) {
-       fprintf(m_fStep_Profile, "t = %f, dt = %f\n\n", dCurrentT - m_dDynamicDeltaT, m_dDynamicDeltaT);
+       fprintf(m_fStep_Profile, "%f %f\n", dCurrentT - m_dDynamicDeltaT, m_dDynamicDeltaT);
      }
   
 #ifdef DEBUG_OUTPUT
@@ -502,8 +525,9 @@ static int ARKodePostProcessStep(
   // Get last time step size <<< NEED TO ADJUST STEP SIZE WITH ADAPTIVE STEPPING
   Time timeT     = pModel->GetCurrentTime();  // model still has old time
   double dOldT   = timeT.GetSeconds();
-  double dDeltaT = time - dOldT;
+//  double dDeltaT = time - dOldT;
    
+  double dDeltaT = tempdt;
   // Apply hyperdiffusion (initial, update, temp)
   pGrid->CopyData(iY, 2, DataType_State);
   pGrid->CopyData(iY, 2, DataType_Tracers);
@@ -601,7 +625,6 @@ static int ARKodeImplicitRHS(
 #ifdef DEBUG_OUTPUT
   AnnounceStartBlock("Implicit RHS");
 #endif
-
   // model time (not used in RHS)
   Time timeT; //= Time(0,0,0,0,0); // only works for integers
 
@@ -654,7 +677,6 @@ static int ARKodeImplicitRHS(
   //Announce("||fi|| = %g", N_VMaxNorm(Ydot));
   AnnounceEndBlock("Done");
 #endif
-
   return 0;
 }
 
@@ -2413,7 +2435,7 @@ void TimestepSchemeARKode::AssignComponentWiseTolerances() {
 	Grid * pGrid = NV_GRID_TEMPEST(m_T);
 
 	// Tolerances are assigned in Tempest (objects Grid and GridPatch)
-	pGrid->AssignComponentWiseTolerances(iT, m_iVAtol_vel, m_iVAtol_rho, m_iVAtol_theta);
+	pGrid->AssignComponentWiseTolerances(iT, m_dVAtol_vel, m_dVAtol_rho, m_dVAtol_theta);
 
 }
 

@@ -375,48 +375,58 @@ void Model::Go() {
 
 	// First time step
 	bool fFirstStep = true;
-
+	double dDeltaT = m_time.GetSeconds();
+	Time timeNext = m_time;
+	//Time jab = m_time;
+	//jab.SetYear(0);
+	//jab.SetMonth(0);
+	//jab.SetDay(0);
+	//jab.SetSecond(0);
+	//jab.SetMicroSecond(0);	
 	// Loop
 	for(int iStep = 0;; iStep++) {
 
 		//PrintMemoryLine();
-
 		FunctionTimer timerLoop("Loop");
 
 		// Last time step
 		bool fLastStep = false;
 
 		// Next time step
-		double dDeltaT;
-
-		// Time at next time step
-		Time timeNext = m_time;
-		timeNext += m_timeDeltaT;
-
-		// Adjust step size for last step
-		if (timeNext >= m_timeEnd) {
-			dDeltaT = m_timeEnd - m_time;
-			fLastStep = true;
-
-		} else {
-			dDeltaT = timeNext - m_time;
-		}
-
-		// Perform one time step
-		Announce("Step %s", m_time.ToString().c_str());
-		m_pTimestepScheme->Step(fFirstStep, fLastStep, m_time, dDeltaT);
+		// Set timeNext for fixed timestepping
+		if (!m_fDynamicTimestepping) {
 		
+			// Time at next time step
+			timeNext += m_timeDeltaT;
+
+			// Adjust step size for last step
+			if (timeNext >= m_timeEnd) {
+				dDeltaT = m_timeEnd - m_time;
+				fLastStep = true;
+	
+			} else {
+				dDeltaT = timeNext - m_time;
+			}
+		}
+		
+		// Perform one time step
+		m_pTimestepScheme->Step(fFirstStep, fLastStep, m_time, dDeltaT);
+
 		// Set timeNext for dynamic timestepping
 		if (m_fDynamicTimestepping) {
-
-		  dDeltaT = m_pTimestepScheme->GetDynamicDeltaT();
-
-		  // Need to add double to Time 
-		  // timeNext += dDeltaT;
-		  
-		  if (timeNext >= m_timeEnd) {
-		    fLastStep = true;		    
-		  } 
+			dDeltaT = m_pTimestepScheme->GetDynamicDeltaT();
+			int mss = (int)(dDeltaT*1e6);	
+	//		Announce("\n jab mss is %d\n", mss);
+	//		jab.SetMicroSecond(mss);
+	//		Announce("\n dDeltaT is %g\n", dDeltaT);
+			
+			// Time at next time step
+	//		Announce("\nTime before %g\n", timeNext.GetSeconds());
+			timeNext.AddMicroSeconds(mss);
+	//		Announce("\nTime after %g\n", timeNext.GetSeconds());
+		  	if (timeNext >= m_timeEnd) {
+				fLastStep = true;		    
+		  	} 
 		}
 /*
 		// Energy and enstrophy

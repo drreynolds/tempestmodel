@@ -204,6 +204,7 @@ private:
 	///	</summary>
 	std::vector<std::string> m_strTracerFullNames;
 
+	double m_dNextTStop;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
