@@ -1886,6 +1886,17 @@ double Grid::WRMSNormData(
 
 ///////////////////////////////////////////////////////////////////////////////
 
+void Grid::AssignComponentWiseTolerances(
+	int it, double vatol_vel, double vatol_rho, double vatol_theta
+) const {
+	// assign component-wise tolerances in each grid patch batstoi pout
+	for (int n = 0; n < m_vecActiveGridPatches.size(); n++) {
+		m_vecActiveGridPatches[n]->AssignComponentWiseTolerances(it, vatol_vel, vatol_rho, vatol_theta);
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 double Grid::MaximumNormData(
         int ix
 ) const {

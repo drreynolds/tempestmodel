@@ -376,6 +376,9 @@ void Model::Go() {
 	// First time step
 	bool fFirstStep = true;
 
+	double dDeltaT = m_time.GetSeconds();
+	Time timeNext = m_time;
+
 	// Loop
 	for(int iStep = 0;; iStep++) {
 
@@ -387,36 +390,33 @@ void Model::Go() {
 		bool fLastStep = false;
 
 		// Next time step
-		double dDeltaT;
+		// Set timeNext for fixed timstepping
+		if (!m_fDynamicTimestepping) {
 
-		// Time at next time step
-		Time timeNext = m_time;
-		timeNext += m_timeDeltaT;
+			// Time at next time step
+			timeNext += m_timeDeltaT;
 
-		// Adjust step size for last step
-		if (timeNext >= m_timeEnd) {
-			dDeltaT = m_timeEnd - m_time;
-			fLastStep = true;
-
-		} else {
-			dDeltaT = timeNext - m_time;
+			// Adjust step size for last step
+			if (timeNext >= m_timeEnd) {
+				dDeltaT = m_timeEnd - m_time;
+				fLastStep = true;
+			} else {
+				dDeltaT = timeNext - m_time;
+			}
 		}
-
+		
 		// Perform one time step
-		Announce("Step %s", m_time.ToString().c_str());
 		m_pTimestepScheme->Step(fFirstStep, fLastStep, m_time, dDeltaT);
 		
 		// Set timeNext for dynamic timestepping
 		if (m_fDynamicTimestepping) {
+			dDeltaT = m_pTimestepScheme->GetDynamicDeltaT();
+			int mss = (int)(dDeltaT*1e6);
 
-		  dDeltaT = m_pTimestepScheme->GetDynamicDeltaT();
-
-		  // Need to add double to Time 
-		  // timeNext += dDeltaT;
-		  
-		  if (timeNext >= m_timeEnd) {
-		    fLastStep = true;		    
-		  } 
+			timeNext.AddMicroSeconds(mss);
+			if (timeNext >= m_timeEnd) {
+				fLastStep = true;
+			}
 		}
 /*
 		// Energy and enstrophy

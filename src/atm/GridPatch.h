@@ -398,6 +398,13 @@ public:
 		int ix
 	) const;
 
+	///	<summary>
+	///		Assign a component-wise tolerance used in the nonlinear/linear convergence checks in Arkode
+	///	</summary>
+	void AssignComponentWiseTolerances(
+		int it, double vatol_vel, double vatol_rho, double vatol_theta
+	);
+
 public:
 	///	<summary>
 	///		Interpolate data vertically from Nodes to REdges.

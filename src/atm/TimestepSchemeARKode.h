@@ -42,16 +42,22 @@ struct ARKodeCommandLineVariables {
   bool   FullyExplicit;
   bool   DynamicStepSize;
   bool   AAFP;
+  int    ErrController;
   int    AAFPAccelVec;
   int    NonlinIters;
   int    LinIters;
   int    Predictor;
+  double VAtol_vel;
+  double VAtol_rho;
+  double VAtol_theta;
   bool   UsePreconditioning;
   bool   ColumnSolver;
   int    ARKodeButcherTable;
   std::string ButcherTable;
+  std::string StepOut;
   bool   WriteDiagnostics;
   bool   FullyImplicit;
+  Time   OutputTime;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -115,6 +121,11 @@ protected:
 		double dDeltaT
 	);
 
+	///	<summary>
+	///		Assign component-wise tolerances used in the function ARKodeSVTolerances
+	///	</summary>
+	void AssignComponentWiseTolerances();
+
 private:
 	///	<summary>
 	///		ARKode memory structure.
@@ -125,6 +136,11 @@ private:
 	///		Tempest NVector state vector.
 	///	</summary>
 	N_Vector m_Y;
+
+	///	<summary>
+	///		Tempest NVector of tolerances;
+	///	</summary>
+	N_Vector m_T;
 
 	///	<summary>
 	///		Number of NVectors (default is 50).
@@ -140,6 +156,16 @@ private:
 	///		User supplied Butcher table name.
 	///	</summary>
 	std::string m_strButcherTable;
+
+	///	<summary>
+	///		Name of file to output time step profile.
+	///	</summary>
+	std::string m_strStepOut;
+
+	///	<summary>
+	///		File the time stepping profile is written to.
+	///	</summary>
+	FILE *m_fStep_Profile;
 
 	///	<summary>
 	///		ARKode absolute tolerance.
@@ -165,6 +191,11 @@ private:
 	///		ARKode flag to used adaptive step sizes.
 	///	</summary>
 	bool m_fDynamicStepSize;
+
+	///	<summary>
+	///		ARKode flag for which adapt method.
+	///	</summary>
+	int m_iErrController;
 
 	///	<summary>
 	///		Most recent step size in ARKode when using dynamic
@@ -198,6 +229,21 @@ private:
 	int m_iPredictor;
 
 	///	<summary>
+	///		Vector component of Atol for velocity.
+	///	</summary>
+	double m_dVAtol_vel;
+
+	///	<summary>
+	///		Vector component of Atol for theta.
+	///	</summary>
+	double m_dVAtol_theta;
+
+	///	<summary>
+	///		Vector component of Atol for rho (density).
+	///	</summary>
+	double m_dVAtol_rho;
+
+	///	<summary>
 	///		ARKode flag to write diagnostics file.
 	///	</summary>
 	bool m_fWriteDiagnostics;
@@ -212,6 +258,21 @@ private:
 	///             linear systems (instead of GMRES).
 	///	</summary>
 	bool m_fColumnSolver;
+
+	///	<summary>
+	///		ARKode variable for frequency of output
+	///	</summary>
+	Time m_tOutT;
+
+	double dNextOut;
+
+	Time m_tNextOutT;
+
+	///	<summary>
+	///		Used to send dynamic dt from ARKode to
+	///		hyperviscosity stepping.
+	///	</summary>
+	double m_iTemp_dt;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
