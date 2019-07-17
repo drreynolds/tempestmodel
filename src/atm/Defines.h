@@ -60,6 +60,8 @@
 ///	</summary>
 #define POSITIVE_DEFINITE_FILTER_TRACERS
 
+#define USE_COMPONENT_WISE_TOLERANCES
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #endif

@@ -87,56 +87,38 @@ N_Vector_ID N_VGetVectorID_Tempest(N_Vector v) {
 N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
 
   N_Vector v;
-  N_Vector_Ops ops;
   N_VectorContent_Tempest content;
 
   // Initialize vector pointers to NULL
   v = NULL;
-  ops = NULL;
   content = NULL;
   
   // Create vector
-  v = (N_Vector) malloc(sizeof *v);
+  v = N_VNewEmpty();
   if (v == NULL) return(NULL);
 
-  // Create vector operation structure
-  ops = (N_Vector_Ops) malloc(sizeof(struct _generic_N_Vector_Ops));
-  if (ops == NULL) {free(v); return(NULL); }
-
+  // Attach operations
   // Attach implemented vector routines to N_Vector_Ops structure
-  ops->nvgetvectorid = N_VGetVectorID_Tempest;
-  ops->nvclone       = N_VClone_Tempest;
-  ops->nvdestroy     = N_VDestroy_Tempest;
-  ops->nvconst       = N_VConst_Tempest;
-  ops->nvabs         = N_VAbs_Tempest;
-  ops->nvscale       = N_VScale_Tempest;
-  ops->nvaddconst    = N_VAddConst_Tempest;
-  ops->nvlinearsum   = N_VLinearSum_Tempest;
-  ops->nvprod        = N_VProd_Tempest;
-  ops->nvdiv         = N_VDiv_Tempest;
-  ops->nvinv         = N_VInv_Tempest;
-  ops->nvdotprod     = N_VDotProd_Tempest;
-  ops->nvmin         = N_VMin_Tempest;
-  ops->nvwrmsnorm    = N_VWrmsNorm_Tempest;
-  ops->nvmaxnorm     = N_VMaxNorm_Tempest;
-
-  // Signal that remaining vector routines are not implemented
-  ops->nvspace           = NULL;
-  ops->nvgetarraypointer = NULL;
-  ops->nvsetarraypointer = NULL;
-  ops->nvwrmsnormmask    = NULL;
-  ops->nvcloneempty      = NULL;
-  ops->nvwl2norm         = NULL;
-  ops->nvl1norm          = NULL;
-  ops->nvcompare         = NULL;
-  ops->nvinvtest         = NULL;
-  ops->nvconstrmask      = NULL;
-  ops->nvminquotient     = NULL;
+  v->ops->nvgetvectorid = N_VGetVectorID_Tempest;
+  v->ops->nvclone       = N_VClone_Tempest;
+  v->ops->nvdestroy     = N_VDestroy_Tempest;
+  v->ops->nvconst       = N_VConst_Tempest;
+  v->ops->nvabs         = N_VAbs_Tempest;
+  v->ops->nvscale       = N_VScale_Tempest;
+  v->ops->nvaddconst    = N_VAddConst_Tempest;
+  v->ops->nvlinearsum   = N_VLinearSum_Tempest;
+  v->ops->nvprod        = N_VProd_Tempest;
+  v->ops->nvdiv         = N_VDiv_Tempest;
+  v->ops->nvinv         = N_VInv_Tempest;
+  v->ops->nvdotprod     = N_VDotProd_Tempest;
+  v->ops->nvmin         = N_VMin_Tempest;
+  v->ops->nvwrmsnorm    = N_VWrmsNorm_Tempest;
+  v->ops->nvmaxnorm     = N_VMaxNorm_Tempest;
 
   // Create content
   content = 
     (N_VectorContent_Tempest) malloc(sizeof(struct _N_VectorContent_Tempest));
-  if (content == NULL) {free(ops); free(v); return(NULL);}
+  if (content == NULL) { N_VFreeEmpty(v); return(NULL); }
 
   // Set mVectorIndex to first available vector from registry (if any are available)
   bool successful=false;
@@ -150,8 +132,7 @@ N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
   }
   if (!successful) {
     free(content);
-    free(ops);
-    free(v);
+    N_VFreeEmpty(v);
     return(NULL);
   }
 
@@ -178,7 +159,7 @@ N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
 
   // Attach content and ops to generic N_Vector
   v->content = content;
-  v->ops     = ops;
+ // v->ops     = ops;
 
   return(v);
 }
@@ -188,55 +169,36 @@ N_Vector N_VNew_Tempest(Grid & grid, Model & model) {
 N_Vector N_VAttach_Tempest(Grid & grid, Model & model, int VectorIndex) {
 
   N_Vector v;
-  N_Vector_Ops ops;
   N_VectorContent_Tempest content;
 
   // Initialize vector pointers to NULL
   v = NULL;
-  ops = NULL;
   content = NULL;
   
   // Create vector
-  v = (N_Vector) malloc(sizeof *v);
+  v = N_VNewEmpty();
   if (v == NULL) return(NULL);
 
-  // Create vector operation structure
-  ops = (N_Vector_Ops) malloc(sizeof(struct _generic_N_Vector_Ops));
-  if (ops == NULL) {free(v); return(NULL); }
-
-  // Attach implemented vector routines to N_Vector_Ops structure
-  ops->nvclone     = N_VClone_Tempest;
-  ops->nvdestroy   = N_VDestroy_Tempest;
-  ops->nvconst     = N_VConst_Tempest;
-  ops->nvabs       = N_VAbs_Tempest;
-  ops->nvscale     = N_VScale_Tempest;
-  ops->nvaddconst  = N_VAddConst_Tempest;
-  ops->nvlinearsum = N_VLinearSum_Tempest;
-  ops->nvprod      = N_VProd_Tempest;
-  ops->nvdiv       = N_VDiv_Tempest;
-  ops->nvinv       = N_VInv_Tempest;
-  ops->nvdotprod   = N_VDotProd_Tempest;
-  ops->nvmin       = N_VMin_Tempest;
-  ops->nvwrmsnorm  = N_VWrmsNorm_Tempest;
-  ops->nvmaxnorm   = N_VMaxNorm_Tempest;
-
-  // Signal that remaining vector routines are not implemented
-  ops->nvspace           = NULL;
-  ops->nvgetarraypointer = NULL;
-  ops->nvsetarraypointer = NULL;
-  ops->nvwrmsnormmask    = NULL;
-  ops->nvcloneempty      = NULL;
-  ops->nvwl2norm         = NULL;
-  ops->nvl1norm          = NULL;
-  ops->nvcompare         = NULL;
-  ops->nvinvtest         = NULL;
-  ops->nvconstrmask      = NULL;
-  ops->nvminquotient     = NULL;
+  // Attach operations
+  v->ops->nvclone     = N_VClone_Tempest;
+  v->ops->nvdestroy   = N_VDestroy_Tempest;
+  v->ops->nvconst     = N_VConst_Tempest;
+  v->ops->nvabs       = N_VAbs_Tempest;
+  v->ops->nvscale     = N_VScale_Tempest;
+  v->ops->nvaddconst  = N_VAddConst_Tempest;
+  v->ops->nvlinearsum = N_VLinearSum_Tempest;
+  v->ops->nvprod      = N_VProd_Tempest;
+  v->ops->nvdiv       = N_VDiv_Tempest;
+  v->ops->nvinv       = N_VInv_Tempest;
+  v->ops->nvdotprod   = N_VDotProd_Tempest;
+  v->ops->nvmin       = N_VMin_Tempest;
+  v->ops->nvwrmsnorm  = N_VWrmsNorm_Tempest;
+  v->ops->nvmaxnorm   = N_VMaxNorm_Tempest;
 
   // Create content
   content = 
     (N_VectorContent_Tempest) malloc(sizeof(struct _N_VectorContent_Tempest));
-  if (content == NULL) {free(ops); free(v); return(NULL);}
+  if (content == NULL) { N_VFreeEmpty(v); return(NULL); }
 
   // Set mVectorIndex to input vector index
   content->mVectorIndex = VectorIndex;
@@ -249,7 +211,7 @@ N_Vector N_VAttach_Tempest(Grid & grid, Model & model, int VectorIndex) {
 
   // Attach content and ops to generic N_Vector
   v->content = content;
-  v->ops     = ops;
+ // v->ops     = ops;
 
   return(v);
 }

@@ -121,6 +121,7 @@ public:
 	///		Get the short name of the specified component.
 	///	</summary>
 	inline const std::string & GetComponentShortName(int ix) const {
+//		printf("jab gcsn\n");
 		return m_strComponentShortNames[ix];
 	}
 
@@ -204,6 +205,10 @@ private:
 	///	</summary>
 	std::vector<std::string> m_strTracerFullNames;
 
+	///	<summary>
+	///		Variable for dynamic timestepping.
+	///	</summary>
+	double m_dNextTstop;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -99,6 +99,7 @@ bool OutputManager::IsOutputNeeded(
 void OutputManager::PerformOutput(
 	const Time & time
 ) {
+	//printf("jab po0\n");
 	// Open the file
 	if (!m_fIsFileOpen) {
 		std::string strActiveFileName;
@@ -110,9 +111,11 @@ void OutputManager::PerformOutput(
 				strActiveFileName.c_str());
 		}
 	}
-
+	//printf("jab po1\n");
 	// Output
 	Output(time);
+	//printf("jab po2\n");
+//	fflush(stdout);
 	m_ixOutputTime ++;
 
 	// Check if time limit is reached
@@ -122,6 +125,7 @@ void OutputManager::PerformOutput(
 		m_ixOutputFile ++;
 		m_ixOutputTime = 0;
 	}
+	//printf("jab po3\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -151,6 +155,7 @@ void OutputManager::ManageOutput(
 void OutputManager::InitialOutput(
 	const Time & time
 ) {
+	printf("jimmy output 0\n");
 	// Check if we were initialized from a recovery file
 	if (m_fFromRestartFile) {
 		Announce("%s (%i): %s (Initial; Output Suppressed)",
@@ -160,17 +165,20 @@ void OutputManager::InitialOutput(
 
 	// Output initial conditions
 	} else {
+		printf("jimmy output 1\n");
 		Announce("%s (%i/%i): %s (Initial)",
 			GetName(),
 			m_ixOutputFile+1,
 			m_ixOutputTime+1,
 			time.ToString().c_str());
-
+		printf("jimmy output 2\n");
 		PerformOutput(time);
+		printf("jimmy output 3\n");
 	}
-
+	printf("jimmy output 4\n");
 	m_timeNextOutput = time;
 	m_timeNextOutput += m_timeOutputFrequency;
+	printf("jimmy output 5\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////

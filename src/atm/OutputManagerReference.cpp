@@ -530,6 +530,7 @@ void OutputManagerReference::CloseFile() {
 void OutputManagerReference::Output(
 	const Time & time
 ) {
+//	printf("jab ref\n");
 	// Check for open file
 	if (!IsFileOpen()) {
 		_EXCEPTIONT("No file available for output");

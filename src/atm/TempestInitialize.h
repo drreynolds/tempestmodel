@@ -31,6 +31,7 @@
 #include "TimestepSchemeARKode.h"
 #include "HorizontalDynamicsStub.h"
 #include "HorizontalDynamicsFEM.h"
+#include "HorizontalDynamicsDG.h"
 #include "VerticalDynamicsStub.h"
 #include "VerticalDynamicsFEM.h"
 #include "VerticalDynamicsSchur.h"
@@ -97,20 +98,26 @@ struct _TempestCommandLineVariables {
 	int nLevels;
 	int nHorizontalOrder;
 	int nVerticalOrder;
-    int iARKode_nvectors;
+        int iARKode_nvectors;
 	double dARKode_rtol;
 	double dARKode_atol;
+	Time tARKode_OutT;
 	bool fARKode_DynamicStepSize;
-	bool fARKode_aafp;       
+	bool fARKode_aafp;
+	int iARKode_ErrController;       
 	int iARKode_AAFPAccelVec;
 	int iARKode_NonlinIters;
 	int iARKode_LinIters;
-	int iARKode_Predictor; 
-    std::string strARKode_ButcherTable;
+	int iARKode_Predictor;
+	double dARKode_VAtol_vel;
+	double dARKode_VAtol_rho;
+	double dARKode_VAtol_theta;
+	std::string strARKode_ButcherTable;
+	std::string strARKode_StepOut;
 	bool fARKode_Diagnostics;
-    bool fARKode_UsePreconditioning;
-    bool fARKode_ColumnSolver;
-    bool fFullyImplicit; 
+	bool fARKode_UsePreconditioning;
+	bool fARKode_ColumnSolver;
+	bool fFullyImplicit; 
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -122,6 +129,7 @@ struct _TempestCommandLineVariables {
 	CommandLineString(_tempestvars.strRestartFile, "restart_file", ""); \
 	CommandLineInt(_tempestvars.nOutputsPerFile, "output_perfile", -1); \
 	CommandLineDeltaTime(_tempestvars.timeOutputRestartDeltaT, "output_restart_dt", ""); \
+	CommandLineDeltaTime(_tempestvars.tARKode_OutT, "output_arkdt", "5m"); \
 	CommandLineInt(_tempestvars.nOutputResX, "output_x", 360); \
 	CommandLineInt(_tempestvars.nOutputResY, "output_y", 180); \
 	CommandLineInt(_tempestvars.nOutputResZ, "output_z", 0); \
@@ -145,17 +153,23 @@ struct _TempestCommandLineVariables {
 	CommandLineString(_tempestvars.strVerticalStretch, "vstretch", "uniform"); \
 	CommandLineInt(_tempestvars.nVerticalHyperdiffOrder, "vhypervisorder", 0); \
 	CommandLineString(_tempestvars.strTimestepScheme, "timescheme", "strang"); \
+	CommandLineStringD(_tempestvars.strHorizontalDynamics, "method", "SE", "(SE | DG)"); \
 	CommandLineStringD(_tempestvars.strVerticalDynamics, "vmethod", "DEFAULT", "(DEFAULT | SCHUR | FLL)"); \
 	CommandLineInt(_tempestvars.iARKode_nvectors, "arkode_nvectors", 50); \
 	CommandLineDouble(_tempestvars.dARKode_rtol, "arkode_rtol", 1.0e-6); \
 	CommandLineDouble(_tempestvars.dARKode_atol, "arkode_atol", 1.0e-11); \
 	CommandLineBool(_tempestvars.fARKode_DynamicStepSize, "arkode_dynamicstepsize"); \
 	CommandLineBool(_tempestvars.fARKode_aafp, "arkode_aafp"); \
+	CommandLineInt(_tempestvars.iARKode_ErrController, "arkode_errcontrol", 0); \
 	CommandLineInt(_tempestvars.iARKode_AAFPAccelVec, "arkode_aafpaccelvec", 0); \
 	CommandLineInt(_tempestvars.iARKode_NonlinIters, "arkode_nonliniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_LinIters, "arkode_liniters", 0); \
 	CommandLineInt(_tempestvars.iARKode_Predictor, "arkode_predictor", 0); \
+	CommandLineDouble(_tempestvars.dARKode_VAtol_vel, "arkode_vatol_vel", 1.0e-4); \
+	CommandLineDouble(_tempestvars.dARKode_VAtol_rho, "arkode_vatol_rho", 1.0e-4); \
+	CommandLineDouble(_tempestvars.dARKode_VAtol_theta, "arkode_vatol_theta", 1.0e-4); \
 	CommandLineString(_tempestvars.strARKode_ButcherTable, "arkode_butchertable", ""); \
+	CommandLineString(_tempestvars.strARKode_StepOut, "timestep_out", "timestep_profile.out"); \
 	CommandLineBool(_tempestvars.fARKode_Diagnostics, "arkode_diagnostics"); \
 	CommandLineBool(_tempestvars.fARKode_UsePreconditioning, "arkode_usepreconditioning"); \
 	CommandLineBool(_tempestvars.fARKode_ColumnSolver, "arkode_columnsolver"); \
@@ -283,17 +297,22 @@ void _TempestSetupMethodOfLines(
 		  ARKodeVars.FullyExplicit = vars.fExplicitVertical;
 		  ARKodeVars.FullyImplicit = false;
 		}
-		
+	
+		ARKodeVars.OutputTime	   = vars.tARKode_OutT;	
 		ARKodeVars.nvectors        = vars.iARKode_nvectors;
 		ARKodeVars.rtol            = vars.dARKode_rtol;
 		ARKodeVars.atol            = vars.dARKode_atol;
 		ARKodeVars.DynamicStepSize = vars.fARKode_DynamicStepSize;
+		ARKodeVars.ErrController   = vars.iARKode_ErrController;
 		ARKodeVars.AAFP            = vars.fARKode_aafp;
 		ARKodeVars.AAFPAccelVec    = vars.iARKode_AAFPAccelVec;
 		ARKodeVars.NonlinIters     = vars.iARKode_NonlinIters;
 		ARKodeVars.LinIters        = vars.iARKode_LinIters;
 		ARKodeVars.Predictor       = vars.iARKode_Predictor;
-
+		ARKodeVars.VAtol_vel	   = vars.dARKode_VAtol_vel;
+		ARKodeVars.VAtol_rho	   = vars.dARKode_VAtol_rho;
+		ARKodeVars.VAtol_theta	   = vars.dARKode_VAtol_theta;
+		ARKodeVars.StepOut	   = vars.strARKode_StepOut;
 		ARKodeVars.ButcherTable       = vars.strARKode_ButcherTable;
 		ARKodeVars.WriteDiagnostics   = vars.fARKode_Diagnostics;
 		ARKodeVars.UsePreconditioning = vars.fARKode_UsePreconditioning,
@@ -319,16 +338,32 @@ void _TempestSetupMethodOfLines(
 		vars.dNuVort = 0.0;
 	}
 
-	model.SetHorizontalDynamics(
-		new HorizontalDynamicsFEM(
-			model,
-			vars.nHorizontalOrder,
-			vars.nHyperviscosityOrder,
-			vars.dNuScalar,
-			vars.dNuDiv,
-			vars.dNuVort,
-			vars.dInstepNuDiv));
+	STLStringHelper::ToLower(vars.strHorizontalDynamics);
+	if (vars.strHorizontalDynamics == "se") {
+		model.SetHorizontalDynamics(
+			new HorizontalDynamicsFEM(
+				model,
+				vars.nHorizontalOrder,
+				vars.nHyperviscosityOrder,
+				vars.dNuScalar,
+				vars.dNuDiv,
+				vars.dNuVort,
+				vars.dInstepNuDiv));
 
+	} else if (vars.strHorizontalDynamics == "dg") {
+		model.SetHorizontalDynamics(
+			new HorizontalDynamicsDG(
+				model,
+				vars.nHorizontalOrder,
+				vars.nHyperviscosityOrder,
+				vars.dNuScalar,
+				vars.dNuDiv,
+				vars.dNuVort,
+				vars.dInstepNuDiv));
+
+	} else {
+		_EXCEPTIONT("Invalid method: Expected \"SE\" or \"DG\"");
+	}
 	AnnounceEndBlock("Done");
 
 	// Vertical staggering

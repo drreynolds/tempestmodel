@@ -34,6 +34,7 @@ GridPatch::GridPatch(
 	m_ixPatch(ixPatch),
 	m_iProcessor(0),
 	m_box(box),
+	m_connect(*this),
 	m_fContainsData(false)
 {
 }
@@ -1176,24 +1177,25 @@ double GridPatch::ComputeTotalVerticalMomentum(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void GridPatch::PackExchangeBuffer(
-	DataType eDataType,
-	int iDataIndex,
-	ExchangeBuffer & exbuf
-) {
-	// Check exchange buffer target
-	if (exbuf.m_ixSourcePatch != m_ixPatch) {
-		_EXCEPTIONT("ExchangeBuffer patch index mismatch");
-	}
+void GridPatch::PrepareExchange() {
+	m_connect.PrepareExchange();
+}
 
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::Send(
+	DataType eDataType,
+	int iDataIndex
+) {
 	// State data
 	if (eDataType == DataType_State) {
 		if ((iDataIndex < 0) || (iDataIndex > m_datavecStateNode.size())) {
 			_EXCEPTIONT("Invalid state data instance.");
 		}
 
-		exbuf.Pack(m_grid, m_datavecStateNode[iDataIndex]);
-		exbuf.Pack(m_grid, m_datavecStateREdge[iDataIndex]);
+		m_connect.Pack(m_datavecStateNode[iDataIndex]);
+		m_connect.Pack(m_datavecStateREdge[iDataIndex]);
+		m_connect.Send();
 
 	// Tracer data
 	} else if (eDataType == DataType_Tracers) {
@@ -1201,27 +1203,33 @@ void GridPatch::PackExchangeBuffer(
 			_EXCEPTIONT("Invalid tracers data instance.");
 		}
 
-		exbuf.Pack(m_grid, m_datavecTracers[iDataIndex]);
+		m_connect.Pack(m_datavecTracers[iDataIndex]);
+		m_connect.Send();
 
 	// Vorticity data
 	} else if (eDataType == DataType_Vorticity) {
-		exbuf.Pack(m_dataVorticity);
+		m_connect.Pack(m_dataVorticity);
+		m_connect.Send();
 
 	// Divergence data
 	} else if (eDataType == DataType_Divergence) {
-		exbuf.Pack(m_dataDivergence);
+		m_connect.Pack(m_dataDivergence);
+		m_connect.Send();
 
 	// Temperature data
 	} else if (eDataType == DataType_Temperature) {
-		exbuf.Pack(m_dataTemperature);
+		m_connect.Pack(m_dataTemperature);
+		m_connect.Send();
 
 	// Richardson data
 	} else if (eDataType == DataType_Richardson) {
-		exbuf.Pack(m_dataRichardson);
+		m_connect.Pack(m_dataRichardson);
+		m_connect.Send();
 
 	// Topography derivative data
 	} else if (eDataType == DataType_TopographyDeriv) {
-		exbuf.Pack(m_dataTopographyDeriv);
+		m_connect.Pack(m_dataTopographyDeriv);
+		m_connect.Send();
 
 	// Invalid data
 	} else {
@@ -1231,24 +1239,21 @@ void GridPatch::PackExchangeBuffer(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void GridPatch::UnpackExchangeBuffer(
+void GridPatch::Receive(
 	DataType eDataType,
-	int iDataIndex,
-	ExchangeBuffer & exbuf
+	int iDataIndex
 ) {
-	// Check exchange buffer target
-	if (exbuf.m_ixSourcePatch != m_ixPatch) {
-		_EXCEPTIONT("ExchangeBuffer patch index mismatch");
-	}
-
 	// State data
 	if (eDataType == DataType_State) {
 		if ((iDataIndex < 0) || (iDataIndex > m_datavecStateNode.size())) {
 			_EXCEPTIONT("Invalid state data instance.");
 		}
 
-		exbuf.Unpack(m_grid, m_datavecStateNode[iDataIndex]);
-		exbuf.Unpack(m_grid, m_datavecStateREdge[iDataIndex]);
+		Neighbor * pNeighbor;
+		while ((pNeighbor = m_connect.WaitReceive()) != NULL) {
+			pNeighbor->Unpack(m_grid, m_datavecStateNode[iDataIndex]);
+			pNeighbor->Unpack(m_grid, m_datavecStateREdge[iDataIndex]);
+		}
 
 	// Tracer data
 	} else if (eDataType == DataType_Tracers) {
@@ -1256,32 +1261,69 @@ void GridPatch::UnpackExchangeBuffer(
 			_EXCEPTIONT("Invalid tracers data instance.");
 		}
 
-		exbuf.Unpack(m_grid, m_datavecTracers[iDataIndex]);
+		Neighbor * pNeighbor;
+		while ((pNeighbor = m_connect.WaitReceive()) != NULL) {
+			pNeighbor->Unpack(m_grid, m_datavecTracers[iDataIndex]);
+		}
 
 	// Vorticity data
 	} else if (eDataType == DataType_Vorticity) {
-		exbuf.Unpack(m_dataVorticity);
+		Neighbor * pNeighbor;
+		while ((pNeighbor = m_connect.WaitReceive()) != NULL) {
+			pNeighbor->Unpack(m_dataVorticity);
+		}
 
 	// Divergence data
 	} else if (eDataType == DataType_Divergence) {
-		exbuf.Unpack(m_dataDivergence);
+		Neighbor * pNeighbor;
+		while ((pNeighbor = m_connect.WaitReceive()) != NULL) {
+			pNeighbor->Unpack(m_dataDivergence);
+		}
 
 	// Temperature data
 	} else if (eDataType == DataType_Temperature) {
-		exbuf.Unpack(m_dataTemperature);
+		Neighbor * pNeighbor;
+		while ((pNeighbor = m_connect.WaitReceive()) != NULL) {
+			pNeighbor->Unpack(m_dataTemperature);
+		}
 
 	// Richardson data
 	} else if (eDataType == DataType_Richardson) {
-		exbuf.Unpack(m_dataRichardson);
+		Neighbor * pNeighbor;
+		while ((pNeighbor = m_connect.WaitReceive()) != NULL) {
+			pNeighbor->Unpack(m_dataRichardson);
+		}
 
 	// Topographic derivatives
 	} else if (eDataType == DataType_TopographyDeriv) {
-		exbuf.Unpack(m_dataTopographyDeriv);
+		Neighbor * pNeighbor;
+		while ((pNeighbor = m_connect.WaitReceive()) != NULL) {
+			pNeighbor->Unpack(m_dataTopographyDeriv);
+		}
 
 	// Invalid data
 	} else {
 		_EXCEPTIONT("Invalid DataType");
 	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::SendBuffers() {
+	m_connect.SendBuffers();
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::ReceiveBuffers() {
+	Neighbor * pNeighbor;
+	while ((pNeighbor = m_connect.WaitReceive()) != NULL);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::CompleteExchange() {
+	m_connect.WaitSend();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2149,6 +2191,127 @@ double GridPatch::MaximumNormData(
 	return dMax;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
+void GridPatch::AssignComponentWiseTolerances(
+	int it, double vatol_vel, double vatol_rho, double vatol_theta
+) {
+	// define the indices of the variables
+	const int UIx = 0;
+	const int VIx = 1;
+	const int PIx = 2;
+	const int WIx = 3;
+	const int RIx = 4;
+
+	// initialize reusable local variables
+	int i, j, k, c;
+
+	// determine state node/edge variables
+	std::vector<int> nodeVarsState;
+	std::vector<int> redgeVarsState;
+	int nComponents = m_grid.GetModel().GetEquationSet().GetComponents();
+	for (int c=0; c<nComponents; c++) {
+	  if (m_grid.GetVarLocation(c) == DataLocation_Node) {
+	    nodeVarsState.push_back(c);
+	  } 
+	  else if (m_grid.GetVarLocation(c) == DataLocation_REdge) {
+	    redgeVarsState.push_back(c);
+	  }
+	  else {
+	    _EXCEPTIONT("DataLocation not implemented.");
+	  }
+	}
+
+	// set shortcuts to state variables
+	DataArray4D<double> * pDataNodeTol = &(m_datavecStateNode[it]);
+	DataArray4D<double> * pDataREdgeTol = &(m_datavecStateREdge[it]);
+
+	// perform operation over state nodes
+	for (c=0; c<nodeVarsState.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+
+		// assign a tolerance for each of the variable types
+		switch (nodeVarsState[c]) {
+
+		case UIx:
+			(*pDataNodeTol) [nodeVarsState[c]][k][i][j] = vatol_vel;
+			break;
+		case VIx:
+			(*pDataNodeTol) [nodeVarsState[c]][k][i][j] = vatol_vel;
+			break;
+		case PIx:
+			(*pDataNodeTol) [nodeVarsState[c]][k][i][j] = vatol_theta;
+			break;
+		case WIx:
+			(*pDataNodeTol) [nodeVarsState[c]][k][i][j] = vatol_vel;
+			break;
+		case RIx:
+			(*pDataNodeTol) [nodeVarsState[c]][k][i][j] = vatol_rho;
+			break;
+
+		}
+	      }
+	    }
+	  }
+	}
+
+	// perform operation over state edges
+	for (c=0; c<redgeVarsState.size(); c++) {
+	  for (k=0; k<=m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+
+		// assign a tolerance for each of the variable types
+		switch (nodeVarsState[c]) {
+
+		case UIx:
+			(*pDataREdgeTol) [redgeVarsState[c]][k][i][j] = vatol_vel;
+			break;
+		case VIx:
+			(*pDataREdgeTol) [redgeVarsState[c]][k][i][j] = vatol_vel;
+			break;
+		case PIx:
+			(*pDataREdgeTol) [redgeVarsState[c]][k][i][j] = vatol_theta;
+			break;
+		case WIx:
+			(*pDataREdgeTol) [redgeVarsState[c]][k][i][j] = vatol_vel;
+			break;
+		case RIx:
+			(*pDataREdgeTol) [redgeVarsState[c]][k][i][j] = vatol_rho;
+			break;
+
+		}
+
+	      }
+	    }
+	  }
+	}
+
+	// determine tracer node variables
+	std::vector<int> nodeVarsTracers;
+	int nTracers = m_grid.GetModel().GetEquationSet().GetTracers();
+	for (int c=0; c<nTracers; c++) {
+	  nodeVarsTracers.push_back(c);
+	}
+
+	// set shortcuts to tracer variables
+	DataArray4D<double> * pDataTracersTol = &(m_datavecTracers[it]);
+
+	// perform operation over Tracer nodes
+	for (c=0; c<nodeVarsTracers.size(); c++) {
+	  for (k=0; k<m_grid.GetRElements(); k++) {
+	    for (i=m_box.GetAInteriorBegin(); i<m_box.GetAInteriorEnd(); i++) {
+	      for (j=m_box.GetBInteriorBegin(); j<m_box.GetBInteriorEnd(); j++) {
+		(*pDataTracersTol) [nodeVarsTracers[c]][k][i][j] = 1e-4;
+
+	      }
+	    }
+	  }
+	}
+
+}
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridPatch::InterpolateNodeToREdge(

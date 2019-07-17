@@ -9,7 +9,7 @@
 ###############################################################################
 # Configuration-independent configuration.
 
-CXXFLAGS+= -std=c++11
+CXXFLAGS+= -std=c++11 -g
 
 ifndef TEMPESTBASEDIR
   $(error TEMPESTBASEDIR is not defined)
@@ -34,7 +34,7 @@ ifeq ($(OPT),TRUE)
   CXXFLAGS+= -O3 -DNDEBUG 
   F90FLAGS+= -O3
 else
-  CXXFLAGS+= -O0
+  CXXFLAGS+= -O0 -g
   F90FLAGS+= -O0 
 endif
 
