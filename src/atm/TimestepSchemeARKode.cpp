@@ -138,10 +138,7 @@ void TimestepSchemeARKode::Initialize() {
     Announce("Running ARKode IMEX");
     arkode_mem = ARKStepCreate(ARKodeExplicitRHS, ARKodeImplicitRHS, dCurrentT, m_Y);
   }
-
-  if (check_flag((void *)arkode_mem, "ARKStepCreate", 0)) printf("HELP\n");
-
-//  printf("jab create success\n");
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKStepCreate, ierr = %i",ierr);
 
   // Set stop time 
   Time timeEndT = m_model.GetEndTime();
@@ -176,7 +173,7 @@ void TimestepSchemeARKode::Initialize() {
     ierr = ARKStepSetFixedStep(arkode_mem, dDeltaT);   
     if (ierr < 0) _EXCEPTION1("ERROR: ARKStepSetFixedStep, ierr = %i",ierr);
   }
-//  printf("jab setup 2\n");
+  
   // Set Butcher table
   if (m_strButcherTable != "") {  
     SetButcherTable();
@@ -200,6 +197,9 @@ void TimestepSchemeARKode::Initialize() {
   
   #endif
 
+  // change NLS sensitivity
+  ierr = ARKStepSetNonlinConvCoef(arkode_mem, 1.4);
+
   // Nonlinear Solver Settings
   if (!m_fFullyExplicit) {
     
@@ -219,24 +219,24 @@ void TimestepSchemeARKode::Initialize() {
       A = SUNMatrix_Tempest();
       LS = SUNLinSol_Tempest(arkode_mem);
       ierr = ARKStepSetLinearSolver(arkode_mem, LS, A);
-      if (check_flag(&ierr, "ARKStepSetLinearSolver", 1)) printf("HELP\n");
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKStepSetLinearSolver, ierr = %i",ierr);
       Announce("jab happily column solving\n");
     } else {
+      
+      // We are using SPGMR
       int precflag = PREC_NONE;
       if (m_fUsePreconditioning)  precflag = PREC_RIGHT;
 
       // Linear Solver Settings
-// jab     ierr = ARKSpgmr(arkode_mem, precflag, m_iLinIters);      
-// jab      if (ierr < 0) _EXCEPTION1("ERROR: ARKSpgmr, ierr = %i",ierr);
       SUNLinearSolver LS = SUNLinSol_SPGMR(m_Y, precflag, m_iLinIters);
       ierr = ARKStepSetLinearSolver(arkode_mem, LS, NULL);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKStepSetLinearSolver, ierr = %i",ierr);
 
       if (m_fUsePreconditioning) {
         ARKLsPrecSolveFn psolve = ARKodePreconditionerSolve;
         ierr = ARKStepSetPreconditioner(arkode_mem, NULL, psolve);
-        if (ierr < 0) _EXCEPTION1("ERROR: ARKodeSetPreconditioner, ierr = %i",ierr);
+        if (ierr < 0) _EXCEPTION1("ERROR: ARKStepSetPreconditioner, ierr = %i",ierr);
       }
-//      printf("jab happily spgmring\n");
     }  
 
     // if negative nonlinear iterations are specified, switch to linear-implicit mode
@@ -253,9 +253,10 @@ void TimestepSchemeARKode::Initialize() {
     }
   }
 
+  // set lin sys fn for custom linear solver
   ierr = ARKStepSetLinSysFn(arkode_mem, ARKodeLinSysFn);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKStepSetLinSysFn, ierr = %i",ierr);
-//  printf("jab set lin sys fn \n");
+  
   // Set diagnostics output file
   if (m_fWriteDiagnostics) {
 
@@ -309,7 +310,6 @@ void TimestepSchemeARKode::Initialize() {
   _EXCEPTIONT("Halt: NVector Testing complete");
 #endif
 
-Announce("jab happy initialize\n");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -372,11 +372,14 @@ void TimestepSchemeARKode::Step(
   }
   ierr = ARKStepSetStopTime(arkode_mem, dNextT);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKStepSetStopTime, ierr = %i",ierr);
+  
   // ARKode timestep
   Announce("curr t = %f, next t = %f\n", dCurrentT, dNextT);
   ierr = ARKStepEvolve(arkode_mem, dNextT, m_Y, &dCurrentT, stepmode);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKStepEvolve, ierr = %i",ierr);
   numsteps++;
+  
+  // Output for step
   Announce("\n numsteps is %d\n", numsteps);
   int iJRank;
   MPI_Comm_rank(MPI_COMM_WORLD, &iJRank);
@@ -546,7 +549,7 @@ static int ARKodeExplicitRHS(
 	N_Vector Ydot, 
 	void * user_data
 ) {
-Announce("jab explicit rhs begin\n");
+//Announce("jab explicit rhs begin\n");
 #ifdef DEBUG_OUTPUT
   AnnounceStartBlock("Explicit RHS");
 #endif
@@ -601,7 +604,7 @@ Announce("jab explicit rhs begin\n");
   AnnounceEndBlock("Done");
 #endif
 
-  Announce("jab explicit rhs finish\n"); 
+//  Announce("jab explicit rhs finish\n"); 
   return 0;
 }
 
@@ -831,32 +834,6 @@ static int ARKodePreconditionerSolve(
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static int check_flag(void *flagvalue, const char *funcname, int opt)
-{
-  int *errflag;
-
-  /* Check if SUNDIALS function returned NULL pointer - no memory allocated */
-  if (opt == 0 && flagvalue == NULL) {
-    fprintf(stderr, "\nSUNDIALS_ERROR: %s() failed - returned NULL pointer\n\n", funcname);
-    return 1;
-  }
-  else if (opt == 1) {
-    errflag = (int *) flagvalue;
-    if (*errflag < 0) {
-      fprintf(stderr, "\nSUNDIALS_ERROR: %s() failed with flag = %d\n\n", funcname, *errflag);
-      return 1;
-    }
-  }
-  else if (opt == 2 && flagvalue == NULL) {
-    fprintf(stderr, "\nMEMORY_ERROR: %s() failed - returned NULL pointer\n\n", funcname);
-    return 1;
-  }
-
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
 // constructor for matrix for custom solve
 SUNMatrix SUNMatrix_Tempest()
 {
@@ -911,8 +888,8 @@ SUNLinearSolver SUNLinSol_Tempest(void* ark_mem)
 int ARKodeColumnLSolve(
         SUNLinearSolver S,
 	SUNMatrix A,
+	N_Vector x,
 	N_Vector b,
-        N_Vector ycur,
 	realtype tol
 ) {
 #ifdef DEBUG_OUTPUT
@@ -924,16 +901,16 @@ int ARKodeColumnLSolve(
   // model time (not used in preconditioning)
   Time timeT;
 
-  double jdummy = -1.0;
-  double * ark_gamma = &jdummy;
+  double t_gamma;
   N_Vector ark_ycurr;
 
   void *ark_mem;
   ark_mem = S->content;
-  ierr = ARKStepGetCurrentGamma(ark_mem, ark_gamma);
-  double t_gamma = *ark_gamma;
-//  printf("gamma is %f\n", t_gamma);
+  ierr = ARKStepGetCurrentGamma(ark_mem, &t_gamma);
+  Announce("jab gamma is %f\n", t_gamma);
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKStepGetCurrentGamma, ierr = %i",ierr);
   ierr = ARKStepGetCurrentState(ark_mem, &ark_ycurr);
+  if (ierr < 0) _EXCEPTION1("ERROR: ARKStepGetCurrentState, ierr = %i",ierr);
 
   // index of relevant N_Vector arguments in registry
   int iB = NV_INDEX_TEMPEST(b);

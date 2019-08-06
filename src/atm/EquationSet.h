@@ -121,7 +121,6 @@ public:
 	///		Get the short name of the specified component.
 	///	</summary>
 	inline const std::string & GetComponentShortName(int ix) const {
-//		printf("jab gcsn\n");
 		return m_strComponentShortNames[ix];
 	}
 
