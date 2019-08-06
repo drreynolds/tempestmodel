@@ -220,7 +220,6 @@ void TimestepSchemeARKode::Initialize() {
       LS = SUNLinSol_Tempest(arkode_mem);
       ierr = ARKStepSetLinearSolver(arkode_mem, LS, A);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKStepSetLinearSolver, ierr = %i",ierr);
-      Announce("jab happily column solving\n");
     } else {
       
       // We are using SPGMR
@@ -549,7 +548,6 @@ static int ARKodeExplicitRHS(
 	N_Vector Ydot, 
 	void * user_data
 ) {
-//Announce("jab explicit rhs begin\n");
 #ifdef DEBUG_OUTPUT
   AnnounceStartBlock("Explicit RHS");
 #endif
@@ -604,7 +602,6 @@ static int ARKodeExplicitRHS(
   AnnounceEndBlock("Done");
 #endif
 
-//  Announce("jab explicit rhs finish\n"); 
   return 0;
 }
 
@@ -907,7 +904,6 @@ int ARKodeColumnLSolve(
   void *ark_mem;
   ark_mem = S->content;
   ierr = ARKStepGetCurrentGamma(ark_mem, &t_gamma);
-  Announce("jab gamma is %f\n", t_gamma);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKStepGetCurrentGamma, ierr = %i",ierr);
   ierr = ARKStepGetCurrentState(ark_mem, &ark_ycurr);
   if (ierr < 0) _EXCEPTION1("ERROR: ARKStepGetCurrentState, ierr = %i",ierr);
@@ -929,6 +925,8 @@ int ARKodeColumnLSolve(
   // Call column-wise linear solver (iB holds RHS on input, solution on output)
   pVerticalDynamicsFEM->SolveImplicit(iY, iB, timeT, t_gamma);
 
+  N_VScale(1.0, b, x);
+
 #ifdef DEBUG_OUTPUT
   AnnounceEndBlock("Done");
 #endif
@@ -948,11 +946,7 @@ SUNLinearSolver_Type ARKodeColumnLType(SUNLinearSolver S)
 int ARKodeColumnLFree(SUNLinearSolver S)
 {
 
-  free(S->content);
   S->content = NULL;
-
-  free(S->ops);
-  S->ops = NULL;
 
   SUNLinSolFreeEmpty(S);
 
