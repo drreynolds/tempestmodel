@@ -28,6 +28,7 @@
 #include "TempestNVector.h"
 #include "arkode/arkode.h"
 #include "arkode/arkode_arkstep.h"
+#include "arkode/arkode_imexgarkstep.h"
 #include "arkode/arkode_ls.h"
 #include "sunlinsol/sunlinsol_spgmr.h"
 #include "arkode/arkode_butcher.h"
@@ -339,15 +340,6 @@ static int ARKodePreconditionerSolve(
 );
 
 ///	<summary>
-///		Check function return value
-///	</summary>
-static int check_flag(
-	void *flagvalue,
-	const char *funcname,
-	int opt
-);
-
-///	<summary>
 ///		Functions for replacing GMRES solver with Tempest column-wise linear solver
 ///	</summary>
 static int ARKodeLinSysFn(realtype t, N_Vector y,
@@ -369,8 +361,8 @@ SUNLinearSolver SUNLinSol_Tempest(void* ark_mem);
 int ARKodeColumnLSolve(
 	SUNLinearSolver S,
 	SUNMatrix A,
+	N_Vector x,
 	N_Vector b,
-	N_Vector ycur,
 	realtype tol
 );
 

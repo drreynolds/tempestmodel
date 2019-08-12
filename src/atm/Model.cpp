@@ -336,14 +336,12 @@ void Model::Go() {
 
 	// Apply boundary conditions
 	m_pGrid->ApplyBoundaryConditions();
-//	printf("jab go 0\n");
+
 	// Initialize all components
 	m_pTimestepScheme->Initialize();
-//	printf("jab go 0.1\n");	
 	m_pHorizontalDynamics->Initialize();
-//	printf("jab go 0.2\n");
 	m_pVerticalDynamics->Initialize();
-//	printf("jab go 1\n");
+
 	// Set the current time
 	m_time = m_timeStart;
 
@@ -355,40 +353,32 @@ void Model::Go() {
 			m_timeEnd.ToString().c_str());
 		return;
 	}
-//	printf("jab go 2\n");
+
 	// Initial output
-/*
 	for (int om = 0; om < m_vecOutMan.size(); om++) {
-		printf("num loops is %d\n", m_vecOutMan.size());  
-	// COMMENT IN FOR MASS, ENERGY, AND MOMENTUM OUTPUTS
-		printf("jab 2.0.0\n");
+	  ///* COMMENT IN FOR MASS, ENERGY, AND MOMENTUM OUTPUTS
 		if (om == 0) {
-			printf("jab go 2.0.1\n");
 			Announce("%s %1.15e %1.15e %1.15e",
 			"Energy:",
 			m_pGrid->ComputeTotalEnergy(0),
 			m_pGrid->ComputeTotalPotentialEnstrophy(0),
 			m_pGrid->ComputeTotalVerticalMomentum(0));
 		}
-		printf("jab go 2.0.2\n");
-		//
-// jab		m_vecOutMan[om]->InitialOutput(m_time);
-		printf("jab go 2.0.3\n");
+		//*/
+		m_vecOutMan[om]->InitialOutput(m_time);
 	}
-*/
-//	printf("jab go 2.1\n");
+
 	// Initialize WorkflowProcesses
 	for (int wfp = 0; wfp < m_vecWorkflowProcess.size(); wfp++) {
 		m_vecWorkflowProcess[wfp]->Initialize(m_time);
 	}
-//	printf("jab go 2.2\n");
+
 	// First time step
 	bool fFirstStep = true;
 
 	double dDeltaT = m_time.GetSeconds();
-//	printf("jab go 2.3\n");
 	Time timeNext = m_time;
-//	printf("jab go 3\n");
+
 	// Loop
 	for(int iStep = 0;; iStep++) {
 
@@ -398,6 +388,7 @@ void Model::Go() {
 
 		// Last time step
 		bool fLastStep = false;
+
 		// Next time step
 		// Set timeNext for fixed timstepping
 		if (!m_fDynamicTimestepping) {
@@ -413,16 +404,15 @@ void Model::Go() {
 				dDeltaT = timeNext - m_time;
 			}
 		}
+		
 		// Perform one time step
-	//	Announce("jab calling step in tempest\n");
 		m_pTimestepScheme->Step(fFirstStep, fLastStep, m_time, dDeltaT);
-	//	Announce("jab successful step in tempest\n");	
+		
 		// Set timeNext for dynamic timestepping
 		if (m_fDynamicTimestepping) {
 			dDeltaT = m_pTimestepScheme->GetDynamicDeltaT();
-			Announce("dynamic delta t is %f\n", dDeltaT);
 			int mss = (int)(dDeltaT*1e6);
-			Announce("mss = %d\n", mss);
+
 			timeNext.AddMicroSeconds(mss);
 			if (timeNext >= m_timeEnd) {
 				fLastStep = true;

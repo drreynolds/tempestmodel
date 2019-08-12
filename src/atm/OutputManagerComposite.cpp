@@ -108,7 +108,6 @@ void OutputManagerComposite::CloseFile() {
 void OutputManagerComposite::Output(
 	const Time & time
 ) {
-	//printf("jab comp\n");
 #ifdef TEMPEST_MPIOMP
 	// Check for open file
 	if (!IsFileOpen()) {

@@ -12,7 +12,7 @@ MPICXX= mpicxx
 MPIF90= mpif90
 
 # SUNDIALS
-SUNDIALS_ROOT=$(HOME)/local/sundials5_install_debug
+SUNDIALS_ROOT=$(HOME)/local/sundials5_install_gark
 SUNDIALS_INCLUDEDIR=$(SUNDIALS_ROOT)/include
 SUNDIALS_LIBDIR=$(SUNDIALS_ROOT)/lib
 
