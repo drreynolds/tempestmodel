@@ -220,6 +220,11 @@ void TimestepSchemeARKode::Initialize() {
       LS = SUNLinSol_Tempest(arkode_mem);
       ierr = ARKStepSetLinearSolver(arkode_mem, LS, A);
       if (ierr < 0) _EXCEPTION1("ERROR: ARKStepSetLinearSolver, ierr = %i",ierr);
+
+      // set lin sys fn for custom linear solver
+      ierr = ARKStepSetLinSysFn(arkode_mem, ARKodeLinSysFn);
+      if (ierr < 0) _EXCEPTION1("ERROR: ARKStepSetLinSysFn, ierr = %i",ierr);
+
     } else {
       
       // We are using SPGMR
@@ -252,10 +257,6 @@ void TimestepSchemeARKode::Initialize() {
     }
   }
 
-  // set lin sys fn for custom linear solver
-  ierr = ARKStepSetLinSysFn(arkode_mem, ARKodeLinSysFn);
-  if (ierr < 0) _EXCEPTION1("ERROR: ARKStepSetLinSysFn, ierr = %i",ierr);
-  
   // Set diagnostics output file
   if (m_fWriteDiagnostics) {
 
