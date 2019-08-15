@@ -982,14 +982,14 @@ void TimestepSchemeARKode::SetButcherTable()
   double * pb2i = NULL; // implicit b embedding array
   double * pb2e = NULL; // explicit b embedding array
 
- if (m_strButcherTable == "jab_gark") {
+ if (m_strButcherTable == "asg_222_sdirk") {
 
-      Announce("Timestepping with JAB Gark method");
+      Announce("Timestepping with ASG 222 SDIRK GARK method");
 
       iStages = 2;
       iQorder = 2;
       iPorder = -1;
-      realtype gark_gamma = 1.0 - sqrt(2.0)/2.0;
+      realtype g_g = 1.0 - sqrt(2.0)/2.0;
 
       double * Aee = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
       double * be  = (realtype *) calloc( iStages, sizeof(realtype) );
@@ -997,41 +997,41 @@ void TimestepSchemeARKode::SetButcherTable()
 
       Aee[0] = 0.0;
       Aee[1] = 0.0;
-      Aee[2] = 1.0 / (2.0 * gark_gamma);
+      Aee[2] = 1.0 / (2.0 * g_g);
       Aee[3] = 0.0;
 
-      be[0] = 1.0 - gark_gamma;
-      be[1] = gark_gamma;
+      be[0] = 1.0 - g_g;
+      be[1] = g_g;
 
       ce[0] = 0.0;
-      ce[1] = 1.0 / gark_gamma;
+      ce[1] = 1.0 / g_g;
 
       double * Aei = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
       Aei[0] = 0.0;
       Aei[1] = 0.0;
-      Aei[2] = 1.0 / (2.0 * gark_gamma);
+      Aei[2] = 1.0 / (2.0 * g_g);
       Aei[3] = 0.0;
 
       double * Aii = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
       double * bi  = (realtype *) calloc( iStages, sizeof(realtype) );
       double * ci  = (realtype *) calloc( iStages, sizeof(realtype) );
 
-      Aii[0] = gark_gamma;
+      Aii[0] = g_g;
       Aii[1] = 0.0;
-      Aii[2] = 1.0 - gark_gamma;
-      Aii[3] = gark_gamma;
+      Aii[2] = 1.0 - g_g;
+      Aii[3] = g_g;
 
-      bi[0] = 1.0 - gark_gamma;
-      bi[1] = gark_gamma;
+      bi[0] = 1.0 - g_g;
+      bi[1] = g_g;
 
-      ci[0] = gark_gamma;
+      ci[0] = g_g;
       ci[1] = 1.0;
 
       double * Aie = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
-      Aie[0] = gark_gamma;
+      Aie[0] = g_g;
       Aie[1] = 0.0;
-      Aie[2] = 1.0 - gark_gamma;
-      Aie[3] = gark_gamma;
+      Aie[2] = 1.0 - g_g;
+      Aie[3] = g_g;
 
       ierr = IMEXGARKStepSetTables(arkode_mem, iStages, 
 				   iQorder, iPorder,
@@ -1041,10 +1041,439 @@ void TimestepSchemeARKode::SetButcherTable()
 				   be, bi,
 				   NULL, NULL);
       
-    }  
-    else {
+  }
+  if (m_strButcherTable == "asg_332_sdirk") {
+
+      Announce("Timestepping with ASG 332 SDIRK Gark method");
+
+        iStages = 3;
+        iQorder = 3;
+        iPorder = -1;
+
+	realtype ce2 = -0.1684172003560462642161441431010876;
+	realtype ce3 =  0.8981606511689358909417299678385599;
+
+        double * Aee = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        double * be  = (realtype *) calloc( iStages, sizeof(realtype) );
+        double * ce  = (realtype *) calloc( iStages, sizeof(realtype) );
+
+        Aee[0] = 0.0;
+        Aee[1] = 0.0;
+        Aee[2] = 0.0;
+        Aee[3] = ce2;
+        Aee[4] = 0.0;
+        Aee[5] = 0.0;
+        Aee[6] = ce3*(3.0*ce2*ce2-3.0*ce2+ce3)/(ce2*(3.0*ce2-2.0));
+        Aee[7] = ce3*(ce2-ce3)/(ce2*(3.0*ce2-2.0));
+	Aee[8] = 0.0;
+
+        be[0] = (6.0*ce2*ce3-3.0*ce2-3.0*ce3+2.0)/(6.0*ce2*ce3);
+        be[1] = (2.0-3.0*ce3)/(6.0*ce2*ce2-6.0*ce2*ce3);
+	be[2] = -(2.0-3.0*ce2)/(6.0*ce2-ce3-6.0*ce3*ce3);
+
+	ce[0] = 0.0;
+	ce[1] = ce2;
+	ce[2] = ce3;
+
+        double * Aei = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        Aei[0] = 0.0;
+        Aei[1] = 0.0;
+	Aei[2] = 0.0;
+        Aei[3] = ce2;
+	Aei[4] = 0.0;
+	Aei[5] = 0.0;
+	Aei[6] = ce3*((3.0-sqrt(3.0))*ce2+(3.0+sqrt(3.0))*ce3-4.0)/(6.0*ce2-4.0);
+	Aei[7] = (3.0+sqrt(3.0))*(ce2-ce3)*ce3/(6.0*ce2-4.0);
+	Aei[8] = 0.0;
+
+        double * Aii = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        double * bi  = (realtype *) calloc( iStages, sizeof(realtype) );
+        double * ci  = (realtype *) calloc( iStages, sizeof(realtype) );
+
+        Aii[0] = (3.0+sqrt(3.0))/6.0;
+        Aii[1] = 0.0;
+        Aii[2] = 0.0;
+        Aii[3] = -sqrt(3.0)/3.0;
+	Aii[4] = (3.0+sqrt(3.0))/6.0;
+	Aii[5] = 0.0;
+	Aii[6] = 0.0;
+	Aii[7] = 0.0;
+	Aii[8] = 0.0;
+
+        bi[0] = 0.5;
+        bi[1] = 0.5;
+	bi[2] = 0.0;
+
+        ci[0] = (3.0+sqrt(3.0))/6.0;
+        ci[1] = (3.0-sqrt(3.0))/6.0;
+	ci[2] = 0.0;
+
+        double * Aie = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        Aie[0] = (3.0+sqrt(3.0))/6.0;
+        Aie[1] = 0.0;
+        Aie[2] = 0.0;
+        Aie[3] = ((3.0-sqrt(3.0))*ce2-2.0)/(6.0*ce2);
+	Aie[4] = 1.0/(3.0*ce2);
+	Aie[5] = 0.0;
+	Aie[6] = 0.0;
+	Aie[7] = 0.0;
+	Aie[8] = 0.0;
+
+        ierr = IMEXGARKStepSetTables(arkode_mem, iStages, 
+  				   iQorder, iPorder,
+  				   ce, ci,
+				   Aee, Aei,
+				   Aie, Aii,
+				   be, bi,
+				   NULL, NULL);
+      
+  }
+  else if (m_strButcherTable == "asg_333_sdirk") {
+      
+        Announce("Timestepping with ASG 333 SDIRK GARK method");
+  
+        iStages = 3;
+        iQorder = 3;
+        iPorder = -1;
+
+	realtype g_g = 0.4358665215084589994160194511935568425292940929384256424857;
+	realtype ce2 = -0.1684172003560462642161441431010876;
+	realtype ce3 =  0.8981606511689358909417299678385599;
+	realtype ci2 =  (6.0*g_g*g_g-9.0*g_g+2.0)/(6.0*g_g*g_g-12.0*g_g+3.0);
+	realtype bi1 = (1.0-4.0*g_g)/(-12.0*g_g*g_g*g_g + 36.0*g_g*g_g - 24.0*g_g + 4.0);
+	realtype bi2 = -3.0*(2.0*g_g*g_g-4.0*g_g+1.0)*(2.0*g_g*g_g-4.0*g_g+1.0)/(4.0*(3.0*g_g*g_g*g_g-9.0*g_g*g_g+6.0*g_g-1.0));
+	realtype g_alpha = 2.0*(9.0*g_g*g_g*g_g*g_g-30.0*g_g*g_g*g_g+27.0*g_g*g_g-9.0*g_g+1.0)/(9.0*(2.0*g_g*g_g-4.0*g_g+1.0)*(2.0*g_g*g_g-4.0*g_g+1.0)*ce2);
+	realtype g_beta = ce3*(4.0*(-3.0*g_g*g_g*g_g+9.0*g_g*g_g-6.0*g_g+1.0)-3.0*(4.0*g_g*g_g-5.0*g_g+1.0)*ce2+3.0*(6.0*g_g*g_g*g_g-14.0*g_g*g_g+7.0*g_g-1.0)*ce3)/(2.0*(3.0*g_g*g_g*g_g-9.0*g_g*g_g+6.0*g_g-1.0)*(3.0*ce2-2.0));
+
+        double * Aee = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        double * be  = (realtype *) calloc( iStages, sizeof(realtype) );
+        double * ce  = (realtype *) calloc( iStages, sizeof(realtype) );
+
+        Aee[0] = 0.0;
+        Aee[1] = 0.0;
+        Aee[2] = 0.0;
+        Aee[3] = ce2;
+        Aee[4] = 0.0;
+        Aee[5] = 0.0;
+        Aee[6] = ce3*(3.0*ce2*ce2-3.0*ce2+ce3)/(ce2*(3.0*ce2-2.0));
+        Aee[7] = ce3*(ce2-ce3)/(ce2*(3.0*ce2-2.0));
+        Aee[8] = 0.0;
+  
+        be[0] = (6.0*ce2*ce3-3.0*ce2-3.0*ce3+2.0)/(6.0*ce2*ce3);
+        be[1] = (2.0-3.0*ce3)/(6.0*ce2*ce2-6.0*ce2*ce3);
+	be[2] = -(2.0-3.0*ce2)/(6.0*ce2-ce3-6.0*ce3*ce3);
+
+	ce[0] = 0.0;
+	ce[1] = ce2;
+	ce[2] = ce3;
+
+        double * Aei = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        Aei[0] = 0.0;
+        Aei[1] = 0.0;
+        Aei[2] = 0.0;
+        Aei[3] = ce2;
+        Aei[4] = 0.0;
+        Aei[5] = 0.0;
+        Aei[6] = g_beta;
+        Aei[7] = ce3-g_beta;
+        Aei[8] = 0.0;
+
+        double * Aii = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        double * bi  = (realtype *) calloc( iStages, sizeof(realtype) );
+        double * ci  = (realtype *) calloc( iStages, sizeof(realtype) );
+
+        Aii[0] = g_g;
+        Aii[1] = 0.0;
+        Aii[2] = 0.0;
+        Aii[3] = ci2-g_g;
+        Aii[4] = g_g;
+        Aii[5] = 0.0;
+        Aii[6] = bi1;
+        Aii[7] = bi2;
+        Aii[8] = g_g;
+
+	bi[0] = bi1;
+	bi[1] = bi2;
+	bi[2] = g_g;
+
+	ci[0] = g_g;
+	ci[1] = ci2; 
+	ci[2] = 1.0;
+
+	double * Aie = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+	
+        Aie[0] = g_g;
+        Aie[1] = 0.0;
+        Aie[2] = 0.0;
+        Aie[3] = ci2 - g_alpha;
+        Aie[4] = g_alpha;
+        Aie[5] = 0.0;
+	Aie[6] = be[0];
+	Aie[7] = be[1];
+	Aie[8] = be[2];
+
+        ierr = IMEXGARKStepSetTables(arkode_mem, iStages, 
+		  		     iQorder, iPorder,
+				     ce, ci,
+				     Aee, Aei,
+				     Aie, Aii,
+				     be, bi,
+				     NULL, NULL);
+
+  }
+  else if (m_strButcherTable == "asg_333_esdirk") {
+      
+        Announce("Timestepping with ASG 333 ESDIRK GARK method");
+  
+        iStages = 3;
+        iQorder = 3;
+        iPorder = -1;
+
+	realtype ce2 = -0.1684172003560462642161441431010876;
+	realtype ce3 =  0.8981606511689358909417299678385599;
+	realtype alpha1 = 0.0;
+	realtype alpha2 = 0.0;
+
+        double * Aee = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        double * be  = (realtype *) calloc( iStages, sizeof(realtype) );
+        double * ce  = (realtype *) calloc( iStages, sizeof(realtype) );
+
+        Aee[0] = 0.0;
+        Aee[1] = 0.0;
+        Aee[2] = 0.0;
+        Aee[3] = ce2;
+        Aee[4] = 0.0;
+        Aee[5] = 0.0;
+        Aee[6] = ce3*(3.0*ce2*ce2-3.0*ce2+ce3)/(ce2*(3.0*ce2-2.0));
+        Aee[7] = ce3*(ce2-ce3)/(ce2*(3.0*ce2-2.0));
+        Aee[8] = 0.0;
+  
+        be[0] = (6.0*ce2*ce3-3.0*ce2-3.0*ce3+2.0)/(6.0*ce2*ce3);
+        be[1] = (2.0-3.0*ce3)/(6.0*ce2*ce2-6.0*ce2*ce3);
+	be[2] = -(2.0-3.0*ce2)/(6.0*ce2*ce3-6.0*ce3*ce3);
+
+	ce[0] = 0.0;
+	ce[1] = ce2;
+	ce[2] = ce3;
+
+        double * Aei = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        Aei[0] = 0.0;
+        Aei[1] = 0.0;
+        Aei[2] = 0.0;
+        Aei[3] = ce2;
+        Aei[4] = 0.0;
+        Aei[5] = 0.0;
+        Aei[6] = ce3*(3.0*(sqrt(3.0)-2.0)*ce2-3.0*ce3-2.0*sqrt(3.0)+6.0)/((sqrt(3.0)-3.0)*(3.0*ce2-2.0));
+        Aei[7] = 3.0*ce3*(ce3-ce2)/((sqrt(3.0)-3.0)*(3.0*ce2-2.0));
+        Aei[8] = 0.0;
+
+        double * Aii = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        double * bi  = (realtype *) calloc( iStages, sizeof(realtype) );
+        double * ci  = (realtype *) calloc( iStages, sizeof(realtype) );
+
+        Aii[0] = 0.0;
+        Aii[1] = 0.0;
+        Aii[2] = 0.0;
+        Aii[3] = (3.0-sqrt(3.0))/6.0;
+        Aii[4] = (3.0-sqrt(3.0))/6.0;
+        Aii[5] = 0.0;
+        Aii[6] = (3.0-sqrt(3.0))/12.0;
+        Aii[7] = (1.0+sqrt(3.0))/4.0;
+        Aii[8] = (3.0-sqrt(3.0))/6.0;
+
+	bi[0] = (3.0-sqrt(3.0))/12.0;
+	bi[1] = (1.0+sqrt(3.0))/4.0;
+	bi[2] = (3.0-sqrt(3.0))/6.0;
+
+	ci[0] = 0.0;
+	ci[1] = (sqrt(3.0)-1.0)/3.0; 
+	ci[2] = 1.0;
+
+	double * Aie = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+	
+        Aie[0] = 0.0;
+        Aie[1] = 0.0;
+        Aie[2] = 0.0;
+        Aie[3] = (sqrt(3.0)-1.0)/3.0 - alpha1;
+        Aie[4] = alpha1;
+        Aie[5] = 0.0;
+	Aie[6] = 1.0-alpha2+(-3.0*(1.0+sqrt(3.0))*alpha1*ce2+2.0*(sqrt(3.0)-3.0)*alpha2*ce2+2.0)/(2.0*(sqrt(3.0)-3.0)*ce3);
+	Aie[7] = alpha2;
+	Aie[8] = (3.0*(1.0+sqrt(3.0))*alpha1*ce2-2.0*(sqrt(3.0)-3.0)*alpha2*ce2-2.0)/(2.0*(sqrt(3.0)-3.0)*ce3);
+  }
+  else if (m_strButcherTable == "asg_455_sdirk") {
+
+        Announce("Timestepping with ASG 455 SDIRK GARK method");
+  
+        iStages = 5;
+        iQorder = 4;
+        iPorder = -1;
+
+        double * Aee = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        double * be  = (realtype *) calloc( iStages, sizeof(realtype) );
+        double * ce  = (realtype *) calloc( iStages, sizeof(realtype) );
+	double * de  = (realtype *) calloc( iStages, sizeof(realtype) );
+
+        Aee[0] = 0.0;
+        Aee[1] = 0.0;
+        Aee[2] = 0.0;
+	Aee[3] = 0.0;
+	Aee[4] = 0.0;
+	Aee[5] = 2.0;
+	Aee[6] = 0.0;
+	Aee[7] = 0.0;
+	Aee[8] = 0.0;
+	Aee[9] = 0.0;
+	Aee[10] = 43.0/64.0;
+	Aee[11] = 5.0/64.0;
+	Aee[12] = 0.0;
+	Aee[13] = 0.0;
+	Aee[14] = 0.0;
+	Aee[15] = 3.0/2.0;
+	Aee[16] = 3.0/10.0;
+	Aee[17] = -4.0/5.0;
+	Aee[18] = 0.0;
+	Aee[19] = 0.0;
+	Aee[20] = 1.0/4.0;
+	Aee[21] = 1.0/60.0;
+	Aee[22] = 16.0/15.0;
+	Aee[23] = -1.0/3.0;
+	Aee[24] = 0.0;
+        
+	be[0] = 1.0/4.0;
+        be[1] = 1.0/60.0;
+	be[2] = 16.0/15.0;
+	be[3] = -1.0/3.0; 
+	be[4] = 0.0;
+
+	ce[0] = 0.0;
+	ce[1] = 2.0;
+	ce[2] = 3.0/4.0;
+	ce[3] = 1.0;
+	ce[4] = 1.0;
+
+	de[0] = 1.0/3.0;
+	de[1] = -1.0/30.0;
+	de[2] = 8.0/15.0;
+	de[3] = 0.0;
+	de[4] = 1.0/6.0;
+
+        double * Aei = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+
+        Aei[0] = 0.0;
+        Aei[1] = 0.0;
+        Aei[2] = 0.0;
+	Aei[3] = 0.0;
+	Aei[4] = 0.0;
+	Aei[5] = 2.0;
+	Aei[6] = 0.0;
+	Aei[7] = 0.0;
+	Aei[8] = 0.0;
+	Aei[9] = 0.0;
+	Aei[10] = 75.0/92.0;
+	Aei[11] = -3.0/46.0;
+	Aei[12] = 0.0;
+	Aei[13] = 0.0;
+	Aei[14] = 0.0;
+	Aei[15] = -463.0/414.0;
+	Aei[16] = -264.0/1127.0;
+	Aei[17] = 2075.0/882.0;
+	Aei[18] = 0.0;
+	Aei[19] = 0.0;
+	Aei[20] = 0.0;
+	Aei[21] = 0.0;
+	Aei[22] = 10.0/3.0;
+	Aei[23] = -7.0/3.0;
+	Aei[24] = 0.0;
+
+        double * Aii = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+        double * bi  = (realtype *) calloc( iStages, sizeof(realtype) );
+        double * ci  = (realtype *) calloc( iStages, sizeof(realtype) );
+	double * di  = (realtype *) calloc( iStages, sizeof(realtype) );
+
+        Aii[0] = 5.0/8.0;
+        Aii[1] = 0.0;
+        Aii[2] = 0.0;
+	Aii[3] = 0.0;
+	Aii[4] = 0.0;
+	Aii[5] = 115.0/32.0;
+	Aii[6] = 5.0/8.0;
+	Aii[7] = 0.0;
+	Aii[8] = 0.0;
+	Aii[9] = 0.0;
+	Aii[10] = 448929.0/1909000.0;
+	Aii[11] = -4851.0/477250.0;
+	Aii[12] = 5.0/8.0;
+	Aii[13] = 0.0;
+	Aii[14] = 0.0;
+	Aii[15] = 1437831.0/22554260.0;
+	Aii[16] = -77127636.0/3039186535.0;
+	Aii[17] = 71170425.0/211421672.0;
+	Aii[18] = 5.0/8.0;
+	Aii[19] = 0.0;
+	Aii[20] = 31688.0/9315.0;
+	Aii[21] = -1536.0/580405.0;
+	Aii[22] = -20750.0/3969.0;
+	Aii[23] = 49031.0/22248.0;
+	Aii[24] = 5.0/8.0;
+        
+	bi[0] = 31688.0/9315.0;
+        bi[1] = -1536.0/580405.0;
+	bi[2] = -20750.0/3969.0;	
+	bi[3] = 49031.0/22248.0; 
+	bi[4] = 5.0/8.0;
+
+	ci[0] = 5.0/8.0;
+	ci[1] = 135.0/32.0;
+	ci[2] = 17.0/20.0;
+	ci[3] = 1.0;
+	ci[4] = 1.0;
+
+	de[0] = 11117363.0/64981440.0;
+	de[1] = 62612719.0/2783622380.0;
+	de[2] = 2063909125.0/609130368.0;
+	de[3] = -49178093.0/19400256.0;
+	de[4] = -655.0/13952.0;
+
+	double * Aie = (realtype *) calloc( iStages*iStages, sizeof(realtype*) );
+	
+        Aie[0] = 5.0/8.0;
+        Aie[1] = 0.0;
+        Aie[2] = 0.0;
+	Aie[3] = 0.0;
+	Aie[4] = 0.0;
+	Aie[5] = -4585.0/2048.0;
+	Aie[6] = 13225.0/2048.0;
+	Aie[7] = 0.0;
+	Aie[8] = 0.0;
+	Aie[9] = 0.0;
+	Aie[10] = 1.0;
+	Aie[11] = 13257.0/83000.0;
+	Aie[12] = -25707.0/83000.0;
+	Aie[13] = 0.0;
+	Aie[14] = 0.0;
+	Aie[15] = 13909039.0/9610076.0;
+	Aie[16] = 17988381.0/48050380.0;
+	Aie[17] = -11006374.0/12012595.0;
+	Aie[18] = 4635.0/49031.0;
+	Aie[19] = 0.0;
+	Aie[20] = 1.0/4.0;
+	Aie[21] = 1.0/60.0;
+	Aie[22] = 16.0/15.0;
+	Aie[23] = -1.0/3.0;
+	Aie[24] = 0.0;
+
+        ierr = IMEXGARKStepSetTables(arkode_mem, iStages, 
+		  		     iQorder, iPorder,
+				     ce, ci,
+				     Aee, Aei,
+				     Aie, Aii,
+				     be, bi,
+				     de, di);
+  }
+  else {
       _EXCEPTIONT("ERROR: Invalid IMEX Butcher table name");
-    }   
+  }   
 
   if (ierr < 0) _EXCEPTION1("ERROR: SetButcherTable, ierr = %i",ierr);
  

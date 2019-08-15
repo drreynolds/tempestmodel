@@ -1,0 +1,56 @@
+#!/bin/bash
+#SBATCH -A climalg          # Allocation to charge job against
+#SBATCH -p pbatch           # Queue: batch or debug
+#SBATCH -N 4                # Nodes (16 cores/node on Cab)
+#SBATCH -t 24:00:00         # Max run time (hh:mm:ss)
+#SBATCH -J JABBCW1          # Job name
+#SBATCH -o outTempest.fix_ark232_PID_3333.out # stdout file (%j is jobID)
+#SBATCH -e outTempest.fix_ark232_PID_3333.err # stderr file (%j is jobID)
+
+module load gcc/6.1.0
+export LD_LIBRARY_PATH=$HOME/local/netcdf-4.1.3_quartz_gnu_opt/lib:$HOME/local/sundials-2.7.0_quartz_gnu_opt/lib
+ 
+date
+echo
+pwd 
+echo
+
+# cd $SCRATCH
+time srun -n 96 ./BW_fix \
+    --resolution 20 \
+    --levels 30 \
+    --vertorder 1 \
+    --vstagger LOR \
+    --ztop 30000.0 \
+    --endtime 15d \
+    --outputtime 1d \
+    --output_arkdt 1d \
+    --output_vort \
+    --output_div \
+    --output_temp \
+    --output_ps \
+    --output_perfile 1 \
+    --output_dir outTempest_fix_ark232_PID_3333 \
+    --dt 10s \
+    --timescheme arkode \
+    --arkode_butchertable ark232 \
+    --timestep_out ts_fix_ark232_PID_3333 \
+    --arkode_dynamicstepsize \
+    --arkode_errcontrol 0 \
+    --arkode_nvectors 50 \
+    --arkode_rtol 1.0e-3 \
+    --arkode_vatol_rho 1.0e-3 \
+    --arkode_vatol_theta 1.0e-3 \
+    --arkode_vatol_vel 1.0e-3 \
+    --arkode_nonliniters 10 \
+    --arkode_predictor 0 \
+    --arkode_diagnostics \
+    --arkode_columnsolver \
+#    --arkode_atol 1.0e-4 \
+#    --nu 1.0e14 \
+#    --nud 1.0e14 \
+#    --nuv 1.0e14 \
+#    --restart_file "outTempest/out.0000-01-01-00000.restart.dat"
+#    --arkode_liniters LITER \
+#    --output_restart_dt OUTPUT_RESTART_D
+#    --pert PERT
