@@ -204,6 +204,10 @@ private:
 	///	</summary>
 	std::vector<std::string> m_strTracerFullNames;
 
+	///	<summary>
+	///		Variable for dynamic timestepping.
+	///	</summary>
+	double m_dNextTstop;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

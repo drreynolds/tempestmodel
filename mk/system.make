@@ -61,33 +61,13 @@ else ifeq ($(UNAME),Linux)
     SYSTEM= YELLOWSTONE
     SYSTEM_MAKEFILE= yellowstone.make
   endif
-  ifeq ($(HOSTNAME),cab668)
+  ifneq (,$(findstring cab, $(HOSTNAME)))
     SYSTEM= CAB
     SYSTEM_MAKEFILE= cab.make
   endif   
-  ifeq ($(HOSTNAME),cab669)
-    SYSTEM= CAB
-    SYSTEM_MAKEFILE= cab.make
-  endif   
-  ifeq ($(HOSTNAME),cab670)
-    SYSTEM= CAB
-    SYSTEM_MAKEFILE= cab.make
-  endif   
-  ifeq ($(HOSTNAME),cab687)
-    SYSTEM= CAB
-    SYSTEM_MAKEFILE= cab.make
-  endif   
-  ifeq ($(HOSTNAME),cab688)
-    SYSTEM= CAB
-    SYSTEM_MAKEFILE= cab.make
-  endif   
-  ifeq ($(HOSTNAME),cab689)
-    SYSTEM= CAB
-    SYSTEM_MAKEFILE= cab.make
-  endif   
-  ifeq ($(HOSTNAME),cab690)
-    SYSTEM= CAB
-    SYSTEM_MAKEFILE= cab.make
+  ifneq (,$(findstring quartz, $(HOSTNAME)))
+    SYSTEM= QUARTZ
+    SYSTEM_MAKEFILE= quartz.make
   endif
   ifeq ($(SYSTEM),)
     SYSTEM= AGRI
